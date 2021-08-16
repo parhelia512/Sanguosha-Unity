@@ -72,7 +72,7 @@ namespace SanguoshaServer.Package
                 new Taomie(),
                 new TaomieEffect(),
                 new Jianzhan(),
-                new Duoyi(),
+                new Duoji(),
                 new Wuku(),
                 new Sanchen(),
                 new Miewu(),
@@ -3627,9 +3627,9 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Duoyi : TriggerSkill
+    public class Duoji : TriggerSkill
     {
-        public Duoyi() : base("duoyi")
+        public Duoji() : base("duoji")
         {
             skill_type = SkillType.Wizzard;
             events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardsMoveOneTime, TriggerEvent.Death, TriggerEvent.EventLoseSkill };
@@ -3685,20 +3685,18 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (data is CardsMoveOneTimeStruct move && move.To.ContainsTag(Name) && move.To.GetTag(Name) is string from_name)
+            if (data is CardsMoveOneTimeStruct move)
             {
-                Player from = room.FindPlayer(from_name);
-
                 List<int> ids = new List<int>();
                 foreach (int id in move.Card_ids)
-                    if (RoomLogic.CanGetCard(room, from, move.To, id))
+                    if (RoomLogic.CanGetCard(room, ask_who, move.To, id))
                         ids.Add(id);
 
-                room.SendCompulsoryTriggerLog(from, Name);
-                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, "duoyi", info.SkillPosition);
+                room.SendCompulsoryTriggerLog(ask_who, Name);
+                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, "duoyi", info.SkillPosition);
                 room.BroadcastSkillInvoke("duoyi", "male", 1, gsk.General, gsk.SkinId);
 
-                room.ObtainCard(from, ref ids, new CardMoveReason(MoveReason.S_REASON_EXTRACTION, from.Name, player.Name, Name, string.Empty));
+                room.ObtainCard(ask_who, ref ids, new CardMoveReason(MoveReason.S_REASON_EXTRACTION, ask_who.Name, move.To.Name, Name, string.Empty));
                 if (move.To.Alive)
                 {
                     room.ClearOnePrivatePile(move.To, Name);
