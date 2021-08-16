@@ -39,7 +39,7 @@ namespace SanguoshaServer.AI
                 new ShequeAI(),
                 new ZhiyanXHAI(),
                 new ZhilueAI(),
-                new DuoyiAI(),
+                new DuojiAI(),
                 new JianzhanAI(),
                 new MiewuAI(),
 
@@ -59,7 +59,7 @@ namespace SanguoshaServer.AI
                 new YizhengCardAI(),
                 new ZhiyanCardAI(),
                 new ZhilueCardAI(),
-                new DuoyiCardAI(),
+                new DuojiCardAI(),
                 new JianzhanCardAI(),
                 new ShamengCardAI(),
                 new QiaiCardAI(),
@@ -1324,13 +1324,13 @@ namespace SanguoshaServer.AI
         public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
     }
 
-    public class DuoyiAI : SkillEvent
+    public class DuojiAI : SkillEvent
     {
-        public DuoyiAI() : base("duoyi") { }
+        public DuojiAI() : base("duoji") { }
 
         public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
         {
-            if (!player.HasUsed(DuoyiCard.ClassName) && !player.IsNude())
+            if (!player.HasUsed(DuojiCard.ClassName) && !player.IsNude())
             {
                 Room room = ai.Room;
                 List<int> ids = player.GetCards("he");
@@ -1350,7 +1350,7 @@ namespace SanguoshaServer.AI
                     {
                         if (ai.HasSkill(TrustedAI.LoseEquipSkill, p))
                         {
-                            WrappedCard dy = new WrappedCard(DuoyiCard.ClassName) { Skill = Name };
+                            WrappedCard dy = new WrappedCard(DuojiCard.ClassName) { Skill = Name };
                             dy.AddSubCard(id);
                             ai.Target[Name] = p;
                             return new List<WrappedCard> { dy };
@@ -1363,7 +1363,7 @@ namespace SanguoshaServer.AI
                     {
                         if (!ai.HasSkill(TrustedAI.LoseEquipSkill, p))
                         {
-                            WrappedCard dy = new WrappedCard(DuoyiCard.ClassName) { Skill = Name };
+                            WrappedCard dy = new WrappedCard(DuojiCard.ClassName) { Skill = Name };
                             dy.AddSubCard(id);
                             ai.Target[Name] = p;
                             return new List<WrappedCard> { dy };
@@ -1376,9 +1376,9 @@ namespace SanguoshaServer.AI
         }
     }
 
-    public class DuoyiCardAI : UseCard
+    public class DuojiCardAI : UseCard
     {
-        public DuoyiCardAI() : base(DuoyiCard.ClassName) { }
+        public DuojiCardAI() : base(DuojiCard.ClassName) { }
 
         public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
         {
@@ -1393,7 +1393,7 @@ namespace SanguoshaServer.AI
         public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
         {
             use.Card = card;
-            use.To = new List<Player> { ai.Target["duoyi"] };
+            use.To = new List<Player> { ai.Target["duoji"] };
         }
 
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 5;

@@ -123,7 +123,7 @@ namespace SanguoshaServer.Package
                 new ZhiyanCard(),
                 new ZhilueCard(),
                 new TongquCard(),
-                new DuoyiCard(),
+                new DuojiCard(),
                 new JianzhanCard(),
                 new ShamengCard(),
                 new QiaiCard(),
@@ -3633,7 +3633,7 @@ namespace SanguoshaServer.Package
         {
             skill_type = SkillType.Wizzard;
             events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardsMoveOneTime, TriggerEvent.Death, TriggerEvent.EventLoseSkill };
-            view_as_skill = new DuoyiVS();
+            view_as_skill = new DuojiVS();
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
@@ -3693,8 +3693,8 @@ namespace SanguoshaServer.Package
                         ids.Add(id);
 
                 room.SendCompulsoryTriggerLog(ask_who, Name);
-                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, "duoyi", info.SkillPosition);
-                room.BroadcastSkillInvoke("duoyi", "male", 1, gsk.General, gsk.SkinId);
+                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, "duoji", info.SkillPosition);
+                room.BroadcastSkillInvoke("duoji", "male", 1, gsk.General, gsk.SkinId);
 
                 room.ObtainCard(ask_who, ref ids, new CardMoveReason(MoveReason.S_REASON_EXTRACTION, ask_who.Name, move.To.Name, Name, string.Empty));
                 if (move.To.Alive)
@@ -3709,45 +3709,45 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class DuoyiVS : OneCardViewAsSkill
+    public class DuojiVS : OneCardViewAsSkill
     {
-        public DuoyiVS() : base("duoyi")
+        public DuojiVS() : base("duoji")
         {
             filter_pattern = "..";
         }
 
-        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(DuoyiCard.ClassName);
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(DuojiCard.ClassName);
 
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {
-            WrappedCard dy = new WrappedCard(DuoyiCard.ClassName) { Skill = Name, Mute = true };
+            WrappedCard dy = new WrappedCard(DuojiCard.ClassName) { Skill = Name, Mute = true };
             dy.AddSubCard(card);
             return dy;
         }
     }
 
-    public class DuoyiCard : SkillCard
+    public class DuojiCard : SkillCard
     {
-        public static string ClassName = "DuoyiCard";
-        public DuoyiCard() : base(ClassName)
+        public static string ClassName = "DuojiCard";
+        public DuojiCard() : base(ClassName)
         {
             will_throw = false;
         }
 
         public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
         {
-            return targets.Count == 0 && to_select != Self && to_select.GetPile("duoyi").Count == 0;
+            return targets.Count == 0 && to_select != Self && to_select.GetPile("duoji").Count == 0;
         }
 
         public override void Use(Room room, CardUseStruct card_use)
         {
             Player target = card_use.To[0], player = card_use.From;
 
-            GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, "duoyi", card_use.Card.SkillPosition);
-            room.BroadcastSkillInvoke("duoyi", "male", 1, gsk.General, gsk.SkinId);
+            GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, "duoji", card_use.Card.SkillPosition);
+            room.BroadcastSkillInvoke("duoji", "male", 1, gsk.General, gsk.SkinId);
 
-            room.AddToPile(target, "duoyi", card_use.Card, true);
-            target.SetTag("duoyi", player.Name);
+            room.AddToPile(target, "duoji", card_use.Card, true);
+            target.SetTag("duoji", player.Name);
         }
     }
 
