@@ -677,12 +677,12 @@ namespace SanguoshaServer.Package
     {
         public TunjiangHegemony() : base("tunjiang_hegemony")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.CardTargetAnnounced };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.CardUsed };
             skill_type = SkillType.Replenish;
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.CardTargetAnnounced && player.Phase == PlayerPhase.Play && data is CardUseStruct use && use.To.Count > 0 && !player.HasFlag("tunjiang_fail"))
+            if (triggerEvent == TriggerEvent.CardUsed && player.Phase == PlayerPhase.Play && data is CardUseStruct use && use.To.Count > 0 && !player.HasFlag("tunjiang_fail"))
             {
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
                 if (!(fcard is SkillCard))
