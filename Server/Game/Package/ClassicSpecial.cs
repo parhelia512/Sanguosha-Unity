@@ -8402,6 +8402,8 @@ namespace SanguoshaServer.Package
                 if (!room.AskForDiscard(target, "lianzhu", 2, 2, player.Alive, true, pattern) && player.Alive)
                     room.DrawCards(player, 2, "lianzhu");
             }
+            else if (!black)
+                room.DrawCards(player, 1, "lianzhu");
         }
     }
 
@@ -8409,7 +8411,8 @@ namespace SanguoshaServer.Package
     {
         public Xiahui() : base("xiahui")
         {
-            events = new List<TriggerEvent> { TriggerEvent.BeforeCardsMove, TriggerEvent.CardsMoveOneTime, TriggerEvent.PostHpReduced };
+            events = new List<TriggerEvent> { TriggerEvent.BeforeCardsMove, TriggerEvent.CardsMoveOneTime, TriggerEvent.PostHpReduced,
+                TriggerEvent.EventPhaseStart, TriggerEvent.Death, TriggerEvent.EventLoseSkill };
             frequency = Frequency.Compulsory;
             skill_type = SkillType.Wizzard;
         }
@@ -8434,19 +8437,33 @@ namespace SanguoshaServer.Package
                 && _move.From.ContainsTag(Name) && _move.From.GetTag(Name) is List<int> ids)
             {
                 List<int> remove = ids.FindAll(t => _move.Card_ids.Contains(t));
-                foreach (int id in remove)
-                    RoomLogic.RemovePlayerCardLimitation(_move.From, Name, "use,response,discard", id.ToString());
+                if (remove.Count > 0)
+                {
+                    foreach (int id in remove)
+                        RoomLogic.RemovePlayerCardLimitation(_move.From, Name, "use,response,discard", id.ToString());
 
-                ids.RemoveAll(t => _move.Card_ids.Contains(t));
-                if (ids.Count == 0)
-                    _move.From.RemoveTag(Name);
-                else
-                    _move.From.SetTag(Name, ids);
+                    ids.RemoveAll(t => _move.Card_ids.Contains(t));
+                    if (ids.Count == 0)
+                        _move.From.RemoveTag(Name);
+                    else
+                        _move.From.SetTag(Name, ids);
+
+                    if (_move.From.Phase != PlayerPhase.NotActive) _move.From.SetFlags("xiahui_lose");
+                }
             }
             else if (triggerEvent == TriggerEvent.PostHpReduced && player.ContainsTag(Name) && player.GetTag(Name) is List<int> remove)
             {
                 player.RemoveTag(Name);
                 RoomLogic.RemovePlayerCardLimitation(player, Name);
+            }
+            else if ((triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct _info && _info.Info == Name)
+                || (triggerEvent == TriggerEvent.Death && RoomLogic.PlayerHasSkill(room, player, Name)))
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    p.RemoveTag(Name);
+                    RoomLogic.RemovePlayerCardLimitation(p, Name);
+                }
             }
         }
 
@@ -8459,6 +8476,12 @@ namespace SanguoshaServer.Package
                 foreach (int id in move.Card_ids)
                     if (ids.Contains(id))
                         return new TriggerStruct(Name, move.From);
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && player.Alive && player.Phase == PlayerPhase.Finish && player.HasFlag("xiahui_lose") && player.ContainsTag(Name))
+            {
+                Player db = RoomLogic.FindPlayerBySkillName(room, Name);
+                if (db != null)
+                    return new TriggerStruct(Name, player);
             }
 
             return new TriggerStruct();
@@ -8478,6 +8501,9 @@ namespace SanguoshaServer.Package
                 foreach (int id in fix)
                     RoomLogic.SetPlayerCardLimitation(move.To, Name, "use,response,discard", id.ToString());
             }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart)
+                room.LoseHp(player);
+
             return false;
         }
     }

@@ -4020,7 +4020,7 @@ namespace SanguoshaServer.Package
     {
         public Qieting() : base("qieting")
         {
-            events = new List<TriggerEvent> { TriggerEvent.CardUsedAnnounced, TriggerEvent.EventPhaseChanging };
+            events = new List<TriggerEvent> { TriggerEvent.CardUsedAnnounced, TriggerEvent.EventPhaseChanging, TriggerEvent.Damage };
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
@@ -4033,18 +4033,21 @@ namespace SanguoshaServer.Package
                     {
                         if (p != player)
                         {
-                            player.SetFlags(Name);
+                            player.SetFlags("qieting_use");
                             break;
                         }
                     }
                 }
             }
+            else if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && damage.From != null && damage.From.Phase != PlayerPhase.NotActive)
+                damage.From.SetFlags("qieting_damage");
         }
 
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> result = new List<TriggerStruct>();
-            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.Alive && !player.HasFlag(Name))
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.Alive
+                && (!player.HasFlag("qieting_use") || !player.HasFlag("qieting_damage")))
             {
                 List<Player> caifuren = RoomLogic.FindPlayersBySkillName(room, Name);
                 foreach (Player p in caifuren)
@@ -4055,8 +4058,15 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.AskForSkillInvoke(ask_who, Name, player, info.SkillPosition))
+            if (!player.HasFlag("qieting_use") && room.AskForSkillInvoke(ask_who, Name, player, info.SkillPosition))
             {
+                ask_who.SetFlags("qieting_equip");
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                return info;
+            }
+            else if (!player.HasFlag("qieting_damage") && room.AskForSkillInvoke(ask_who, Name, "@qieting-draw", info.SkillPosition))
+            {
+                ask_who.SetFlags("qieting_draw");
                 room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                 return info;
             }
@@ -4066,28 +4076,27 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            List<int> disable_equiplist = new List<int>(), equiplist = new List<int>();
-            for (int i = 0; i < 6; i++)
+            if (ask_who.HasFlag("qieting_equip"))
             {
-                if (player.GetEquip(i) >= 0)
-                    if (ask_who.GetEquip(i) < 0 && RoomLogic.CanPutEquip(ask_who, room.GetCard(player.GetEquip(i))))
+                List<int> disable_equiplist = new List<int>(), equiplist = new List<int>();
+                for (int i = 0; i < 6; i++)
+                {
+                    if (player.GetEquip(i) >= 0)
+                        if (ask_who.GetEquip(i) < 0 && RoomLogic.CanPutEquip(ask_who, room.GetCard(player.GetEquip(i))))
 
-                        equiplist.Add(player.GetEquip(i));
-                    else
-                        disable_equiplist.Add(player.GetEquip(i));
+                            equiplist.Add(player.GetEquip(i));
+                        else
+                            disable_equiplist.Add(player.GetEquip(i));
+                }
+                if (equiplist.Count > 0)
+                {
+                    int id = room.AskForCardChosen(ask_who, player, "e", Name, false, HandlingMethod.MethodNone, disable_equiplist);
+                    room.MoveCardTo(room.GetCard(id), ask_who, Place.PlaceEquip, new CardMoveReason(MoveReason.S_REASON_TRANSFER, player.Name, ask_who.Name, Name, string.Empty));
+                }
             }
-
-            List<string> choices = new List<string> { "draw" };
-            if (equiplist.Count > 0)
-                choices.Add("getequipc");
-
-            if (room.AskForChoice(ask_who, Name, string.Join("+", choices)) == "draw")
+            bool draw = ask_who.Alive && (ask_who.HasFlag("qieting_draw") || (!player.HasFlag("qieting_damage") && room.AskForSkillInvoke(ask_who, Name, "@qieting-draw", info.SkillPosition)));
+            if (draw)
                 room.DrawCards(ask_who, 1, Name);
-            else
-            {
-                int id = room.AskForCardChosen(ask_who, player, "e", Name, false, HandlingMethod.MethodNone, disable_equiplist);
-                room.MoveCardTo(room.GetCard(id), ask_who, Place.PlaceEquip, new CardMoveReason(MoveReason.S_REASON_TRANSFER, player.Name, ask_who.Name, Name, string.Empty));
-            }
 
             return false;
         }
@@ -4129,44 +4138,8 @@ namespace SanguoshaServer.Package
             ResultStruct result = card_use.From.Result;
             result.Assist += card_use.Card.SubCards.Count;
             card_use.From.Result = result;
-
-            List<string> choices = new List<string>();
-            List<string> prompts = new List<string> { string.Empty };
+            
             if (player.GetLostHp() > 0)
-            {
-                choices.Add("recover");
-                prompts.Add(string.Format("@xianzhou-recover:{0}::{1}", player.Name, Math.Min(player.GetLostHp(), ids.Count)));
-            }
-            List<Player> targets = new List<Player>();
-            foreach (Player p in room.GetOtherPlayers(target))
-                if (RoomLogic.InMyAttackRange(room, target, p))
-                    targets.Add(p);
-
-            if (targets.Count > 0)
-            {
-                choices.Add("damage");
-                prompts.Add("@xianzhou-damage:::" + ids.Count.ToString());
-            }
-            player.SetFlags("xianzhou_source");
-            target.SetMark("xianzhou", ids.Count);
-            string choice = room.AskForChoice(target, "xianzou", string.Join("+", choices), prompts);
-            player.SetFlags("-xianzhou_source");
-            target.SetMark("xianzhou", 0);
-            if (choice == "damage")
-            {
-
-                List<Player> victims = room.AskForPlayersChosen(target, targets, "xianzhou", 0, Math.Min(targets.Count, ids.Count), "@xianzhou-target");
-                if (victims.Count > 0)
-                {
-                    room.SortByActionOrder(ref victims);
-                    foreach (Player p in victims)
-                    {
-                        room.DoAnimate(CommonClassLibrary.AnimateType.S_ANIMATE_INDICATE, target.Name, p.Name);
-                        room.Damage(new DamageStruct("xianzhou", target, p));
-                    }
-                }
-            }
-            else
             {
                 RecoverStruct recover = new RecoverStruct
                 {
@@ -4174,6 +4147,28 @@ namespace SanguoshaServer.Package
                     Recover = Math.Min(player.GetLostHp(), ids.Count)
                 };
                 room.Recover(player, recover, true);
+            }
+
+            if (player.Alive)
+            {
+                List<Player> targets = new List<Player>();
+                foreach (Player p in room.GetOtherPlayers(target))
+                    if (RoomLogic.InMyAttackRange(room, target, p))
+                        targets.Add(p);
+
+                if (targets.Count > 0)
+                {
+                    List<Player> victims = room.AskForPlayersChosen(player, targets, "xianzhou", 0, Math.Min(targets.Count, ids.Count), "@xianzhou-target");
+                    if (victims.Count > 0)
+                    {
+                        room.SortByActionOrder(ref victims);
+                        foreach (Player p in victims)
+                        {
+                            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
+                            room.Damage(new DamageStruct("xianzhou", player, p));
+                        }
+                    }
+                }
             }
         }
     }

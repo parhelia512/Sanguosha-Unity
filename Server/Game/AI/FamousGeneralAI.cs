@@ -2551,37 +2551,34 @@ namespace SanguoshaServer.AI
         }
         public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
         {
+            if (data is Player target)
+            {
+                Room room = ai.Room;
+                if (ai.IsFriend(target))
+                {
+                    for (int i = 0; i < 6; i++)
+                    {
+                        if (target.GetEquip(i) >= 0 && ai.GetKeepValue(target.GetEquip(i), target, Player.Place.PlaceEquip) < 0
+                            && player.GetEquip(i) < 0 && RoomLogic.CanPutEquip(player, room.GetCard(target.GetEquip(i))))
+                            return true;
+                    }
+
+                    return false;
+                }
+                else if (ai.IsEnemy(target))
+                {
+                    for (int i = 0; i < 6; i++)
+                    {
+                        if (target.GetEquip(i) >= 0 && ai.GetKeepValue(target.GetEquip(i), target, Player.Place.PlaceEquip) > 0
+                            && player.GetEquip(i) < 0 && RoomLogic.CanPutEquip(player, room.GetCard(target.GetEquip(i))))
+                            return true;
+                    }
+
+                    return false;
+                }
+            }
+
             return true;
-        }
-
-        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
-        {
-            Room room = ai.Room;
-            Player target = room.Current;
-            if (ai.IsFriend(target))
-            {
-                for (int i = 0; i < 6; i++)
-                {
-                    if (target.GetEquip(i) >= 0 && ai.GetKeepValue(target.GetEquip(i), target, Player.Place.PlaceEquip) < 0
-                        && player.GetEquip(i) < 0 && RoomLogic.CanPutEquip(player, room.GetCard(target.GetEquip(i))))
-                        return "getequipc";
-                }
-
-                return "draw";
-            }
-            else if (ai.IsEnemy(target))
-            {
-                for (int i = 0; i < 6; i++)
-                {
-                    if (target.GetEquip(i) >= 0 && ai.GetKeepValue(target.GetEquip(i), target, Player.Place.PlaceEquip) > 0
-                        && player.GetEquip(i) < 0 && RoomLogic.CanPutEquip(player, room.GetCard(target.GetEquip(i))))
-                        return "getequipc";
-                }
-
-                return "draw";
-            }
-
-            return "getequipc";
         }
 
         public override List<int> OnCardsChosen(TrustedAI ai, Player from, Player to, string flags, int min, int max, List<int> disable_ids)
@@ -2638,7 +2635,7 @@ namespace SanguoshaServer.AI
 
             return new List<WrappedCard>();
         }
-
+        /*
         public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
         {
             Room room = ai.Room;
@@ -2681,7 +2678,7 @@ namespace SanguoshaServer.AI
 
             return "recover";
         }
-
+        */
         public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> choose, int min, int max)
         {
             List<Player> result = new List<Player>();
@@ -2689,7 +2686,6 @@ namespace SanguoshaServer.AI
             Dictionary<Player, double> _points = new Dictionary<Player, double>();
             foreach (Player _p in choose)
             {
-                if (!RoomLogic.InMyAttackRange(room, player, _p)) continue;
                 DamageStruct damage = new DamageStruct("xianzhou", player, _p);
                 double value = ai.GetDamageScore(damage).Score;
                 if (value > 0)

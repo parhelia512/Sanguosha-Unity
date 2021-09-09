@@ -1330,7 +1330,7 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            List<int> ids = room.GetNCards(2, false);
+            List<int> ids = room.GetNCards(3, false);
 
             LogMessage log = new LogMessage
             {
@@ -1481,7 +1481,7 @@ namespace SanguoshaServer.Package
             if (get.Count > 0)
                 room.ObtainCard(player, ref get, new CardMoveReason(MoveReason.S_REASON_GOTCARD, player.Name, Name, string.Empty));
 
-            if (!red && player.Alive) room.LoseHp(player);
+            if (!red && player.Alive && player.Hp > 1) room.LoseHp(player);
 
             return false;
         }
