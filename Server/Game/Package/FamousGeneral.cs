@@ -4158,7 +4158,8 @@ namespace SanguoshaServer.Package
 
                 if (targets.Count > 0)
                 {
-                    List<Player> victims = room.AskForPlayersChosen(player, targets, "xianzhou", 0, Math.Min(targets.Count, ids.Count), "@xianzhou-target");
+                    List<Player> victims = room.AskForPlayersChosen(player, targets, "xianzhou", 0, Math.Min(targets.Count, ids.Count),
+                        string.Format("@xianzhou-target:{0}::{1}", target.Name, ids.Count), false, card_use.Card.SkillPosition);
                     if (victims.Count > 0)
                     {
                         room.SortByActionOrder(ref victims);
