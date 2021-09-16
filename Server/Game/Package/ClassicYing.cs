@@ -62,8 +62,9 @@ namespace SanguoshaServer.Package
                 new Huairou(),
                 new Kuizhu(),
                 new Chezheng(),
-                new ChezhengProhibit(),
+                //new ChezhengProhibit(),
                 new Lijun(),
+                new LijunMax(),
                 new Huaiju(),
                 new HuaijuDetach(),
                 new Yili(),
@@ -91,7 +92,8 @@ namespace SanguoshaServer.Package
                 { "limu", new List<string>{ "#limu-tar" } },
                 { "jueyan", new List<string>{ "#jueyan-target", "#jueyan-max" } },
                 { "kongsheng", new List<string>{ "#kongsheng-clear" } },
-                { "chezheng", new List<string>{ "#chezheng-pro" } },
+                //{ "chezheng", new List<string>{ "#chezheng-pro" } },
+                { "lijun", new List<string>{ "#lijun" } },
                 { "huaiju", new List<string>{ "#huaiju-clear" } },
                 { "juzhan", new List<string>{ "#juzhan-prohibit" } },
                 { "shenshi", new List<string>{ "#shenshi" } },
@@ -2622,8 +2624,8 @@ namespace SanguoshaServer.Package
                 }
             }
 
-            if (!draw && player.Alive && card_use.To.Count > 1)
-                room.Damage(new DamageStruct("kuizhu", null, player));
+            //if (!draw && player.Alive && card_use.To.Count > 1)
+            //    room.Damage(new DamageStruct("kuizhu", null, player));
         }
     }
 
@@ -2632,7 +2634,7 @@ namespace SanguoshaServer.Package
         public Chezheng() : base("chezheng")
         {
             skill_type = SkillType.Attack;
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseEnd, TriggerEvent.CardUsedAnnounced, TriggerEvent.EventPhaseChanging, TriggerEvent.CardResponded };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseEnd, TriggerEvent.CardUsedAnnounced, TriggerEvent.EventPhaseChanging, TriggerEvent.CardResponded, TriggerEvent.DamageCaused };
             frequency = Frequency.Compulsory;
         }
 
@@ -2666,31 +2668,52 @@ namespace SanguoshaServer.Package
                 if (player.GetMark(Name) < count)
                     return new TriggerStruct(Name, player);
             }
+            else if (triggerEvent == TriggerEvent.DamageCaused && data is DamageStruct damage && player != damage.To && player.Phase == PlayerPhase.Play
+                && base.Triggerable(player, room) && !RoomLogic.InMyAttackRange(room, damage.To, player))
+                return new TriggerStruct(Name, player);
 
             return new TriggerStruct();
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            List<Player> targets = new List<Player>();
-            foreach (Player p in room.GetOtherPlayers(player))
-                if (!RoomLogic.InMyAttackRange(room, p, player) && RoomLogic.CanDiscard(room, player, p, "he"))
-                    targets.Add(p);
-            if (targets.Count > 0)
+            if (triggerEvent == TriggerEvent.DamageCaused)
             {
-                Player target = room.AskForPlayerChosen(player, targets, Name, "@chezheng", false, true, info.SkillPosition);
-
-                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition);
-                room.BroadcastSkillInvoke(Name, "male", 2, gsk.General, gsk.SkinId);
-
-                int id = room.AskForCardChosen(player, target, "he", Name, false, FunctionCard.HandlingMethod.MethodDiscard);
-                room.ThrowCard(id, target, player);
+                room.SendCompulsoryTriggerLog(player, Name, true);
+                DamageStruct damage = (DamageStruct)data;
+                LogMessage log = new LogMessage
+                {
+                    Type = "#damage-prevent",
+                    From = player.Name,
+                    To = new List<string> { damage.To.Name },
+                    Arg = Name
+                };
+                room.SendLog(log);
+                return true;
             }
+            else
+            {
+                List<Player> targets = new List<Player>();
+                foreach (Player p in room.GetOtherPlayers(player))
+                    if (!RoomLogic.InMyAttackRange(room, p, player) && RoomLogic.CanDiscard(room, player, p, "he"))
+                        targets.Add(p);
+                if (targets.Count > 0)
+                {
+                    Player target = room.AskForPlayerChosen(player, targets, Name, "@chezheng", false, true, info.SkillPosition);
 
-            return false;
+                    GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition);
+                    room.BroadcastSkillInvoke(Name, "male", 2, gsk.General, gsk.SkinId);
+
+                    int id = room.AskForCardChosen(player, target, "he", Name, false, FunctionCard.HandlingMethod.MethodDiscard);
+                    room.ThrowCard(id, target, player);
+                }
+
+                return false;
+            }
         }
     }
 
+    /*
     public class ChezhengProhibit : ProhibitSkill
     {
         public ChezhengProhibit() : base("#chezheng-pro") { }
@@ -2717,22 +2740,32 @@ namespace SanguoshaServer.Package
             }
         }
     }
+    */
 
     public class Lijun : TriggerSkill
     {
         public Lijun() : base("lijun")
         {
-            events.Add(TriggerEvent.CardFinished);
+            events = new List<TriggerEvent> { TriggerEvent.CardFinished, TriggerEvent.EventPhaseChanging };
             lord_skill = true;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.Play && player.HasFlag(Name))
+            {
+                player.SetFlags("-lijun");
+                player.SetFlags("-lijun_max");
+            }
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && player != null && player.GetRoleEnum() != PlayerRole.Lord
-                && player.Alive && player.Kingdom == "wu" && player.Phase == PlayerPhase.Play && use.Card.SubCards.Count > 0)
+            if (triggerEvent == TriggerEvent.CardFinished && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && player != null && player.GetRoleEnum() != PlayerRole.Lord
+                && player.Alive && player.Kingdom == "wu" && player.Phase == PlayerPhase.Play && use.Card.SubCards.Count > 0 && !player.HasFlag(Name))
             {
                 Player lord = RoomLogic.FindPlayerBySkillName(room, Name);
-                if (lord != null && lord.GetRoleEnum() == PlayerRole.Lord && !lord.HasFlag(Name))
+                if (lord != null && lord.GetRoleEnum() == PlayerRole.Lord)
                 {
                     List<int> ids = new List<int>(use.Card.SubCards);
                     if (room.GetSubCards(use.Card).SequenceEqual(ids))
@@ -2759,6 +2792,7 @@ namespace SanguoshaServer.Package
             Player lord = RoomLogic.FindPlayerBySkillName(room, Name);
             if (room.AskForSkillInvoke(player, Name, lord))
             {
+                player.SetFlags(Name);
                 room.NotifySkillInvoked(lord, Name);
                 room.BroadcastSkillInvoke(Name, lord);
                 return info;
@@ -2783,16 +2817,30 @@ namespace SanguoshaServer.Package
                     ResultStruct result = player.Result;
                     result.Assist = +ids.Count;
                     player.Result = result;
-
-                    lord.SetFlags(Name);
+                    
                     room.ObtainCard(lord, ref ids, new CardMoveReason(MoveReason.S_REASON_RECYCLE, player.Name, lord.Name, Name, string.Empty));
 
                     if (lord.Alive && player.Alive && room.AskForSkillInvoke(lord, Name, "@lijun:" + player.Name))
+                    {
                         room.DrawCards(player, new DrawCardStruct(1, lord, Name));
+                        player.SetFlags("lijun_max");
+                    }
                 }
             }
 
             return false;
+        }
+    }
+
+    public class LijunMax : TargetModSkill
+    {
+        public LijunMax() : base("#lijun", false) { }
+        public override int GetResidueNum(Room room, Player from, WrappedCard card)
+        {
+            if (from.HasFlag("lijun_max") && from.Phase == PlayerPhase.Play)
+                return 1;
+            else
+                return 0;
         }
     }
 

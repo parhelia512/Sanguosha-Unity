@@ -305,7 +305,7 @@ namespace SanguoshaServer.Package
     {
         public Xiying() : base("xiying")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.EventPhaseStart };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.EventPhaseStart, TriggerEvent.Damage };
             skill_type = SkillType.Attack;
         }
 
@@ -322,6 +322,24 @@ namespace SanguoshaServer.Package
                         room.RemovePlayerStringMark(p, "no_handcards");
                     }
                 }
+            }
+            else if (triggerEvent == TriggerEvent.Damage && player != null && player.HasFlag(Name) && player.Phase == PlayerPhase.Play)
+                player.SetFlags("xiying_damage");
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && player.Alive && player.Phase == PlayerPhase.Finish && player.HasFlag("xiying_damage"))
+            {
+                List<int> ids = new List<int>();
+                foreach (int id in room.DrawPile)
+                {
+                    WrappedCard card = room.GetCard(id);
+                    if (card.Name.Contains(Slash.ClassName) || card.Name == Duel.ClassName || card.Name == FireAttack.ClassName || card.Name == ArcheryAttack.ClassName
+                        || card.Name == SavageAssault.ClassName)
+                    {
+                        ids.Add(id);
+                        break;
+                    }
+                }
+                if (ids.Count > 0)
+                    room.ObtainCard(player, ids[0]);
             }
         }
 
@@ -359,6 +377,7 @@ namespace SanguoshaServer.Package
                     RoomLogic.SetPlayerCardLimitation(p, Name, "use,response", ".", true);
                 }
             }
+            player.SetFlags(Name);
 
             return false;
         }

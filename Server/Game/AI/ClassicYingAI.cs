@@ -2103,6 +2103,13 @@ namespace SanguoshaServer.AI
 
             return new List<Player> { target };
         }
+
+        public override void DamageEffect(TrustedAI ai, ref DamageStruct damage, DamageStruct.DamageStep step)
+        {
+            if (damage.From != null && damage.From.Alive && damage.From != damage.To && damage.From.Phase == PlayerPhase.Play && ai.HasSkill(Name, damage.From)
+                && !RoomLogic.InMyAttackRange(ai.Room, damage.To, damage.From))
+                damage.Damage = -1000;
+        }
     }
 
     public class LijunAI : SkillEvent
