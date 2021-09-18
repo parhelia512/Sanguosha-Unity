@@ -126,6 +126,7 @@ namespace SanguoshaServer.Package
                 new Zhuixi(),
                 new Kangge(),
                 new Jielie(),
+                new Langmie(),
 
                 new Guolun(),
                 new Songsang(),
@@ -7011,6 +7012,98 @@ namespace SanguoshaServer.Package
             }
 
             return true;
+        }
+    }
+
+    public class Langmie : TriggerSkill
+    {
+        public Langmie() : base("langmie")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseEnd, TriggerEvent.EventPhaseChanging, TriggerEvent.CardUsed, TriggerEvent.Damage, TriggerEvent.EventPhaseStart };
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && player != null && player.Alive && player.Phase == PlayerPhase.Play)
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                if (fcard is BasicCard)
+                {
+                    player.AddMark("langmie_basic");
+                }
+                else if (fcard is TrickCard)
+                {
+                    player.AddMark("langmie_trick");
+                }
+                else if (fcard is EquipCard)
+                {
+                    player.AddMark("langmie_equip");
+                }
+            }
+            else if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && player != null && player.Alive && player.Phase != PlayerPhase.NotActive)
+                player.AddMark("langmie_damage");
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change)
+            {
+                if (change.From == PlayerPhase.Play)
+                {
+                    player.SetMark("langmie_basic", 0);
+                    player.SetMark("langmie_trick", 0);
+                    player.SetMark("langmie_equip", 0);
+                }
+                if (change.To == PlayerPhase.NotActive)
+                    player.SetMark("langmie_damage", 0);
+            }
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.EventPhaseEnd && player.Alive && player.Phase == PlayerPhase.Play &&
+                (player.GetMark("langmie_basic") > 1 || player.GetMark("langmie_trick") > 1 || player.GetMark("langmie_equip") > 1))
+            {
+                List<Player> hr = RoomLogic.FindPlayersBySkillName(room, Name);
+                foreach (Player p in hr)
+                    if (p != player)
+                        triggers.Add(new TriggerStruct(Name, p));
+            }
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player.Alive && player.Phase == PlayerPhase.Finish && player.GetMark("langmie_damage") > 1)
+            {
+                List<Player> hr = RoomLogic.FindPlayersBySkillName(room, Name);
+                foreach (Player p in hr)
+                    if (p != player)
+                        triggers.Add(new TriggerStruct(Name, p));
+            }
+
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseEnd && room.AskForSkillInvoke(ask_who, Name, data, info.SkillPosition))
+            {
+                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
+                room.BroadcastSkillInvoke(Name, "male", 1, gsk.General, gsk.SkinId);
+                return info;
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && room.AskForDiscard(ask_who, Name, 1, 1, true, true, "@langmie:" + player.Name, true, info.SkillPosition))
+            {
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
+                room.BroadcastSkillInvoke(Name, "male", 2, gsk.General, gsk.SkinId);
+                return info;
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseEnd)
+                room.DrawCards(ask_who, 1, Name);
+            else
+                room.Damage(new DamageStruct(Name, ask_who, player, 1));
+
+            return false;
         }
     }
 
