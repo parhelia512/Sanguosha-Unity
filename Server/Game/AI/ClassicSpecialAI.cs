@@ -127,7 +127,7 @@ namespace SanguoshaServer.AI
                 new DingpanAI(),
                 new MeibuAI(),
                 new MumuAI(),
-                new ZhixiAI(),
+                //new ZhixiAI(),
                 new YinbingAI(),
                 new JuediAI(),
                 new CanshiSHAI(),
@@ -7677,7 +7677,7 @@ namespace SanguoshaServer.AI
             return "discard";
         }
     }
-
+    /*
     public class ZhixiAI : SkillEvent
     {
         public ZhixiAI() : base("zhixi") { }
@@ -7692,7 +7692,7 @@ namespace SanguoshaServer.AI
             return 0;
         }
     }
-
+    */
     public class XingwuAI : SkillEvent
     {
         public XingwuAI() : base("xingwu")

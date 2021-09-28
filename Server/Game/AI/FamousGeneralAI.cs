@@ -6824,7 +6824,8 @@ namespace SanguoshaServer.AI
         {
             List<WrappedCard> result = new List<WrappedCard>();
             List<int> ids = player.GetCards("he");
-            if (ids.Count >= 2)
+            int count = Math.Min(2, player.GetMark(Name));
+            if (ids.Count >= count)
             {
                 Room room = ai.Room;
                 List<int> red = new List<int>(), black = new List<int>(), adjust = new List<int>(), subs = new List<int>();
@@ -6852,10 +6853,11 @@ namespace SanguoshaServer.AI
                     {
                         if (subs.Contains(id) || (adjust.Count > 0 && !adjust.Contains(id))) continue;
                         subs.Add(id);
-                        if (subs.Count >= 2)
+                        if (subs.Count >= count)
                         {
                             WrappedCard card = new WrappedCard(ShenxingCard.ClassName) { Skill = Name };
-                            card.AddSubCards(subs);
+                            for (int i = 0; i < count; i++)
+                                card.AddSubCard(subs[i]);
                             result.Add(card);
                             return result;
                         }
@@ -6868,10 +6870,11 @@ namespace SanguoshaServer.AI
                     foreach (int id in adjust)
                     {
                         subs.Add(id);
-                        if (subs.Count >= 2)
+                        if (subs.Count >= count)
                         {
                             WrappedCard card = new WrappedCard(ShenxingCard.ClassName) { Skill = Name };
-                            card.AddSubCards(subs);
+                            for (int i = 0; i < count; i++)
+                                card.AddSubCard(subs[i]);
                             result.Add(card);
                             return result;
                         }
@@ -6881,10 +6884,11 @@ namespace SanguoshaServer.AI
                     {
                         if (subs.Contains(id)) continue;
                         subs.Add(id);
-                        if (subs.Count >= 2)
+                        if (subs.Count >= count)
                         {
                             WrappedCard card = new WrappedCard(ShenxingCard.ClassName) { Skill = Name };
-                            card.AddSubCards(subs);
+                            for (int i = 0; i < count; i++)
+                                card.AddSubCard(subs[i]);
                             result.Add(card);
                             return result;
                         }

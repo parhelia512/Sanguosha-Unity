@@ -10042,6 +10042,23 @@ namespace SanguoshaServer.Package
         }
     }
 
+    public class Shenxing : TriggerSkill
+    {
+        public Shenxing() : base("shenxing")
+        {
+            view_as_skill = new ShenxingVS();
+            events.Add(TriggerEvent.EventPhaseChanging);
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is PhaseChangeStruct change && change.From == PlayerPhase.Play)
+                player.SetMark(Name, 0);
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+
     public class ShenxingCard : SkillCard
     {
         public static string ClassName = "ShenxingCard";
@@ -10052,30 +10069,29 @@ namespace SanguoshaServer.Package
 
         public override void Use(Room room, CardUseStruct card_use)
         {
+            card_use.From.AddMark("shenxing");
             room.DrawCards(card_use.From, 1, "shenxing");
         }
     }
 
-    public class Shenxing : ViewAsSkill
+    public class ShenxingVS : ViewAsSkill
     {
-        public Shenxing() : base("shenxing")
+        public ShenxingVS() : base("shenxing")
         {
         }
 
-        public override bool IsEnabledAtPlay(Room room, Player player)
-        {
-            return !player.IsNude();
-        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => true;
 
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
         {
-            if (!RoomLogic.CanDiscard(room, player, player, to_select.Id)) return false;
-            return selected.Count < 2;
+            int count = Math.Min(2, player.GetMark(Name));
+            return selected.Count < count && RoomLogic.CanDiscard(room, player, player, to_select.Id);
         }
 
         public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
         {
-            if (cards.Count == 2)
+            int count = Math.Min(2, player.GetMark(Name));
+            if (cards.Count == count)
             {
                 WrappedCard sx = new WrappedCard(ShenxingCard.ClassName)
                 {
@@ -10120,8 +10136,17 @@ namespace SanguoshaServer.Package
             List<int> ids = player.GetCards("h");
             bool black = WrappedCard.IsBlack(room.GetCard(ids[0]).Suit);
             bool same = true;
+            bool number = true;
+            int first = -1;
             foreach (int id in ids)
             {
+                if (number)
+                {
+                    if (first == -1)
+                        first = room.GetCard(id).Number;
+                    else
+                        if (room.GetCard(id).Number != first) number = false;
+                }
                 if (black != WrappedCard.IsBlack(room.GetCard(ids[0]).Suit))
                 {
                     same = false;
@@ -10135,9 +10160,12 @@ namespace SanguoshaServer.Package
                 room.SortByActionOrder(ref players);
                 foreach (Player p in players)
                 {
-                    room.DoAnimate(CommonClassLibrary.AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
                     room.DrawCards(p, new DrawCardStruct(1, player, Name));
                 }
+
+                if (player.Alive && number)
+                    room.DrawCards(player, 1, Name);
             }
 
             return false;
