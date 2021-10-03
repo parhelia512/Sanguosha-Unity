@@ -58,6 +58,8 @@ namespace SanguoshaServer.Package
                 new YizhengCSEffect(),
                 new Liedan(),
                 new Zhuangdan(),
+                new Cuijian(),
+                new Tongyuan(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -184,6 +186,7 @@ namespace SanguoshaServer.Package
                 new LiangyingClassicCard(),
                 new LiluCard(),
                 new ZongfanCard(),
+                new CuijianCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -2652,6 +2655,156 @@ namespace SanguoshaServer.Package
             room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
             ask_who.AddMark(Name);
             room.SetPlayerStringMark(ask_who, Name, string.Empty);
+            return false;
+        }
+    }
+
+    public class Cuijian: ZeroCardViewAsSkill
+    {
+        public Cuijian() : base("cuijian")
+        {
+        }
+
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(CuijianCard.ClassName);
+
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(CuijianCard.ClassName) { Skill = Name };
+    }
+
+    public class CuijianCard : SkillCard
+    {
+        public static string ClassName = "CuijianCard";
+        public CuijianCard() : base(ClassName)
+        {
+        }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            return targets.Count == 0 && Self != to_select && !to_select.IsKongcheng();
+        }
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From, target = card_use.To[0];
+            List<int> ids = new List<int>();
+            foreach (int id in target.GetCards("h"))
+            {
+                if (room.GetCard(id).Name == Jink.ClassName)
+                    ids.Add(id);
+            }
+
+            if (ids.Count > 0)
+            {
+                ids.AddRange(target.GetEquips());
+                room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, target.Name, player.Name, "cuijian", string.Empty), false);
+                if (player.Alive && target.Alive)
+                {
+                    int count = player.GetMark("tongyuan_peach") > 0 ? 1 : ids.Count;
+                    List<int> give = room.AskForExchange(player, "cuijian", count, count,
+                        string.Format("@cuijian-give:{0}::{1}", target.Name, count), string.Empty, "..", card_use.Card.SkillPosition);
+                    if (give.Count > 0)
+                        room.ObtainCard(target, ref give, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, "cuijian", string.Empty), false);
+                }
+            }
+            else
+            {
+                if (player.GetMark("tongyuan_null") > 0)
+                    room.DrawCards(player, 1, "cuijian");
+                else
+                    room.AskForDiscard(player, "cuijian", 1, 1, false, false, "@cuijian", false, card_use.Card.SkillPosition);
+            }
+        }
+    }
+
+    public class Tongyuan : TriggerSkill
+    {
+        public Tongyuan() : base("tongyuan")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TrickCardCanceling, TriggerEvent.CardFinished, TriggerEvent.EventLoseSkill, TriggerEvent.CardUsedAnnounced };
+            frequency = Frequency.Compulsory;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardFinished && data is CardUseStruct use && base.Triggerable(player, room) && player.Phase == PlayerPhase.NotActive)
+            {
+                if (use.Card.Name == Peach.ClassName && player.GetMark("tongyuan_peach") == 0)
+                {
+                    room.SendCompulsoryTriggerLog(player, Name);
+                    room.BroadcastSkillInvoke(Name, player);
+                    player.AddMark("tongyuan_peach");
+                    if (player.GetMark("tongyuan_null") > 0)
+                    {
+                        room.SetPlayerStringMark(player, Name, string.Empty);
+                        room.SetPlayerMark(player, "cuijian_description_index", 3);
+                        room.RefreshSkill(player);
+                    }
+                    else
+                    {
+                        room.SetPlayerMark(player, "cuijian_description_index", 1);
+                        room.RefreshSkill(player);
+                    }
+                }
+                else if (use.Card.Name == Nullification.ClassName && player.GetMark("tongyuan_null") == 0)
+                {
+                    room.SendCompulsoryTriggerLog(player, Name);
+                    room.BroadcastSkillInvoke(Name, player);
+                    player.AddMark("tongyuan_null");
+                    if (player.GetMark("tongyuan_peach") > 0)
+                    {
+                        room.SetPlayerStringMark(player, Name, string.Empty);
+                        room.SetPlayerMark(player, "cuijian_description_index", 3);
+                        room.RefreshSkill(player);
+                    }
+                    else
+                    {
+                        room.SetPlayerMark(player, "cuijian_description_index", 2);
+                        room.RefreshSkill(player);
+                    }
+                }
+            }
+            else if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == Name)
+            {
+                player.SetMark("tongyuan_peach", 0);
+                player.SetMark("tongyuan_null", 0);
+                room.RemovePlayerStringMark(player, Name);
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && base.Triggerable(effect.From, room) && effect.From.GetMark("tongyuan_null") > 0
+                && effect.From.GetMark("tongyuan_peach") > 0 && effect.Card.Name == Nullification.ClassName)
+                return new TriggerStruct(Name, effect.From);
+            else if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && player.GetMark("tongyuan_null") > 0
+                && player.GetMark("tongyuan_peach") > 0 && use.Card.Name == Peach.ClassName)
+            {
+                return new TriggerStruct(Name, player);
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.TrickCardCanceling)
+                return true;
+            else if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use)
+            {
+                room.SendCompulsoryTriggerLog(ask_who, Name);
+                use.ExDamage++;
+                data = use;
+
+                LogMessage log = new LogMessage
+                {
+                    Type = "#card-recover",
+                    From = player.Name,
+                    Arg = Name,
+                    Arg2 = use.Card.Name
+                };
+
+                room.SendLog(log);
+            }
+
             return false;
         }
     }

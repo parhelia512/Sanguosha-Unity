@@ -13317,7 +13317,7 @@ namespace SanguoshaServer.Package
 
     public class MumuTar : TargetModSkill
     {
-        public MumuTar() : base("mumu", false)
+        public MumuTar() : base("#mumu", false)
         {
         }
 
