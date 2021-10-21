@@ -307,6 +307,7 @@ namespace SanguoshaServer.Package
                 new JinzhiCard(),
                 new FenxunJXCard(),
                 new XingwuCard(),
+                new SujianCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -12656,6 +12657,7 @@ namespace SanguoshaServer.Package
         {
             events = new List<TriggerEvent> { TriggerEvent.EventPhaseProceeding, TriggerEvent.CardsMoveOneTime, TriggerEvent.TurnStart };
             frequency = Frequency.Compulsory;
+            view_as_skill = new SujianVS();
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
@@ -12691,7 +12693,7 @@ namespace SanguoshaServer.Package
 
             room.SendCompulsoryTriggerLog(player, Name);
             List<string> choices = new List<string>();
-            if (hands.Count > 0) choices.Add("disacard");
+            if (hands.Count > 0) choices.Add("discard");
             if (in_turn.Count > 0) choices.Add("give");
 
             if (choices.Count > 0)
@@ -12722,7 +12724,66 @@ namespace SanguoshaServer.Package
                 }
                 else
                 {
+                    List<int> cards = new List<int>(in_turn);
+                    player.PileChange("#sujian", cards);
+                    List<Player> targets = new List<Player>();
+                    List<CardsMoveStruct> moves = new List<CardsMoveStruct>();
+                    while (cards.Count > 0)
+                    {
+                        WrappedCard card = room.AskForUseCard(player, "@@sujian", "@sujian", null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
+                        if (card != null)
+                        {
+                            Player target = (Player)room.GetTag("sujian_target");
+                            room.RemoveTag("sujian_target");
+                            targets.Add(target);
+                            CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, Name, string.Empty);
+                            CardsMoveStruct move = new CardsMoveStruct(new List<int>(card.SubCards), target, Place.PlaceHand, reason);
+                            moves.Add(move);
 
+                            player.PileChange("#sujian", card.SubCards, false);
+                            cards.RemoveAll(t => card.SubCards.Contains(t));
+
+                            List<string> args = new List<string> { JsonUntity.Object2Json(card.SubCards), "@attribute:" + target.Name };
+                            room.DoNotify(room.GetClient(player), CommandType.S_COMMAND_UPDATE_CARD_FOOTNAME, args);
+                        }
+                        else
+                            break;
+                    }
+
+                    if (cards.Count > 0)
+                    {
+                        if (moves.Count > 0)
+                        {
+                            moves[0].Card_ids.AddRange(cards);
+                        }
+                        else
+                        {
+                            Player target = room.GetOtherPlayers(player)[0];
+                            CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, Name, string.Empty);
+                            CardsMoveStruct move = new CardsMoveStruct(cards, target, Place.PlaceHand, reason);
+                            moves.Add(move);
+                        }
+                    }
+
+                    player.PileChange("#sujian", cards, false);
+
+                    if (moves.Count > 0)
+                    {
+                        room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+
+                        LogMessage l = new LogMessage
+                        {
+                            Type = "#ChoosePlayerWithSkill",
+                            From = player.Name,
+                            Arg = Name
+                        };
+                        l.SetTos(targets);
+                        room.SendLog(l);
+
+                        room.MoveCardsAtomic(moves, false);
+                    }
+
+                    return false;
                 }
             }
 
@@ -12731,6 +12792,47 @@ namespace SanguoshaServer.Package
         }
     }
 
+    public class SujianVS : OneCardViewAsSkill
+    {
+        public SujianVS() : base("sujian")
+        {
+            response_pattern = "@@sujian";
+        }
+        public override bool ViewFilter(Room room, WrappedCard to_select, Player player)
+        {
+            return player.GetPile("#sujian").Contains(to_select.Id);
+        }
+
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            WrappedCard ss = new WrappedCard(SujianCard.ClassName);
+            ss.AddSubCard(card);
+            return ss;
+        }
+    }
+
+    public class SujianCard : SkillCard
+    {
+        public static string ClassName = "SujianCard";
+        public SujianCard() : base(ClassName)
+        {
+            will_throw = false;
+        }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            return targets.Count == 0 && to_select != Self;
+        }
+
+        public override void OnUse(Room room, CardUseStruct card_use)
+        {
+            room.SetTag("sujian_target", card_use.To[0]);
+
+            ResultStruct result = card_use.From.Result;
+            result.Assist += card_use.Card.SubCards.Count;
+            card_use.From.Result = result;
+        }
+    }
 
     public class Hongyuan : DrawCardsSkill
     {
