@@ -60,6 +60,8 @@ namespace SanguoshaServer.Package
                 new Zhuangdan(),
                 new Cuijian(),
                 new Tongyuan(),
+                new Xianwei(),
+                new XianweiDis(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -230,6 +232,7 @@ namespace SanguoshaServer.Package
                 { "yizheng_cs", new List<string>{ "#yizheng_cs" } },
                 { "zhuihuan", new List<string>{ "#zhuihuan" } },
                 { "huoshui_classic", new List<string>{ "#huoshui_classic" } },
+                { "xianwei", new List<string>{ "#xianwei" } },
             };
         }
     }
@@ -2817,6 +2820,161 @@ namespace SanguoshaServer.Package
             return false;
         }
     }
+
+    public class Xianwei : TriggerSkill
+    {
+        public Xianwei() : base("xianwei")
+        {
+            frequency = Frequency.Compulsory;
+            events.Add(TriggerEvent.EventPhaseStart);
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (player.Phase == PlayerPhase.Start && base.Triggerable(player, room))
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    if (!player.EquipIsBaned(i))
+                        return new TriggerStruct(Name, player);
+                }
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<string> choices = new List<string>();
+            for (int i = 0; i < 5; i++)
+            {
+                if (!player.EquipIsBaned(i))
+                {
+                    switch (i)
+                    {
+                        case 0:
+                            choices.Add("Weapon");
+                            break;
+                        case 1:
+                            choices.Add("Armor");
+                            break;
+                        case 2:
+                            choices.Add("DefensiveHorse");
+                            break;
+                        case 3:
+                            choices.Add("OffensiveHorse");
+                            break;
+                        case 4:
+                            choices.Add("Treasure");
+                            break;
+                    }
+                }
+            }
+
+            string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@xianwei" });
+            room.SendCompulsoryTriggerLog(player, Name);
+            room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+
+            int index = -1;
+            switch (choice)
+            {
+                case "Weapon":
+                    index = 0;
+                    break;
+                case "Armor":
+                    index = 1;
+                    break;
+                case "DefensiveHorse":
+                    index = 2;
+                    break;
+                case "OffensiveHorse":
+                    index = 3;
+                    break;
+                case "Treasure":
+                    index = 4;
+                    break;
+            }
+            room.AbolisheEquip(player, index, Name);
+            if (player.Alive)
+            {
+                int count = 0;
+                for (int i = 0; i < 5; i++)
+                    if (!player.EquipIsBaned(i))
+                        count++;
+
+                if (count > 0)
+                    room.DrawCards(player, count, Name);
+
+                Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@xianwei-equip:::" + choice, true, true, info.SkillPosition);
+                if (target != null)
+                {
+                    int card_id = -1;
+                    foreach (int id in room.DrawPile)
+                    {
+                        WrappedCard card = room.GetCard(id);
+                        FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                        switch (fcard)
+                        {
+                            case Weapon _ when choice == "Weapon":
+                                card_id = id;
+                                break;
+                            case Armor _ when choice == "Armor":
+                                card_id = id;
+                                break;
+                            case DefensiveHorse _ when choice == "DefensiveHorse":
+                                card_id = id;
+                                break;
+                            case OffensiveHorse _ when choice == "OffensiveHorse":
+                                card_id = id;
+                                break;
+                            case Treasure _ when choice == "Treasure":
+                                card_id = id;
+                                break;
+                        }
+
+                        if (card_id > -1) break;
+                    }
+
+                    if (card_id > -1 && target.CanPutEquip(index) && RoomLogic.IsProhibited(room, target, target, room.GetCard(card_id)) == null)
+                        room.UseCard(new CardUseStruct(room.GetCard(card_id), target, new List<Player>(), false));
+
+                    if (count == 0 && player.Alive)
+                    {
+                        player.MaxHp += 2;
+                        room.BroadcastProperty(player, "MaxHp");
+
+                        LogMessage log = new LogMessage
+                        {
+                            Type = "$GainMaxHp",
+                            From = player.Name,
+                            Arg = "2"
+                        };
+                        room.SendLog(log);
+                        room.RoomThread.Trigger(TriggerEvent.MaxHpChanged, room, player);
+
+                        if (player.Alive)
+                        {
+                            player.SetMark(Name, 1);
+                            room.SetPlayerStringMark(player, Name, string.Empty);
+                        }
+                    }
+                }
+
+            }
+            return false;
+        }
+    }
+
+    public class XianweiDis : TargetModSkill
+    {
+        public XianweiDis() : base("#xianwei", false)
+        {}
+
+        public override bool InAttackRange(Room room, Player from, Player to, WrappedCard card)
+        {
+            return from != null && to != null && from != to && (from.GetMark("xianwei") > 0 || to.GetMark("xianwei") > 0) ? true : false;
+        }
+    }
+
 
     public class Tunan : ViewAsSkill
     {
