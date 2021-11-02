@@ -7169,13 +7169,13 @@ namespace SanguoshaServer.Package
                         triggers.Add(new TriggerStruct(Name, p));
                 }
             }
-            else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.To != null && move.To.Phase == PlayerPhase.NotActive
-                && move.From_places.Contains(Place.DrawPile) && move.Reason.Reason == MoveReason.S_REASON_DRAW)
+            else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.To != null
+                && move.To.Phase == PlayerPhase.NotActive && move.To_place == Place.PlaceHand)
             {
                 List<Player> yw = RoomLogic.FindPlayersBySkillName(room, Name);
                 foreach (Player p in yw)
                 {
-                    if (p != move.To && p.ContainsTag(Name) && p.GetTag(Name) is string target && target == move.To.Name && p.GetMark("kangge_draw") == 0)
+                    if (p != move.To && p.ContainsTag(Name) && p.GetTag(Name) is string target && target == move.To.Name && p.GetMark("kangge_draw") < 3)
                         triggers.Add(new TriggerStruct(Name, p));
                 }
             }
@@ -7248,9 +7248,9 @@ namespace SanguoshaServer.Package
             {
                 GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
                 room.BroadcastSkillInvoke(Name, "male", 2, gsk.General, gsk.SkinId);
-
-                ask_who.SetMark("kangge_draw", 1);
-                int count = Math.Min(3, move.Card_ids.Count);
+                
+                int count = Math.Min(3 - ask_who.GetMark("kangge_draw"), move.Card_ids.Count);
+                ask_who.AddMark("kangge_draw", count);
                 room.DrawCards(ask_who, count, Name);
             }
             else if (triggerEvent == TriggerEvent.Death)
@@ -7280,7 +7280,7 @@ namespace SanguoshaServer.Package
         {
             if (base.Triggerable(player, room) && data is DamageStruct damage && damage.From != player)
             {
-                if (damage.From == null || !player.ContainsTag("kangge") || !(player.GetTag(Name) is string target) || target != damage.From.Name)
+                if (damage.From == null || !player.ContainsTag("kangge") || !(player.GetTag("kangge") is string target) || target != damage.From.Name)
                     return new TriggerStruct(Name, player);
             }
 
@@ -7308,12 +7308,15 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (data is DamageStruct damage && player.GetTag(Name) is string choice)
+            if (data is DamageStruct damage && player.GetTag(Name) is string choice && player.GetTag("kangge") is string target_name)
             {
                 player.RemoveTag(Name);
                 room.LoseHp(player, damage.Damage);
-                if (player.Alive)
+
+                Player target = room.FindPlayer(target_name);
+                if (target != null)
                 {
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target_name);
                     WrappedCard.CardSuit suit = WrappedCard.GetSuit(choice);
                     List<int> ids = new List<int>();
 
@@ -7327,7 +7330,7 @@ namespace SanguoshaServer.Package
                         }
                     }
                     if (ids.Count > 0)
-                        room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_RECYCLE, player.Name, Name, string.Empty), true);
+                        room.ObtainCard(target, ref ids, new CardMoveReason(MoveReason.S_REASON_RECYCLE, player.Name, target_name, Name, string.Empty), true);
                 }
             }
 

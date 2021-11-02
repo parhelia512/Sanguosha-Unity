@@ -7558,13 +7558,21 @@ namespace SanguoshaServer.Package
             List<int> ids = target.GetCards("he");
             if (ids.Count > 1)
                 ids = room.AskForExchange(target, Name, 1, 1, "@wenji:" + player.Name, string.Empty, "..", string.Empty);
-            string card_name = string.Empty;
+            string card_name;
             WrappedCard card = room.GetCard(ids[0]);
             FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-            if (fcard is Slash)
-                card_name = Slash.ClassName;
-            else if (fcard is TrickCard && !(fcard is DelayedTrick))
-                card_name = card.Name;
+            switch (fcard)
+            {
+                case BasicCard _:
+                    card_name = "BasicCard";
+                    break;
+                case TrickCard _:
+                    card_name = "TrickCard";
+                    break;
+                default:
+                    card_name = "EquipCard";
+                    break;
+            }
 
             CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_GIVE, target.Name, player.Name, Name, null);
             room.ObtainCard(player, ref ids, reason, true);
@@ -7588,10 +7596,14 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use && use.To.Count > 0 && player.ContainsTag("wenji") && player.GetTag("wenji") is List<string> names
-                && (names.Contains(use.Card.Name) || (use.Card.Name.Contains(Slash.ClassName) && names.Contains(Slash.ClassName))))
+            if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use && use.To.Count > 0 && player.ContainsTag("wenji") && player.GetTag("wenji") is List<string> names)
             {
-                return new TriggerStruct(Name, player, use.To);
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                if (!(fcard is DelayedTrick) && !(fcard is SkillCard) && ((fcard is BasicCard && names.Contains("BasicCard")) || (fcard is TrickCard && names.Contains("TrickCard"))
+                    || (fcard is EquipCard && names.Contains("EquipCard"))))
+                {
+                    return new TriggerStruct(Name, player, use.To);
+                }
             }
             else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && player != effect.From && effect.From != null && effect.From.Alive
                 && effect.From.ContainsTag("wenji") && effect.From.GetTag("wenji") is List<string> _names && _names.Contains(effect.Card.Name))
