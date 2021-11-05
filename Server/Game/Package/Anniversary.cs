@@ -62,6 +62,12 @@ namespace SanguoshaServer.Package
                 new Tongyuan(),
                 new Xianwei(),
                 new XianweiDis(),
+                new YisheDFR(),
+                new YisheDFREffect(),
+                new Shunshi(),
+                new ShunshiTar(),
+                new ShunshiDraw(),
+                new ShunshiMax(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -197,6 +203,7 @@ namespace SanguoshaServer.Package
                 new ZongfanCard(),
                 new CuijianCard(),
                 new QingchengCCard(),
+                new ShunshiCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -233,6 +240,8 @@ namespace SanguoshaServer.Package
                 { "zhuihuan", new List<string>{ "#zhuihuan" } },
                 { "huoshui_classic", new List<string>{ "#huoshui_classic" } },
                 { "xianwei", new List<string>{ "#xianwei" } },
+                { "yishe_dfr", new List<string>{ "#yishe_dfr" } },
+                { "shunshi", new List<string>{ "#shunshi-draw", "#shunshi-tar", "#shunshi-max" } },
             };
         }
     }
@@ -2975,6 +2984,272 @@ namespace SanguoshaServer.Package
         }
     }
 
+    public class YisheDFR : TriggerSkill
+    {
+        public YisheDFR() : base("yishe_dfr")
+        {
+            events.Add(TriggerEvent.CardsMoveOneTime);
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardsMoveOneTimeStruct move && move.To != null && move.From != null && move.To != move.From && move.To.Alive
+                && (move.To_place == Place.PlaceHand || move.To_place == Place.PlaceEquip)
+                && (move.From_places.Contains(Place.PlaceHand) || move.From_places.Contains(Place.PlaceEquip)) && base.Triggerable(move.From, room))
+                return new TriggerStruct(Name, move.From);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardsMoveOneTimeStruct move)
+            {
+                bool black = false;
+                foreach (int id in move.Card_ids)
+                {
+                    if (WrappedCard.IsBlack(room.GetCard(id).Suit))
+                        return info;
+                }
+
+                if (!black && move.To.IsWounded() && room.AskForSkillInvoke(ask_who, Name, "@yishe-recover:" + move.To.Name, info.SkillPosition))
+                    return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardsMoveOneTimeStruct move)
+            {
+                bool black = false;
+                bool red = false;
+                foreach (int id in move.Card_ids)
+                {
+                    if (WrappedCard.IsBlack(room.GetCard(id).Suit))
+                        black = true;
+                    else
+                        red = true;
+                }
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, move.From.Name, move.To.Name);
+                room.BroadcastSkillInvoke(Name, move.From, info.SkillPosition);
+                bool reco = false;
+                if (black)
+                {
+                    move.To.AddMark(Name);
+                    room.SetPlayerStringMark(move.To, Name, move.To.GetMark(Name).ToString());
+                    room.SendCompulsoryTriggerLog(move.From, Name);
+                    if (red) reco = move.To.IsWounded() && room.AskForSkillInvoke(ask_who, Name, "@yishe-recover:" + move.To.Name, info.SkillPosition);
+                }
+                else
+                    reco = true;
+
+                if (reco)
+                {
+                    RecoverStruct recover = new RecoverStruct();
+                    recover.Who = move.From;
+                    recover.Recover = 1;
+                    room.Recover(move.To, recover, true);
+                }
+            }
+            return false;
+        }
+    }
+
+    public class YisheDFREffect : TriggerSkill
+    {
+        public YisheDFREffect() : base("#yishe_dfr")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.DamageInflicted };
+            frequency = Frequency.Compulsory;
+            skill_type = SkillType.Masochism;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is DamageStruct damage && player.GetMark("yishe_dfr") > 0 && damage.Card != null && damage.Card.Name.Contains(Slash.ClassName))
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            DamageStruct damage = (DamageStruct)data;
+            damage.Damage += player.GetMark("yishe_dfr");
+            data = damage;
+
+            room.RemovePlayerStringMark(player, "yishe_dfr");
+            player.SetMark("yishe_dfr", 0);
+
+            LogMessage log = new LogMessage
+            {
+                Type = "#AddDamaged",
+                From = player.Name,
+                Arg = Name,
+                Arg2 = (damage.Damage).ToString()
+            };
+            room.SendLog(log);
+
+            return false;
+        }
+    }
+
+    public class Shunshi : TriggerSkill
+    {
+        public Shunshi() : base("shunshi")
+        {
+            view_as_skill = new ShunshiVS();
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.EventPhaseStart, TriggerEvent.Damaged };
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change)
+            {
+                if (change.From == PlayerPhase.Draw && player.GetMark("shunshi_draw_delay") > 0)
+                {
+                    player.AddMark("shunshi_draw", player.GetMark("shunshi_draw_delay"));
+                    player.SetMark("shunshi_draw_delay", 0);
+                }
+                else if (change.From == PlayerPhase.Play)
+                {
+                    if (player.GetMark("shunshi_slash") > 0)
+                        player.SetMark("shunshi_slash", 0);
+
+                    if (player.GetMark("shunshi_slash_delay") > 0)
+                    {
+                        player.AddMark("shunshi_slash", player.GetMark("shunshi_slash_delay"));
+                        player.SetMark("shunshi_slash_delay", 0);
+                    }
+                }
+                else if (change.From == PlayerPhase.Discard)
+                {
+                    if (player.GetMark("shunshi_max") > 0)
+                        player.SetMark("shunshi_max", 0);
+
+                    if (player.GetMark("shunshi_max_delay") > 0)
+                    {
+                        player.AddMark("shunshi_max", player.GetMark("shunshi_max_delay"));
+                        player.SetMark("shunshi_max_delay", 0);
+                    }
+                }
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Start && base.Triggerable(player, room) && !player.IsNude())
+                return new TriggerStruct(Name, player);
+            else if (triggerEvent == TriggerEvent.Damaged && base.Triggerable(player, room) && !player.IsNude())
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            Player target = null;
+            if (triggerEvent == TriggerEvent.Damaged && data is DamageStruct damage && damage.From != null && damage.From != player)
+                target = damage.From;
+
+            if (target != null) target.SetFlags(Name);
+            WrappedCard card = room.AskForUseCard(player, "@@shunshi", target == null ? "@shunshi" : "@shunshi-exsi:" + target.Name, null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
+            if (card != null)
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.Phase != PlayerPhase.Draw)
+                player.AddMark("shunshi_draw");
+            else
+                player.AddMark("shunshi_draw_delay");
+
+            if (player.Phase != PlayerPhase.Play)
+                player.AddMark("shunshi_slash");
+            else
+                player.AddMark("shunshi_slash_delay");
+
+            if (player.Phase != PlayerPhase.Discard)
+                player.AddMark("shunshi_max");
+            else
+                player.AddMark("shunshi_max_delay");
+
+            return false;
+        }
+    }
+
+    public class ShunshiDraw : DrawCardsSkill
+    {
+        public ShunshiDraw() : base("#shunshi-draw") { frequency = Frequency.Compulsory; }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (player.Phase == Player.PlayerPhase.Draw && (int)data >= 0 && player.GetMark("shunshi_draw") > 0)
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override int GetDrawNum(Room room, Player player, int n)
+        {
+            int count = player.GetMark("shunshi_draw");
+            player.SetMark("shunshi_draw", 0);
+            return n + count;
+        }
+    }
+
+    public class ShunshiMax : MaxCardsSkill
+    {
+        public ShunshiMax() : base("#shunshi-max") { }
+        public override int GetExtra(Room room, Player target) => target.GetMark("shunshi_max");
+    }
+
+    public class ShunshiTar : TargetModSkill
+    {
+        public ShunshiTar() : base("#shunshi-tar", false) { }
+
+        public override int GetResidueNum(Room room, Player from, WrappedCard card) => from.GetMark("shunshi_slash");
+    }
+
+    public class ShunshiVS : OneCardViewAsSkill
+    {
+        public ShunshiVS() : base("shunshi")
+        {
+            filter_pattern = ".";
+            response_pattern = "@@shunshi";
+        }
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            WrappedCard ss = new WrappedCard(ShunshiCard.ClassName) { Skill = Name, Mute = true };
+            ss.AddSubCard(card);
+            return ss;
+        }
+    }
+
+    public class ShunshiCard : SkillCard
+    {
+        public static string ClassName = "ShunshiCard";
+        public ShunshiCard() : base(ClassName)
+        { will_throw = false; }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            return targets.Count == 0 && !to_select.HasFlag("shunshi") && to_select != Self;
+        }
+
+        public override void OnUse(Room room, CardUseStruct card_use)
+        {
+            foreach (Player p in room.GetAlivePlayers())
+                p.SetFlags("-shunshi");
+
+            List<int> ids = new List<int>(card_use.Card.SubCards);
+            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, card_use.From.Name, card_use.To[0].Name);
+            room.ObtainCard(card_use.To[0], ref ids,
+                new CardMoveReason(MoveReason.S_REASON_GIVE, card_use.From.Name, card_use.To[0].Name, "shunshi", string.Empty), false);
+        }
+    }
 
     public class Tunan : ViewAsSkill
     {
