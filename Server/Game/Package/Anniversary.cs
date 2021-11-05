@@ -170,6 +170,9 @@ namespace SanguoshaServer.Package
                 new Liji(),
                 new Zhiren(),
                 new Yaner(),
+                new Zhukou(),
+                new Mangqing(),
+                new Yuyun(),
             };
 
             skill_cards = new List<FunctionCard>
@@ -9780,6 +9783,283 @@ namespace SanguoshaServer.Package
                 }
             }
             return false;
+        }
+    }
+
+    public class Zhukou : TriggerSkill
+    {
+        public Zhukou() : base("zhukou")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.Damage, TriggerEvent.EventPhaseStart, TriggerEvent.CardResponded, TriggerEvent.EventPhaseChanging };
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardUsed && room.Current != null && player.GetMark(Name) == 0 && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name))
+                player.AddMark("zhukou_used");
+            else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Use && room.Current != null && player.GetMark(Name) == 0)
+                player.AddMark("zhukou_used");
+            else if (triggerEvent == TriggerEvent.Damage && room.Current != null && room.Current.Phase == PlayerPhase.Play)
+                player.AddMark(Name);
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change)
+            {
+                if (change.From == PlayerPhase.Play)
+                {
+                    foreach (Player p in room.GetAlivePlayers())
+                        p.SetMark(Name, 0);
+                }
+                else if (change.To == PlayerPhase.NotActive)
+                {
+                    foreach (Player p in room.GetAlivePlayers())
+                        p.SetMark("zhukou_used", 0);
+                }
+            }
+
+            if (triggerEvent == TriggerEvent.Damage && player.Phase != PlayerPhase.NotActive)
+                player.SetFlags(Name);
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.Damage && room.Current != null && room.Current.Phase == PlayerPhase.Play && base.Triggerable(player, room)
+                && player.GetMark(Name) == 1 && player.GetMark("zhukou_used") > 0)
+                return new TriggerStruct(Name, player);
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Finish && base.Triggerable(player, room) && !player.HasFlag(Name))
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if ((triggerEvent == TriggerEvent.Damage && room.AskForSkillInvoke(player, Name, "@zhukou-draw:::" + player.GetMark("zhukou_used").ToString(), info.SkillPosition))
+                || (triggerEvent == TriggerEvent.EventPhaseStart && room.AskForSkillInvoke(player, Name, "@zhukou-damage", info.SkillPosition)))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.Damage)
+                room.DrawCards(player, player.GetMark("zhukou_used"), Name);
+            else
+            {
+                List<Player> targets = room.GetOtherPlayers(player);
+                room.SortByActionOrder(ref targets);
+                foreach (Player p in targets)
+                {
+                    if (player.Alive && p.Alive)
+                        room.Damage(new DamageStruct(Name, player, p));
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class Mangqing : PhaseChangeSkill
+    {
+        public Mangqing() : base("mangqing")
+        {
+            frequency = Frequency.Wake;
+            skill_type = SkillType.Recover;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (player.Phase == PlayerPhase.Start && base.Triggerable(player, room))
+            {
+                bool invoke = true;
+                foreach (Player p in room.GetOtherPlayers(player))
+                {
+                    if (!p.IsWounded())
+                    {
+                        invoke = false;
+                        break;
+                    }
+                }
+                if (invoke)
+                    return new TriggerStruct(Name, player);
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool OnPhaseChange(Room room, Player player, TriggerStruct info)
+        {
+            room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+            room.DoSuperLightbox(player, info.SkillPosition, Name);
+            room.SetPlayerMark(player, Name, 1);
+            room.SendCompulsoryTriggerLog(player, Name);
+            if (player.Alive)
+            {
+                player.MaxHp += 3;
+                room.BroadcastProperty(player, "MaxHp");
+
+                LogMessage log = new LogMessage
+                {
+                    Type = "$GainMaxHp",
+                    From = player.Name,
+                    Arg = "3"
+                };
+                room.SendLog(log);
+
+                room.RoomThread.Trigger(TriggerEvent.MaxHpChanged, room, player);
+                room.Recover(player, 3);
+
+                room.HandleAcquireDetachSkills(player, "-zhukou|yuyun", true);
+            }
+
+            return false;
+        }
+    }
+
+    public class Yuyun : PhaseChangeSkill
+    {
+        public Yuyun() : base("yuyun")
+        {
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (player.Phase == PlayerPhase.Play && base.Triggerable(player, room) && player.MaxHp > 1)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override bool OnPhaseChange(Room room, Player player, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(player, Name);
+
+            string result = room.AskForChoice(player, Name, "hp+maxhp");
+            int index = (result == "hp") ? 2 : 1;
+            room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+            if (result == "hp")
+                room.LoseHp(player);
+            else
+                room.LoseMaxHp(player);
+
+            if (player.Alive)
+            {
+                List<string> choices = new List<string> { "draw", "slash", "max", "full" };
+                bool discard = false;
+                foreach (Player p in room.GetOtherPlayers(player))
+                {
+                    if (!p.IsNude() && RoomLogic.CanDiscard(room, player, p, "he"))
+                    {
+                        discard = true;
+                        break;
+                    }
+                }
+                if (discard) choices.Insert(3, "discard");
+                result = room.AskForChoice(player, Name, string.Join("+", choices));
+                DoChoice(room, player, result, info.SkillPosition);
+
+                if (player.Alive && player.GetLostHp() > 1)
+                {
+                    choices.Remove(result);
+                    result = room.AskForChoice(player, Name, string.Join("+", choices));
+                    DoChoice(room, player, result, info.SkillPosition);
+                }
+            }
+
+            return false;
+        }
+
+        private void DoChoice(Room room, Player player, string choice, string position)
+        {
+            switch (choice)
+            {
+                case "draw":
+                    room.DrawCards(player, 2, Name);
+                    break;
+                case "slash":
+                    player.SetFlags("yuyun_slash");
+                    break;
+                case "max":
+                    player.SetFlags("yuyun_max");
+                    break;
+                case "discard":
+                    {
+                        List<Player> targets = new List<Player>();
+                        foreach (Player p in room.GetOtherPlayers(player))
+                        {
+                            if (!p.IsNude() && RoomLogic.CanDiscard(room, player, p, "he"))
+                                targets.Add(p);
+                        }
+
+                        if (targets.Count > 0)
+                        {
+                            Player target = room.AskForPlayerChosen(player, targets, Name, "@yuyun-disacard", false, true, position);
+                            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
+                            List<string> handles = new List<string>();
+                            if (!target.IsKongcheng())
+                                handles.Add("h^false^discard");
+                            if (target.HasEquip())
+                                handles.Add("e^false^discard");
+                            List<int> ids = room.AskForCardsChosen(player, target, handles, Name);
+                            room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, target.Name, Name, string.Empty), target, player);
+                        }
+                    }
+                    break;
+                case "full":
+                    {
+                        List<Player> targets = new List<Player>();
+                        int min = 200;
+                        foreach (Player p in room.GetOtherPlayers(player))
+                        {
+                            if (p.HandcardNum < min)
+                                min = p.HandcardNum;
+                        }
+                        if (min < 5)
+                        {
+                            foreach (Player p in room.GetOtherPlayers(player))
+                            {
+                                if (p.HandcardNum == min)
+                                    targets.Add(p);
+                            }
+                        }
+
+                        if (targets.Count > 0)
+                        {
+                            Player target = room.AskForPlayerChosen(player, targets, Name, "@yuyun-draw", false, true, position);
+                            if (target != null)
+                            {
+                                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
+                                int count = Math.Min(5 - target.HandcardNum, target.MaxHp - target.HandcardNum);
+                                room.DrawCards(target, new DrawCardStruct(count, player, Name));
+                            }
+                        }
+                    }
+                    break;
+            }
+        }
+    }
+
+    public class YuyunMax : MaxCardsSkill
+    {
+        public YuyunMax() : base("#yuyun-max") { }
+        public override int GetExtra(Room room, Player target)
+        {
+            return target.HasFlag("yuyun_max") ? 200 : 0;
+        }
+    }
+
+    public class YuyunTar : TargetModSkill
+    {
+        public YuyunTar() : base("yuyun-tar", false) { }
+        public override int GetResidueNum(Room room, Player from, WrappedCard card)
+        {
+            return from.HasFlag("yuyun_slash") && WrappedCard.IsBlack(card.Suit) ? 1000 : 0;
+        }
+
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern)
+        {
+            return from.HasFlag("yuyun_slash") && WrappedCard.IsBlack(card.Suit);
         }
     }
 }

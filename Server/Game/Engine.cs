@@ -623,6 +623,16 @@ namespace SanguoshaServer.Game
             else
                 return null;
         }
+
+        public static bool IsSkillCard(string card_name)
+        {
+            FunctionCard card = GetFunctionCard(card_name);
+            if (card != null)
+                return card is SkillCard;
+
+            return false;
+        }
+
         public static WrappedCard CloneCard(WrappedCard card)
         {
             WrappedCard new_card = new WrappedCard(card.Name, card.Id, card.Suit, card.Number, card.CanRecast, card.Transferable)
