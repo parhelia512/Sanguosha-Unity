@@ -9714,11 +9714,32 @@ namespace SanguoshaServer.Package
                 int next = room.GetCard(id).Number;
                 if ((big && next > old) || (!big && next < old))
                 {
+                    if (old > 0)
+                    {
+                        List<string> arg = new List<string> { GameEventType.S_GAME_EVENT_JUDGE_RESULT.ToString(), id.ToString(), "true" };
+                        room.DoBroadcastNotify(CommandType.S_COMMAND_LOG_EVENT, arg);
+                        Thread.Sleep(400);
+                    }
+
                     old = next;
-                    big = room.AskForChoice(player, Name, "big+small", new List<string> { "@jizhan:::" + next.ToString() }) == "big";
+                    string choice = room.AskForChoice(player, Name, "big+small", new List<string> { "@jizhan:::" + next.ToString() });
+                    big = choice == "big";
+                    LogMessage log = new LogMessage()
+                    {
+                        Type = "#Choose-Option",
+                        From = player.Name,
+                        Arg = "jizhan:" + choice,
+                    };
+                    room.SendLog(log);
                 }
                 else
+                {
+                    List<string> arg = new List<string> { GameEventType.S_GAME_EVENT_JUDGE_RESULT.ToString(), id.ToString(), "true" };
+                    room.DoBroadcastNotify(CommandType.S_COMMAND_LOG_EVENT, arg);
+
+                    Thread.Sleep(800);
                     break;
+                }
             }
             gets.RemoveAll(t => room.GetCardPlace(t) != Place.PlaceTable);
             if (gets.Count > 0)

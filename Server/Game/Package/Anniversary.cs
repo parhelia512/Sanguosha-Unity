@@ -7595,6 +7595,13 @@ namespace SanguoshaServer.Package
                 player.SetTag(Name, choice);
                 room.NotifySkillInvoked(player, Name);
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                LogMessage log = new LogMessage()
+                {
+                    Type = "#ChooseSuit",
+                    From = player.Name,
+                    Arg = choice,
+                };
+                room.SendLog(log);
                 return info;
             }
             return new TriggerStruct();
