@@ -4026,8 +4026,7 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.CardUsedAnnounced && room.Current == player && data is CardUseStruct use && use.To.Count > 0 && !player.HasFlag(Name))
             {
-                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                if (!(fcard is SkillCard))
+                if (!Engine.IsSkillCard(use.Card.Name))
                 {
                     foreach (Player p in use.To)
                     {
@@ -4058,13 +4057,28 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (!player.HasFlag("qieting_use") && room.AskForSkillInvoke(ask_who, Name, player, info.SkillPosition))
+            bool equip = false;
+            if (!player.HasFlag("qieting_damage"))
             {
-                ask_who.SetFlags("qieting_equip");
-                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
-                return info;
+                for (int i = 0; i < 6; i++)
+                {
+                    if (player.GetEquip(i) >= 0)
+                    {
+                        if (ask_who.GetEquip(i) < 0 && RoomLogic.CanPutEquip(ask_who, room.GetCard(player.GetEquip(i))))
+                        {
+                            equip = true;
+                            break;
+                        }
+                    }
+                }
+                if (equip && room.AskForSkillInvoke(ask_who, Name, player, info.SkillPosition))
+                {
+                    ask_who.SetFlags("qieting_equip");
+                    room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                    return info;
+                }
             }
-            else if (!player.HasFlag("qieting_damage") && room.AskForSkillInvoke(ask_who, Name, "@qieting-draw", info.SkillPosition))
+            if (!player.HasFlag("qieting_use") && room.AskForSkillInvoke(ask_who, Name, "@qieting-draw", info.SkillPosition))
             {
                 ask_who.SetFlags("qieting_draw");
                 room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
@@ -4094,9 +4108,8 @@ namespace SanguoshaServer.Package
                     room.MoveCardTo(room.GetCard(id), ask_who, Place.PlaceEquip, new CardMoveReason(MoveReason.S_REASON_TRANSFER, player.Name, ask_who.Name, Name, string.Empty));
                 }
             }
-            bool draw = ask_who.Alive && (ask_who.HasFlag("qieting_draw") || (!player.HasFlag("qieting_damage") && room.AskForSkillInvoke(ask_who, Name, "@qieting-draw", info.SkillPosition)));
-            if (draw)
-                room.DrawCards(ask_who, 1, Name);
+            bool draw = ask_who.Alive && (ask_who.HasFlag("qieting_draw") || (!player.HasFlag("qieting_use") && room.AskForSkillInvoke(ask_who, Name, "@qieting-draw", info.SkillPosition)));
+            if (draw) room.DrawCards(ask_who, 1, Name);
 
             return false;
         }

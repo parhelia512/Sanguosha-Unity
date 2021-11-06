@@ -8374,10 +8374,7 @@ namespace SanguoshaServer.Package
     {
         public Lianzhu() : base("lianzhu")
         {
-        }
-        public override bool ViewFilter(Room room, WrappedCard to_select, Player player)
-        {
-            return room.GetCardPlace(to_select.Id) == Place.PlaceHand;
+            filter_pattern = "..";
         }
         public override bool IsEnabledAtPlay(Room room, Player player)
         {
@@ -10837,7 +10834,7 @@ namespace SanguoshaServer.Package
                 }
 
                 room.SetTag("extra_target_skill", data);                   //for AI
-                Player target = room.AskForPlayerChosen(player, targets, Name, "@qirang-extra:::" + use.Card.Name, true, true, info.SkillPosition);
+                Player target = room.AskForPlayerChosen(player, targets, Name, "@jieying_hf-extra:::" + use.Card.Name, true, true, info.SkillPosition);
                 room.RemoveTag("extra_target_skill");
                 if (target != null)
                 {
@@ -13675,7 +13672,7 @@ namespace SanguoshaServer.Package
                     room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                     room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
                     ask_who.SetMark(Name, (int)room.GetCard(ids[0]).Suit);
-                    player.SetFlags("MeibuFrom");
+                    ask_who.SetFlags("MeibuFrom");
                     room.ThrowCard(ref ids, ask_who, null, Name);
                     return info;
                 }

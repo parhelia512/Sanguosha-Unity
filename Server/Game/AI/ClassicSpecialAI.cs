@@ -6139,25 +6139,8 @@ namespace SanguoshaServer.AI
         {
             if (!player.HasUsed(LianzhuCard.ClassName) && !player.IsKongcheng())
             {
-                Room room = ai.Room;
-                List<int> ids = player.GetCards("h");
-                ai.SortByUseValue(ref ids, false);
-                foreach (int id in ids)
-                {
-                    if (WrappedCard.IsBlack(room.GetCard(id).Suit))
-                    {
-                        WrappedCard lz = new WrappedCard(LianzhuCard.ClassName) { Skill = Name };
-                        lz.AddSubCard(id);
-                        return new List<WrappedCard> { lz };
-                    }
-                }
-
-                if (ai.GetOverflow(player) > 0 && ai.FriendNoSelf.Count > 0)
-                {
-                    WrappedCard lz = new WrappedCard(LianzhuCard.ClassName) { Skill = Name };
-                    lz.AddSubCard(ids[0]);
-                    return new List<WrappedCard> { lz };
-                }
+                WrappedCard lz = new WrappedCard(LianzhuCard.ClassName) { Skill = Name };
+                return new List<WrappedCard> { lz };
             }
             return null;
         }
@@ -6194,7 +6177,10 @@ namespace SanguoshaServer.AI
             {
                 Player target = use.To[0];
                 if (ai.GetPlayerTendency(target) != "unknown" && !ai.HasSkill("qingjian|rende|mingjian|mizhao", target))
-                    ai.UpdatePlayerRelation(player, target, false);
+                {
+                    bool black = WrappedCard.IsBlack(ai.Room.GetCard(use.Card.GetEffectiveId()).Suit);
+                    ai.UpdatePlayerRelation(player, target, !black);
+                }
             }
         }
         public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
@@ -6202,19 +6188,21 @@ namespace SanguoshaServer.AI
             Room room = ai.Room;
 
             List<Player> friends = ai.FriendNoSelf;
-            bool black = WrappedCard.IsBlack(room.GetCard(card.GetEffectiveId()).Suit);
-            if (black)
+            List<int> ids = player.GetCards("he");
+            ai.SortByUseValue(ref ids, false);
+            int black = -1, red = -1;
+
+            foreach (int id in ids)
+            {
+                if (black == -1 && WrappedCard.IsBlack(room.GetCard(id).Suit))
+                    black = id;
+                else if (red == -1 && WrappedCard.IsRed(room.GetCard(id).Suit))
+                    red = id;
+            }
+
+            if (black > -1)
             {
                 ai.Number[Name] = 4;
-                foreach (Player p in friends)
-                {
-                    if (ai.HasSkill("qingjian|rende|mingjian|mizhao", p))
-                    {
-                        use.Card = card;
-                        use.To.Add(p);
-                        return;
-                    }
-                }
                 List<Player> enemies = ai.GetEnemies(player);
                 ai.SortByHandcards(ref enemies, false);
                 foreach (Player p in enemies)
@@ -6222,6 +6210,7 @@ namespace SanguoshaServer.AI
                     if (p.GetCardCount(true) < 2)
                     {
                         use.Card = card;
+                        use.Card.AddSubCard(black);
                         use.To.Add(p);
                         return;
                     }
@@ -6232,29 +6221,23 @@ namespace SanguoshaServer.AI
                     if (!(ai.HasSkill(TrustedAI.LoseEquipSkill, p) && p.HasEquip()) && !(p.IsWounded() && p.HasArmor(SilverLion.ClassName)))
                     {
                         use.Card = card;
+                        use.Card.AddSubCard(black);
                         use.To.Add(p);
                         return;
                     }
                 }
             }
-            else
+            else if (red > -1 && ai.FriendNoSelf.Count > 0)
             {
-                ai.Number[Name] = 1;
-                KeyValuePair<Player, int> key = ai.GetCardNeedPlayer();
-                if (key.Key != null)
-                {
-                    card.ClearSubCards();
-                    card.AddSubCard(key.Value);
-                    use.To.Add(key.Key);
-                    return;
-                }
+                ai.Number[Name] = 3;
+                use.Card = card;
+                use.Card.AddSubCard(red);
+                use.To.Add(ai.FriendNoSelf[0]);
+                return;
             }
         }
 
-        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
-        {
-            return ai.Number[Name];
-        }
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => ai.Number[Name];
     }
 
     public class ZhoufuAI : SkillEvent

@@ -1051,7 +1051,7 @@ namespace SanguoshaServer.AI
                 return;
             }
 
-            if (ai.GetOverflow(player) > 0)
+            if (ai.GetOverflow(player) > 0 && ai.FriendNoSelf.Count > 0)
             {
                 ai.Number[Name] = 0;
                 List<int> ids = player.GetCards("h");
