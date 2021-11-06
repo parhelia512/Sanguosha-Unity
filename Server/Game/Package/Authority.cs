@@ -53,6 +53,10 @@ namespace SanguoshaServer.Package
                 new ZhuweiMax(),
                 new ZhuweiTar(),
                 new Keshou(),
+                new ZhukouHegemony(),
+                new Duannian(),
+                new Lianyou(),
+                new Xinghuo(),
 
                 new Huibian(),
                 new Zongyu(),
@@ -2827,6 +2831,172 @@ namespace SanguoshaServer.Package
         public override int GetExtra(Room room, Player target)
         {
             return target.GetMark("zhuwei_max");
+        }
+    }
+
+    public class ZhukouHegemony : TriggerSkill
+    {
+        public ZhukouHegemony() : base("zhukou_hegemony")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.Damage, TriggerEvent.CardResponded, TriggerEvent.EventPhaseChanging };
+            skill_type = SkillType.Replenish;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardUsed && room.Current != null && player.GetMark(Name) == 0 && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name))
+                player.AddMark("zhukou_used");
+            else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Use && room.Current != null && player.GetMark(Name) == 0)
+                player.AddMark("zhukou_used");
+            else if (triggerEvent == TriggerEvent.Damage && room.Current != null && room.Current.Phase == PlayerPhase.Play)
+                player.AddMark(Name);
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change)
+            {
+                if (change.From == PlayerPhase.Play)
+                {
+                    foreach (Player p in room.GetAlivePlayers())
+                        p.SetMark(Name, 0);
+                }
+                else if (change.To == PlayerPhase.NotActive)
+                {
+                    foreach (Player p in room.GetAlivePlayers())
+                        p.SetMark("zhukou_used", 0);
+                }
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.Damage && room.Current != null && room.Current.Phase == PlayerPhase.Play && base.Triggerable(player, room)
+                && player.GetMark(Name) == 1 && player.GetMark("zhukou_used") > 0)
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, "@zhukou-draw:::" + player.GetMark("zhukou_used").ToString(), info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int count = Math.Min(5, player.GetMark("zhukou_used"));
+            room.DrawCards(player, count, Name);
+            return false;
+        }
+    }
+
+    public class Duannian : TriggerSkill
+    {
+        public Duannian() : base("duannian")
+        {
+            events.Add(TriggerEvent.EventPhaseEnd);
+            skill_type = SkillType.Replenish;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (player.Phase == PlayerPhase.Play && !player.IsKongcheng() && base.Triggerable(player, room) && RoomLogic.CanDiscard(room, player, player, "h"))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                room.ThrowAllHandCards(player);
+                return info;
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int count = player.MaxHp - player.HandcardNum;
+            if (count > 0) room.DrawCards(player, count, Name);
+            return false;
+        }
+    }
+
+    public class Lianyou : TriggerSkill
+    {
+        public Lianyou() : base("lianyou")
+        {
+            events.Add(TriggerEvent.Death);
+            skill_type = SkillType.Wizzard;
+        }
+        public override bool CanPreShow() => false;
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (player != null && RoomLogic.PlayerHasSkill(room, player, Name))
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@lianyou", true, true, info.SkillPosition);
+            if (target != null)
+            {
+                room.SetTag(Name, target);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.GetTag(Name) is Player target)
+            {
+                room.RemoveTag(Name);
+                room.HandleAcquireDetachSkills(target, "xinghuo", true);
+            }
+
+            return false;
+        }
+    }
+
+    class Xinghuo : TriggerSkill
+    {
+        public Xinghuo() : base("xinghuo")
+        {
+            events.Add(TriggerEvent.DamageCaused);
+            frequency = Frequency.Compulsory;
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is DamageStruct damage && damage.Nature == DamageStruct.DamageNature.Fire && base.Triggerable(player, room))
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(player, Name);
+            DamageStruct damage = (DamageStruct)data;
+            LogMessage log = new LogMessage
+            {
+                Type = "#AddDamage",
+                From = player.Name,
+                To = new List<string> { damage.To.Name },
+                Arg = Name,
+                Arg2 = (++damage.Damage).ToString()
+            };
+            room.SendLog(log);
+
+            data = damage;
+
+            return false;
         }
     }
 
