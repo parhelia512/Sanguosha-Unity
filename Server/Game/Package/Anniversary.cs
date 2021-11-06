@@ -3118,10 +3118,16 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change)
             {
-                if (change.From == PlayerPhase.Draw && player.GetMark("shunshi_draw_delay") > 0)
+                if (change.From == PlayerPhase.Draw)
                 {
-                    player.AddMark("shunshi_draw", player.GetMark("shunshi_draw_delay"));
-                    player.SetMark("shunshi_draw_delay", 0);
+                    if (player.GetMark("shunshi_draw") > 0)
+                        player.SetMark("shunshi_draw", 0);
+
+                    if (player.GetMark("shunshi_draw_delay") > 0)
+                    {
+                        player.AddMark("shunshi_draw", player.GetMark("shunshi_draw_delay"));
+                        player.SetMark("shunshi_draw_delay", 0);
+                    }
                 }
                 else if (change.From == PlayerPhase.Play)
                 {
