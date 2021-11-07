@@ -12888,8 +12888,9 @@ namespace SanguoshaServer.Package
         {
             List<int> hands = player.GetCards("h");
             List<int> in_turn = player.ContainsTag(Name) ? (List<int>)player.GetTag(Name) : new List<int>();
+            in_turn.RemoveAll(t => (room.GetCardPlace(t) != Place.PlaceHand || room.GetCardOwner(t) != player));
             hands.RemoveAll(t => in_turn.Contains(t));
-            hands.RemoveAll(t => RoomLogic.CanDiscard(room, player, player, t));
+            hands.RemoveAll(t => !RoomLogic.CanDiscard(room, player, player, t));
 
             room.SendCompulsoryTriggerLog(player, Name);
             List<string> choices = new List<string>();
@@ -12992,21 +12993,21 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class SujianVS : OneCardViewAsSkill
+    public class SujianVS : ViewAsSkill
     {
         public SujianVS() : base("sujian")
         {
             response_pattern = "@@sujian";
         }
-        public override bool ViewFilter(Room room, WrappedCard to_select, Player player)
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
         {
             return player.GetPile("#sujian").Contains(to_select.Id);
         }
 
-        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
         {
             WrappedCard ss = new WrappedCard(SujianCard.ClassName);
-            ss.AddSubCard(card);
+            ss.AddSubCards(cards);
             return ss;
         }
     }

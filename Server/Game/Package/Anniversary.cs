@@ -3097,7 +3097,7 @@ namespace SanguoshaServer.Package
             {
                 Type = "#AddDamaged",
                 From = player.Name,
-                Arg = Name,
+                Arg = "yishe_dfr",
                 Arg2 = (damage.Damage).ToString()
             };
             room.SendLog(log);
@@ -3237,7 +3237,7 @@ namespace SanguoshaServer.Package
     {
         public ShunshiVS() : base("shunshi")
         {
-            filter_pattern = ".";
+            filter_pattern = "..";
             response_pattern = "@@shunshi";
         }
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
@@ -7843,7 +7843,7 @@ namespace SanguoshaServer.Package
 
     public class HuoshuiC : TriggerSkill
     {
-        public HuoshuiC() : base("huoshui_class")
+        public HuoshuiC() : base("huoshui_classic")
         {
             events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.EventPhaseChanging };
         }
@@ -9789,12 +9789,9 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is CardUseStruct use && !player.HasFlag(Name) && player.Phase != PlayerPhase.NotActive && !use.Card.IsVirtualCard())
-            {
-                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                if (!(fcard is SkillCard))
-                    return new TriggerStruct(Name, player);
-            }
+            if (data is CardUseStruct use && !player.HasFlag(Name) && (player.Phase != PlayerPhase.NotActive || player.GetMark("yaner") > 0) && !use.Card.IsVirtualCard() && base.Triggerable(player, room))
+                return new TriggerStruct(Name, player);
+
             return new TriggerStruct();
         }
 
@@ -9904,8 +9901,7 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
-            if (move.From != null && move.From.Alive && move.From_places.Contains(Place.PlaceHand) && move.Is_last_handcard)
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.From_places.Contains(Place.PlaceHand) && move.Is_last_handcard)
             {
                 List<Player> jfs = RoomLogic.FindPlayersBySkillName(room, Name);
                 foreach (Player p in jfs)
