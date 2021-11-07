@@ -2148,7 +2148,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && (move.From_places.Contains(Place.PlaceEquip)
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && (move.From_places.Contains(Place.PlaceEquip)
                 || move.From_places.Contains(Place.PlaceHand)) && move.From.GetMark("pianchong") > 0 && (move.To != move.From || move.To_place != Place.PlaceHand))
             {
                 bool black = move.From.GetMark("pianchong") == 1;
@@ -10084,7 +10084,7 @@ namespace SanguoshaServer.Package
                 room.RoomThread.Trigger(TriggerEvent.MaxHpChanged, room, player);
                 room.Recover(player, Math.Min(3, player.MaxHp - player.Hp));
 
-                room.HandleAcquireDetachSkills(player, "-zhukou|yuyun", true);
+                room.HandleAcquireDetachSkills(player, "-zhukou|yuyun", false);
             }
 
             return false;

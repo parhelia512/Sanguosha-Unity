@@ -2876,7 +2876,8 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.AskForSkillInvoke(player, Name, "@zhukou-draw:::" + player.GetMark("zhukou_used").ToString(), info.SkillPosition))
+            int count = Math.Min(5, player.GetMark("zhukou_used"));
+            if (room.AskForSkillInvoke(player, Name, "@zhukou-draw:::" + count, info.SkillPosition))
             {
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                 return info;

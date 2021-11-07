@@ -9731,7 +9731,7 @@ namespace SanguoshaServer.Package
                 }
                 else
                 {
-                    List<string> arg = new List<string> { GameEventType.S_GAME_EVENT_JUDGE_RESULT.ToString(), id.ToString(), "true" };
+                    List<string> arg = new List<string> { GameEventType.S_GAME_EVENT_JUDGE_RESULT.ToString(), id.ToString(), "false" };
                     room.DoBroadcastNotify(CommandType.S_COMMAND_LOG_EVENT, arg);
 
                     Thread.Sleep(800);
