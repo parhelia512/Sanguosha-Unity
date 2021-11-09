@@ -9834,7 +9834,9 @@ namespace SanguoshaServer.Package
 
                     if (targets.Count > 0)
                     {
+                        player.SetFlags("zhiren_" + flag);
                         Player target = room.AskForPlayerChosen(player, targets, Name, string.Format("@zhiren-{0}", flag), true, true, info.SkillPosition);
+                        player.SetFlags("-zhiren_" + flag);
                         if (target != null)
                         {
                             room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
@@ -9855,7 +9857,9 @@ namespace SanguoshaServer.Package
 
                         if (targets.Count > 0)
                         {
+                            player.SetFlags("zhiren_" + flag);
                             Player target = room.AskForPlayerChosen(player, targets, Name, string.Format("@zhiren-{0}", flag), true, true, info.SkillPosition);
+                            player.SetFlags("-zhiren_" + flag);
                             if (target != null)
                             {
                                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
@@ -9901,7 +9905,8 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.From_places.Contains(Place.PlaceHand) && move.Is_last_handcard)
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive
+                && move.From_places.Contains(Place.PlaceHand) && move.Is_last_handcard)
             {
                 List<Player> jfs = RoomLogic.FindPlayersBySkillName(room, Name);
                 foreach (Player p in jfs)
@@ -9912,12 +9917,18 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (data is CardsMoveOneTimeStruct move && move.From.Alive && room.AskForSkillInvoke(ask_who, Name, move.From, info.SkillPosition))
+            if (data is CardsMoveOneTimeStruct move && move.From.Alive)
             {
-                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, ((CardsMoveOneTimeStruct)data).From.Name);
-                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
-                ask_who.SetFlags(Name);
-                return info;
+                move.From.SetFlags("yaner_target");
+                bool invoke = room.AskForSkillInvoke(ask_who, Name, move.From, info.SkillPosition);
+                move.From.SetFlags("-yaner_target");
+                if (invoke)
+                {
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, ((CardsMoveOneTimeStruct)data).From.Name);
+                    room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                    ask_who.SetFlags(Name);
+                    return info;
+                }
             }
 
             return new TriggerStruct();
@@ -10202,7 +10213,9 @@ namespace SanguoshaServer.Package
 
                         if (targets.Count > 0)
                         {
+                            player.SetFlags("yuyun_full");
                             Player target = room.AskForPlayerChosen(player, targets, Name, "@yuyun-draw", false, true, position);
+                            player.SetFlags("-yuyun_full");
                             if (target != null)
                             {
                                 room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);

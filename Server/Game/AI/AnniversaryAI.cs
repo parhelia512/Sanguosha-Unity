@@ -54,6 +54,10 @@ namespace SanguoshaServer.AI
                 new FuhaiAI(),
                 new SongshuAI(),
                 new SibianAI(),
+                new ZhirenAI(),
+                new YanerAI(),
+                new ZhukouAI(),
+                new YuyunAI(),
 
                 new KannanAI(),
                 new JiedaoAI(),
@@ -77,6 +81,7 @@ namespace SanguoshaServer.AI
                 new LiangyingClassicAI(),
                 new ShishouAI(),
                 new YixiangSPAI(),
+                new GuowuAI(),
             };
 
             use_cards = new List<UseCard>
@@ -1942,6 +1947,178 @@ namespace SanguoshaServer.AI
         }
     }
 
+
+    public class ZhirenAI : SkillEvent
+    {
+        public ZhirenAI() : base("zhiren")
+        {
+            key = new List<string> { "cardChosen:zhiren" };
+        }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            //针对所选择的卡牌判断敌友
+            if (ai.Self == player && !(ai is StupidAI)) return;
+            Room room = ai.Room;
+            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str)
+            {
+                List<string> strs = new List<string>(str.Split(':'));
+                if (strs[1] == Name)
+                {
+                    int card_id = int.Parse(strs[2]);
+                    Player target = room.FindPlayer(strs[4]);
+                    if (room.GetCardPlace(card_id) == Place.PlaceJudge)
+                    {
+                        if (room.GetCard(card_id).Name != Lightning.ClassName)
+                            ai.UpdatePlayerRelation(player, target, true);
+                        else
+                        {
+                            Player winner = ai.GetWizzardRaceWinner(room.GetCard(card_id).Name, target, target);
+                            if (winner != null && ai.IsFriend(winner, target))
+                                ai.UpdatePlayerRelation(player, target, false);
+                            else
+                                ai.UpdatePlayerRelation(player, target, true);
+                        }
+                    }
+                    else if (room.GetCardPlace(card_id) == Place.PlaceEquip)
+                        ai.UpdatePlayerRelation(player, target, ai.GetKeepValue(card_id, target, Player.Place.PlaceEquip) > 0 ? false : true);
+                }
+            }
+        }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            string flag = "ej";
+            if (player.HasFlag("zhiren_e")) flag = "e";
+            else if (player.HasFlag("zhiren_j")) flag = "j";
+            Room room = ai.Room;
+            List<ScoreStruct> scores = new List<ScoreStruct>();
+            foreach (Player p in room.GetAlivePlayers())
+            {
+                if (RoomLogic.CanDiscard(room, player, p, flag) && p.GetCards(flag).Count > 0)
+                    scores.Add(ai.FindCards2Discard(player, p, Name, flag, HandlingMethod.MethodDiscard));
+            }
+            scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+            return scores[0].Players;
+        }
+    }
+
+    public class YanerAI : SkillEvent
+    {
+        public YanerAI() : base("yaner")
+        {
+            key = new List<string> { "skillInvoke:yaner:yes" };
+        }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str && ai.Self != player)
+            {
+                Room room = ai.Room;
+                if (str == key[0])
+                {
+                    Player target = null;
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (p.HasFlag("yaner_target"))
+                        {
+                            target = p;
+                            break;
+                        }
+                    }
+                    if (ai.GetPlayerTendency(target) != "unknown") ai.UpdatePlayerRelation(player, target, true);
+                }
+            }
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is Player target)
+                return ai.IsFriend(target);
+            return false;
+        }
+    }
+
+    public class ZhukouAI : SkillEvent
+    {
+        public ZhukouAI() : base("zhukou") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is string str && str.StartsWith("@zhukou-draw"))
+                return true;
+            else
+            {
+                double value = 0;
+                foreach (Player p in ai.Room.GetOtherPlayers(player))
+                    value += ai.GetDamageScore(new DamageStruct(Name, player, p)).Score;
+
+                return value > 4;
+            }
+        }
+    }
+
+    public class YuyunAI : SkillEvent
+    {
+        public YuyunAI() : base("yuyun") { }
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
+        {
+            if (choice.Contains("maxhp"))
+                return player.Hp < player.MaxHp && player.GetLostHp() > 1 ? "maxhp" : "hp";
+            else if (choice.Contains("draw"))
+                return "draw";
+            else if (choice.Contains("full"))
+            {
+                Room room = ai.Room;
+                int min = 200;
+                foreach (Player p in room.GetOtherPlayers(player))
+                {
+                    if (p.HandcardNum < min)
+                        min = p.HandcardNum;
+                }
+                if (min < 5)
+                {
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (p.HandcardNum == min && p.MaxHp - p.HandcardNum >= 2 && ai.IsFriend(p))
+                            return "full";
+                    }
+                }
+            }
+            else if (choice.Contains("max") && ai.GetOverflow(player) > 3)
+                return "max";
+            else if (choice.Contains("discard"))
+                return "discard";
+
+            return "slash";
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            if (player.HasFlag("yuyun_full"))
+            {
+                foreach (Player p in targets)
+                {
+                    if (p.MaxHp - p.HandcardNum >= 2 && ai.IsFriend(p))
+                        return new List<Player> { p };
+                }
+            }
+            else
+            {
+                foreach (Player p in targets)
+                {
+                    if (ai.IsEnemy(p) && p.HasEquip() && !p.IsKongcheng()) return new List<Player> { p };
+                }
+                ai.SortByDefense(ref targets, false);
+                foreach (Player p in targets)
+                {
+                    if (ai.IsEnemy(p)) return new List<Player> { p };
+                }
+            }
+            return new List<Player>();
+        }
+    }
+
     public class KannanAI : SkillEvent
     {
         public KannanAI() : base("kannan")
@@ -2920,5 +3097,11 @@ namespace SanguoshaServer.AI
             }
             return true;
         }
+    }
+
+    public class GuowuAI : SkillEvent
+    {
+        public GuowuAI() : base("guowu") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
     }
 }

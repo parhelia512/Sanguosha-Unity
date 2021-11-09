@@ -36,6 +36,10 @@ namespace SanguoshaServer.AI
                 new HuibianAI(),
                 new ZongyuAI(),
                 new JiananAI(),
+                new ZhukouHegemonyAI(),
+                new DuannianAI(),
+                new XinghuoAI(),
+                new LianyouAI(),
 
                 new WushengFZAI(),
                 new PaoxiaoFZAI(),
@@ -1567,6 +1571,43 @@ namespace SanguoshaServer.AI
         public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
         {
             return base.OnChoice(ai, player, choice, data);
+        }
+    }
+
+    public class ZhukouHegemonyAI : SkillEvent
+    {
+        public ZhukouHegemonyAI() : base("zhukou_hegemony") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => ai.WillShowForAttack();
+    }
+
+    public class DuannianAI : SkillEvent
+    {
+        public DuannianAI() : base("duannian") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            return ai.WillShowForDefence() && player.HandcardNum < player.MaxHp;
+        }
+    }
+
+    public class XinghuoAI : SkillEvent
+    {
+        public XinghuoAI() : base("xinghuo") { }
+        public override void DamageEffect(TrustedAI ai, ref DamageStruct damage, DamageStruct.DamageStep step)
+        {
+            if (damage.From != null && damage.From.Alive && RoomLogic.PlayerHasShownSkill(ai.Room, damage.From, Name) && damage.Nature == DamageStruct.DamageNature.Fire)
+                damage.Damage++;
+        }
+    }
+
+    public class LianyouAI : SkillEvent
+    {
+        public LianyouAI() : base("lianyou") { }
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            foreach (Player p in targets)
+                if (ai.IsFriend(p)) return new List<Player> { p };
+
+            return new List<Player>();
         }
     }
 }

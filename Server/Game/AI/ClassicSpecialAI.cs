@@ -90,6 +90,9 @@ namespace SanguoshaServer.AI
                 new MubingAI(),
                 new ZhiquAI(),
                 new LiushiAI(),
+                new FengziAI(),
+                new JizhanAI(),
+                new FusongAI(),
 
                 new XuejiAI(),
                 new LiangzhuAI(),
@@ -135,6 +138,8 @@ namespace SanguoshaServer.AI
                 new XiashuAI(),
                 new QizhouAI(),
                 new ShanxiAI(),
+                new WeiyiAI(),
+                new JinzhiAI(),
             };
 
             use_cards = new List<UseCard>
@@ -7050,6 +7055,55 @@ namespace SanguoshaServer.AI
         }
     }
 
+
+    public class FengziAI : SkillEvent
+    {
+        public FengziAI() : base("fengzi") { }
+        public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
+        {
+            Room room = ai.Room;
+            if (room.GetTag(Name) is CardUseStruct use)
+            {
+                if (use.Card.Name == ExNihilo.ClassName || use.Card.Name.Contains(Slash.ClassName) || (use.Card.Name == Dismantlement.ClassName && !use.To[0].IsNude() && ai.IsEnemy(use.To[0]))
+                    || (use.Card.Name == Snatch.ClassName && !use.To[0].IsNude() && ai.IsEnemy(use.To[0])) || (use.Card.Name == Peach.ClassName && use.To[0].IsWounded()))
+                {
+                    List<string> s_ids = new List<string>(pattern.Split('#'));
+                    List<int> ids = JsonUntity.StringList2IntList(s_ids);
+                    if (ids.Count > 0)
+                    {
+                        ai.SortByUseValue(ref ids, false);
+                        return new List<int> { ids[0] };
+                    }
+                }
+            }
+
+            return new List<int>();
+        }
+    }
+
+    public class JizhanAI : SkillEvent
+    {
+        public JizhanAI() : base("jizhan") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
+        {
+            if (data is int number && number >= 8)
+                return "small";
+            return "big";
+        }
+    }
+
+    public class FusongAI : SkillEvent
+    {
+        public FusongAI() : base("fusong") { }
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            foreach (Player p in targets)
+                if (ai.IsFriend(p)) return new List<Player> { p };
+            return new List<Player>();
+        }
+    }
+
     public class HongyuanAI : SkillEvent
     {
         public HongyuanAI() : base("hongyuan")
@@ -8190,6 +8244,218 @@ namespace SanguoshaServer.AI
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
         {
             return 3.1;
+        }
+    }
+
+    public class WeiyiAI : SkillEvent
+    {
+        public WeiyiAI() : base("weiyi")
+        {
+            key = new List<string> { "skillInvoke:weiyi:yes", "skillChoice:weiyi" };
+        }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str && ai.Self != player)
+            {
+                Room room = ai.Room;
+                if (str == key[0])
+                {
+                    Player target = null;
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (p.HasFlag(Name))
+                        {
+                            target = p;
+                            break;
+                        }
+                    }
+                    if (target.Hp != player.Hp && ai.GetPlayerTendency(target) != "unknown") ai.UpdatePlayerRelation(player, target, target.Hp < player.Hp);
+                }
+                else if (str == key[1])
+                {
+                    List<string> strs = new List<string>(str.Split(':'));
+                    Player target = null;
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (p.HasFlag(Name))
+                        {
+                            target = p;
+                            break;
+                        }
+                    }
+                    if (ai.GetPlayerTendency(target) != "unknown") ai.UpdatePlayerRelation(player, target, strs[2] == "recover");
+                }
+            }
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is Player target)
+            {
+                if (ai.IsFriend(target) && target.Hp <= player.Hp && target.IsWounded())
+                    return true;
+                else if (ai.IsEnemy(target) && target.Hp >= player.Hp)
+                    return true;
+            }
+            return false;
+        }
+
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
+        {
+            if (data is Player target && ai.IsFriend(target))
+                return "recover";
+            return "losehp";
+        }
+    }
+
+    public class JinzhiAI : SkillEvent
+    {
+        public JinzhiAI() : base("jinzhi") { }
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+
+            List<WrappedCard> result = new List<WrappedCard>();
+            int count = player.GetMark(Name);
+            List<int> ids = new List<int>();
+            Room room = ai.Room;
+            foreach (int id in player.GetCards("he"))
+                if (RoomLogic.CanDiscard(room, player, player, id))
+                    ids.Add(id);
+            if (count < 2 && ids.Count >= count)
+            {
+                List<int> subs = new List<int>();
+                if (ids.Count > 0 && count > 0)
+                {
+                    List<double> values = ai.SortByKeepValue(ref ids, false);
+                    if (values[0] < 0)
+                    {
+                        if (count > 0) subs.Add(ids[0]);
+                        ids.RemoveAt(0);
+                    }
+                    ai.SortByUseValue(ref ids, false);
+                    for (int i = 0; i < count - 1; i++)
+                        subs.Add(ids[i]);
+                }
+
+                WrappedCard huomo = new WrappedCard(JinzhiCard.ClassName) { Skill = Name };
+                huomo.AddSubCards(subs);
+
+                WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = Name };
+                slash.AddSubCards(subs);
+                huomo.UserString = Slash.ClassName;
+                slash.UserString = RoomLogic.CardToString(room, huomo);
+                result.Add(slash);
+
+                WrappedCard peach = new WrappedCard(Peach.ClassName) { Skill = Name };
+                peach.AddSubCards(subs);
+                huomo.UserString = Peach.ClassName;
+                peach.UserString = RoomLogic.CardToString(room, huomo);
+                result.Add(peach);
+
+                WrappedCard ana = new WrappedCard(Analeptic.ClassName) { Skill = Name };
+                ana.AddSubCards(subs);
+                huomo.UserString = Analeptic.ClassName;
+                ana.UserString = RoomLogic.CardToString(room, huomo);
+                result.Add(ana);
+            }
+
+            return result;
+        }
+
+        public override List<WrappedCard> GetViewAsCards(TrustedAI ai, string pattern, Player player)
+        {
+            List<int> ids = new List<int>();
+            Room room = ai.Room;
+            List<WrappedCard> result = new List<WrappedCard>();
+            if (room.GetRoomState().GetCurrentCardUseReason() == CardUseStruct.CardUseReason.CARD_USE_REASON_RESPONSE_USE
+                || room.GetRoomState().GetCurrentCardUseReason() == CardUseStruct.CardUseReason.CARD_USE_REASON_RESPONSE
+                || room.GetRoomState().GetCurrentCardUseReason() == CardUseStruct.CardUseReason.CARD_USE_REASON_PLAY)
+            {
+                int count = player.GetMark(Name);
+                foreach (int id in player.GetCards("he"))
+                    if (RoomLogic.CanDiscard(room, player, player, id))
+                        ids.Add(id);
+
+                if (count < 2 && ids.Count >= count)
+                {
+                    List<int> subs = new List<int>();
+                    if (ids.Count > 0 && count > 0)
+                    {
+                        List<double> values = ai.SortByKeepValue(ref ids, false);
+                        if (values[0] < 0)
+                        {
+                            if (count > 0) subs.Add(ids[0]);
+                            ids.RemoveAt(0);
+                        }
+                        ai.SortByUseValue(ref ids, false);
+                        for (int i = 0; i < count - 1; i++)
+                            subs.Add(ids[i]);
+                    }
+
+                    if (pattern == Slash.ClassName)
+                    {
+                        WrappedCard huomo = new WrappedCard(JinzhiCard.ClassName) { Skill = Name };
+                        huomo.AddSubCards(subs);
+
+                        WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = Name };
+                        slash.AddSubCards(subs);
+                        huomo.UserString = Slash.ClassName;
+                        slash.UserString = RoomLogic.CardToString(room, huomo);
+                        result.Add(slash);
+
+                        WrappedCard fslash = new WrappedCard(FireSlash.ClassName) { Skill = Name };
+                        fslash.AddSubCards(subs);
+                        huomo.UserString = FireSlash.ClassName;
+                        fslash.UserString = RoomLogic.CardToString(room, huomo);
+                        result.Add(fslash);
+
+                        WrappedCard tslash = new WrappedCard(ThunderSlash.ClassName) { Skill = Name };
+                        tslash.AddSubCards(subs);
+                        huomo.UserString = ThunderSlash.ClassName;
+                        tslash.UserString = RoomLogic.CardToString(room, huomo);
+                        result.Add(tslash);
+                    }
+                    else if (pattern == Analeptic.ClassName)
+                    {
+                        WrappedCard huomo = new WrappedCard(JinzhiCard.ClassName) { Skill = Name };
+                        huomo.AddSubCards(subs);
+
+                        WrappedCard slash = new WrappedCard(Analeptic.ClassName) { Skill = Name };
+                        slash.AddSubCards(subs);
+                        huomo.UserString = Analeptic.ClassName;
+                        slash.UserString = RoomLogic.CardToString(room, huomo);
+
+                        result.Add(slash);
+                    }
+                    else if (pattern == Peach.ClassName)
+                    {
+                        WrappedCard huomo = new WrappedCard(JinzhiCard.ClassName) { Skill = Name };
+                        huomo.AddSubCards(subs);
+
+                        WrappedCard slash = new WrappedCard(Peach.ClassName) { Skill = Name };
+                        slash.AddSubCards(subs);
+                        huomo.UserString = Peach.ClassName;
+                        slash.UserString = RoomLogic.CardToString(room, huomo);
+
+                        result.Add(slash);
+                    }
+                    else if (pattern == Jink.ClassName)
+                    {
+                        WrappedCard huomo = new WrappedCard(JinzhiCard.ClassName) { Skill = Name };
+                        huomo.AddSubCards(subs);
+
+                        WrappedCard slash = new WrappedCard(Jink.ClassName) { Skill = Name };
+                        slash.AddSubCards(subs);
+                        huomo.UserString = Jink.ClassName;
+                        slash.UserString = RoomLogic.CardToString(room, huomo);
+
+                        result.Add(slash);
+                    }
+                }
+            }
+
+            return result;
         }
     }
 }

@@ -9609,11 +9609,19 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is CardUseStruct use && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play && !player.HasFlag(Name) && !player.IsKongcheng() && use.To.Count > 0 && use.Card.Name != Collateral.ClassName)
+            if (data is CardUseStruct use && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play && !player.HasFlag(Name)
+                && !player.IsKongcheng() && use.To.Count > 0 && use.Card.Name != Collateral.ClassName)
             {
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
                 if (fcard.IsNDTrick() || fcard is BasicCard)
-                    return new TriggerStruct(Name, player);
+                {
+                    WrappedCard card = new WrappedCard(use.Card.Name) { Skill = "_fengzi" };
+                    foreach (Player p in use.To)
+                    {
+                        if (p.Alive && RoomLogic.IsProhibited(room, player, p, card) == null)
+                            return new TriggerStruct(Name, player);
+                    }
+                }
             }
 
             return new TriggerStruct();
@@ -9643,7 +9651,9 @@ namespace SanguoshaServer.Package
                             ids.Add(id.ToString());
                     }
                 }
+                room.SetTag(Name, data);
                 List<int> discard = room.AskForExchange(player, Name, 1, 0, "@fengzi:::" + use.Card.Name, string.Empty, string.Join("#", ids), info.SkillPosition);
+                room.RemoveTag(Name);
                 if (discard.Count > 0)
                 {
                     room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
@@ -9719,7 +9729,7 @@ namespace SanguoshaServer.Package
                     }
 
                     old = next;
-                    string choice = room.AskForChoice(player, Name, "big+small", new List<string> { "@jizhan:::" + next.ToString() });
+                    string choice = room.AskForChoice(player, Name, "big+small", new List<string> { "@jizhan:::" + next.ToString() }, next);
                     big = choice == "big";
                     LogMessage log = new LogMessage()
                     {
@@ -14669,7 +14679,7 @@ namespace SanguoshaServer.Package
                 List<Player> ps = RoomLogic.FindPlayersBySkillName(room, Name);
                 foreach (Player p in ps)
                 {
-                    if (p.GetMark(string.Format("{0}_{1}", Name, player.Name)) == 0)
+                    if (p.GetMark(string.Format("{0}_{1}", Name, player.Name)) == 0 && (player.Hp >= p.Hp || (player.Hp <= p.Hp && player.IsWounded())))
                         triggers.Add(new TriggerStruct(Name, p));
                 }
             }
@@ -14678,7 +14688,10 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.AskForSkillInvoke(ask_who, Name, player, info.SkillPosition))
+            player.SetFlags(Name);
+            bool invoke = room.AskForSkillInvoke(ask_who, Name, player, info.SkillPosition);
+            player.SetFlags("-weiyi");
+            if (invoke)
             {
                 room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
@@ -14692,8 +14705,12 @@ namespace SanguoshaServer.Package
             ask_who.SetMark(string.Format("{0}_{1}", Name, player.Name), 1);
             List<string> choices = new List<string>();
             if (player.Hp >= ask_who.Hp) choices.Add("losehp");
-            if (player.Hp <= ask_who.Hp) choices.Add("recover");
+            if (player.Hp <= ask_who.Hp && player.IsWounded()) choices.Add("recover");
+
+            player.SetFlags(Name);
             string choice = room.AskForChoice(ask_who, Name, string.Join("+", choices), new List<string> { "@to-player:" + player.Name }, player);
+            player.SetFlags("-weiyi");
+
             if (choice == "losehp")
                 room.LoseHp(player);
             else
