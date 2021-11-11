@@ -12923,7 +12923,9 @@ namespace SanguoshaServer.Package
                     room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                     if (targets.Count > 0)
                     {
+                        player.SetTag(Name, count);
                         Player target = room.AskForPlayerChosen(player, targets, Name, "@sujian-discard:::{0}" + count.ToString(), false, true, info.SkillPosition);
+                        player.RemoveTag(Name);
                         List<string> method = new List<string>();
                         for (int i = 0; i < count; i++)
                             method.Add("he^true^discard");

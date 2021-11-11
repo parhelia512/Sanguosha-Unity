@@ -120,6 +120,8 @@ namespace SanguoshaServer.AI
                 new YuxuAI(),
                 new ShijianAI(),
                 new LuanfengAI(),
+                new XiuhaoAI(),
+                new SujianAI(),
 
                 new HongyuanAI(),
                 new HuanshiAI(),
@@ -1767,6 +1769,103 @@ namespace SanguoshaServer.AI
                 return true;
             }
             return false;
+        }
+    }
+
+    public class XiuhaoAI : SkillEvent
+    {
+        public XiuhaoAI() : base("xiuhao") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is DamageStruct damage)
+            {
+                double score = ai.GetDamageScore(damage).Score;
+                if (player == damage.From && score < 4)
+                    return true;
+                else if (player == damage.To && (score <= -2 || (score < 3 && ai.IsFriend(damage.From))))
+                    return true;
+            }
+            return false;
+        }
+    }
+
+    public class SujianAI : SkillEvent
+    {
+        public SujianAI() : base("sujian")
+        {
+            key = new List<string> { "playerChosen:sujian" };
+        }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (ai.Self == player) return;
+            if (data is string choice)
+            {
+                string[] choices = choice.Split(':');
+                if (choices[1] == Name)
+                {
+                    Room room = ai.Room;
+                    Player target = room.FindPlayer(choices[2]);
+
+                    if (ai.GetPlayerTendency(target) != "unknown")
+                        ai.UpdatePlayerRelation(player, target, false);
+                }
+            }
+        }
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            CardUseStruct use = new CardUseStruct
+            {
+                From = player,
+                To = new List<Player>()
+            };
+            
+            List<Player> friends = ai.FriendNoSelf;
+            if (friends.Count > 0)
+            {
+                WrappedCard card = new WrappedCard(JujianCard.ClassName)
+                {
+                    Skill = Name
+                };
+                List<int> card_ids = player.GetPile("#sujian");
+                KeyValuePair<Player, int> pair = ai.GetCardNeedPlayer(card_ids, friends);
+                if (pair.Key != null && pair.Value >= 0)
+                {
+                    card.AddSubCard(pair.Value);
+                    use.Card = card;
+                    use.To.Add(pair.Key);
+                }
+                else
+                {
+                    ai.SortByDefense(ref friends, false);
+                    card.AddSubCards(card_ids);
+                    use.Card = card;
+                    use.To.Add(friends[0]);
+                }
+            }
+
+            return use;
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            if (player.GetTag(Name) is int count)
+            {
+                ai.SortByDefense(ref targets, false);
+                foreach (Player p in targets)
+                    if (ai.IsEnemy(p) && p.GetCardCount(true) >= count)
+                        return new List<Player> { p };
+
+                foreach (Player p in targets)
+                    if (ai.IsEnemy(p))
+                        return new List<Player> { p };
+            }
+            return new List<Player>();
+        }
+
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
+        {
+            if (ai.FriendNoSelf.Count > 0) return "give";
+            return "discard";
         }
     }
 

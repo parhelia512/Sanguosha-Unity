@@ -2926,7 +2926,9 @@ namespace SanguoshaServer.Package
                 if (count > 0)
                     room.DrawCards(player, count, Name);
 
+                player.SetTag(Name, index);
                 Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@xianwei-equip:::" + choice, true, true, info.SkillPosition);
+                player.RemoveTag(Name);
                 if (target != null)
                 {
                     int card_id = -1;
@@ -3024,8 +3026,13 @@ namespace SanguoshaServer.Package
                         return info;
                 }
 
-                if (!black && move.To.IsWounded() && room.AskForSkillInvoke(ask_who, Name, "@yishe-recover:" + move.To.Name, info.SkillPosition))
-                    return info;
+                if (!black && move.To.IsWounded())
+                {
+                    move.To.SetFlags(Name);
+                    bool invoke = room.AskForSkillInvoke(ask_who, Name, "@yishe-recover:" + move.To.Name, info.SkillPosition);
+                    move.To.SetFlags("-yishe_dfr");
+                    if (invoke) return info;
+                }
             }
             return new TriggerStruct();
         }

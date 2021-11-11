@@ -34,6 +34,9 @@ namespace SanguoshaServer.AI
                 new ZunweiAI(),
                 new YizhengCSAI(),
                 new LiluAI(),
+                new YisheDFRAI(),
+                new ShunshiAI(),
+                new XianweiAI(),
 
                 new TunanAI(),
                 new ManyiAI(),
@@ -100,6 +103,7 @@ namespace SanguoshaServer.AI
                 new NiluanCardAI(),
                 new YujueCardAI(),
                 new ZunweiCardAI(),
+                new ShunshiCardAI(),
             };
         }
     }
@@ -842,6 +846,178 @@ namespace SanguoshaServer.AI
         }
     }
 
+    public class YisheDFRAI : SkillEvent
+    {
+        public YisheDFRAI() : base("yishe_dfr")
+        {
+            key = new List<string> { "skillInvoke:yishe_dfr:yes" };
+        }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str && ai.Self != player)
+            {
+                Room room = ai.Room;
+                if (str == key[0])
+                {
+                    Player target = null;
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (p.HasFlag("Name"))
+                        {
+                            target = p;
+                            break;
+                        }
+                    }
+                    if (ai.GetPlayerTendency(target) != "unknown") ai.UpdatePlayerRelation(player, target, true);
+                }
+            }
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is string str)
+            {
+                string[] strs = str.Split(':');
+                Player target = ai.Room.FindPlayer(strs[1]);
+                return ai.IsFriend(target);
+            }
+            return false;
+        }
+
+        public override void DamageEffect(TrustedAI ai, ref DamageStruct damage, DamageStruct.DamageStep step)
+        {
+            if (damage.To.GetMark(Name) > 0 && damage.Card != null && damage.Card.Name.Contains(Slash.ClassName))
+                damage.Damage += damage.To.GetMark(Name);
+        }
+    }
+
+    public class ShunshiAI : SkillEvent
+    {
+        public ShunshiAI() : base("shunshi")
+        { }
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            CardUseStruct use = new CardUseStruct(null, player, new List<Player>());
+            List<int> ids = player.GetCards("he");
+            if (ids.Count > 0)
+            {
+                Room room = ai.Room;
+                ai.SortByKeepValue(ref ids, false);
+                int red = -1;
+                int black = -1;
+                foreach (int id in ids)
+                {
+                    bool is_black = WrappedCard.IsBlack(room.GetCard(id).Suit);
+                    if (red == -1 && !is_black)
+                        red = id;
+                    else if (black == -1 && is_black)
+                        black = id;
+                }
+                if (red > -1)
+                {
+                    List<Player> friends = new List<Player>(ai.FriendNoSelf);
+                    if (friends.Count > 0)
+                    {
+                        ai.SortByDefense(ref friends, false);
+                        foreach (Player p in friends)
+                        {
+                            if (p.IsWounded())
+                            {
+                                use.Card = new WrappedCard(ShunshiCard.ClassName) { Skill = Name, Mute = true };
+                                use.Card.AddSubCard(red);
+                                use.To.Add(p);
+                                return use;
+                            }
+                        }
+                    }
+                }
+                if (black > -1)
+                {
+                    List<Player> enemies = ai.GetEnemies(player);
+                    if (enemies.Count > 0)
+                    {
+                        ai.SortByDefense(ref enemies, false);
+                        use.Card = new WrappedCard(ShunshiCard.ClassName) { Skill = Name, Mute = true };
+                        use.Card.AddSubCard(black);
+                        use.To.Add(enemies[0]);
+                        return use;
+                    }
+                }
+            }
+
+            return use;
+        }
+    }
+
+    public class ShunshiCardAI : UseCard
+    {
+        public ShunshiCardAI() : base(ShunshiCard.ClassName) { }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use && player != ai.Self)
+            {
+                Player target = use.To[0];
+                if (ai.GetPlayerTendency(target) != "unknown" && WrappedCard.IsBlack(ai.Room.GetCard(use.Card.GetEffectiveId()).Suit))
+                    ai.UpdatePlayerRelation(player, target, false);
+            }
+        }
+    }
+
+    public class XianweiAI : SkillEvent
+    {
+        public XianweiAI() : base("xianwei")
+        {
+            key = new List<string> { "playerChosen:xianwei" };
+        }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (ai.Self == player) return;
+            if (data is string choice)
+            {
+                string[] choices = choice.Split(':');
+                if (choices[1] == Name)
+                {
+                    Room room = ai.Room;
+                    Player target = room.FindPlayer(choices[2]);
+
+                    if (ai.GetPlayerTendency(target) != "unknown")
+                        ai.UpdatePlayerRelation(player, target, true);
+                }
+            }
+        }
+
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
+        {
+            if (choice.Contains("Treasure")) return "Treasure";
+            else if (choice.Contains("Treasure")) return "Treasure";
+            else if (choice.Contains("DefensiveHorse")) return "DefensiveHorse";
+            else if (choice.Contains("Armor")) return "Armor";
+            else if (choice.Contains("Weapon")) return "Weapon";
+            return "OffensiveHorse";
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            if (player.GetTag(Name) is int index)
+            {
+                ai.SortByDefense(ref targets, false);
+                foreach (Player p in targets)
+                {
+                    if (ai.IsFriend(p) && ai.HasSkill(TrustedAI.LoseEquipSkill, p))
+                        return new List<Player> { p };
+                }
+                foreach (Player p in targets)
+                {
+                    if (ai.IsFriend(p) && !p.HasEquip(index))
+                        return new List<Player> { p };
+                }
+            }
+
+            return new List<Player>();
+        }
+    }
+
     public class YizhengCSAI : SkillEvent
     {
         public YizhengCSAI() : base("yizheng_cs")
@@ -873,7 +1049,6 @@ namespace SanguoshaServer.AI
                 Player from = room.FindPlayer(from_name);
                 if (from != null && damage.From.MaxHp < from.MaxHp)
                     damage.Damage++;
-
             }
         }
 
