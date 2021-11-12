@@ -267,7 +267,7 @@ namespace SanguoshaServer.Package
                         if (skill.GetResidueNum(room, player, card) > 500 && !RoomLogic.PlayerHasShownSkill(room, player, skill))
                             q.Add(skill.Name);
                 }
-
+                if (q.Count == 0) return; //有可能已经使用了技能的次数，但是【杀】结算后又减少了【杀】的使用次数
                 List<TriggerStruct> skills = new List<TriggerStruct>();
                 foreach (string skill in q)
                     skills.Add(new TriggerStruct(skill, player));

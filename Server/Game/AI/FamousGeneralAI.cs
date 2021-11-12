@@ -6825,6 +6825,7 @@ namespace SanguoshaServer.AI
             List<WrappedCard> result = new List<WrappedCard>();
             List<int> ids = player.GetCards("he");
             int count = Math.Min(2, player.GetMark(Name));
+            if (count == 0) return new List<WrappedCard> { new WrappedCard(ShenxingCard.ClassName) { Skill = Name } };
             if (ids.Count >= count)
             {
                 Room room = ai.Room;

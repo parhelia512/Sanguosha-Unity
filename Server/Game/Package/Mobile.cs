@@ -3485,7 +3485,7 @@ namespace SanguoshaServer.Package
                 Player target = null;
                 if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && damage.To.Alive && damage.To.GetMark(Name) == 0)
                     target = damage.To;
-                else if (triggerEvent == TriggerEvent.Damaged && data is DamageStruct _damage && _damage.From.Alive && _damage.From.GetMark(Name) == 0)
+                else if (triggerEvent == TriggerEvent.Damaged && data is DamageStruct _damage && _damage.From != null && _damage.From.Alive && _damage.From.GetMark(Name) == 0)
                     target = _damage.From;
 
                 if (target != null)
