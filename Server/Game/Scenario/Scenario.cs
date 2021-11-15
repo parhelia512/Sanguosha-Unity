@@ -498,19 +498,22 @@ namespace SanguoshaServer.Scenario
             if (!killer.Alive || !killer.HasShownOneGeneral())
                 return;
 
-
-            if (!RoomLogic.IsFriendWith(room, killer, victim))
+            object data = victim;
+            if (!room.RoomThread.Trigger(TriggerEvent.RewardPunish, room, killer, ref data))
             {
-                int n = 1;
-                foreach (Player p in room.GetOtherPlayers(victim))
+                if (!RoomLogic.IsFriendWith(room, killer, victim))
                 {
-                    if (RoomLogic.IsFriendWith(room, victim, p))
-                        ++n;
+                    int n = 1;
+                    foreach (Player p in room.GetOtherPlayers(victim))
+                    {
+                        if (RoomLogic.IsFriendWith(room, victim, p))
+                            ++n;
+                    }
+                    room.DrawCards(killer, n, "gamerule");
                 }
-                room.DrawCards(killer, n, "gamerule");
+                else
+                    room.ThrowAllHandCardsAndEquips(killer);
             }
-            else
-                room.ThrowAllHandCardsAndEquips(killer);
         }
 
 

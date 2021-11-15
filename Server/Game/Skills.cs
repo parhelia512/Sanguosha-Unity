@@ -119,6 +119,8 @@ namespace SanguoshaServer.Game
 
         DFDebut, // for Dragon Phoenix Debut
 
+        RewardPunish, //for skip reward & punish
+
         NumOfEvents,
     };
 
