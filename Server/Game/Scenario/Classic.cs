@@ -902,10 +902,14 @@ namespace SanguoshaServer.Scenario
         {
             if (!killer.Alive) return;
 
-            if (victim.GetRoleEnum() == PlayerRole.Rebel)
-                room.DrawCards(killer, 3, "gamerule");
-            if (victim.GetRoleEnum() == PlayerRole.Loyalist && killer.GetRoleEnum() == PlayerRole.Lord)
-                room.ThrowAllHandCardsAndEquips(killer);
+            object data = victim;
+            if (!room.RoomThread.Trigger(TriggerEvent.RewardPunish, room, killer, ref data))
+            {
+                if (victim.GetRoleEnum() == PlayerRole.Rebel)
+                    room.DrawCards(killer, 3, "gamerule");
+                if (victim.GetRoleEnum() == PlayerRole.Loyalist && killer.GetRoleEnum() == PlayerRole.Lord)
+                    room.ThrowAllHandCardsAndEquips(killer);
+            }
         }
     }
 

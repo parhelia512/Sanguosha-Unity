@@ -65,6 +65,7 @@ namespace SanguoshaServer.Package
                 new QuanjinCard(),
                 new ZaoyunCard(),
                 new QingyinCard(),
+                new AocaiHegemonyCard(),
                 new DuwuHegemonyCard(),
                 new JuejueCard(),
             };
@@ -401,11 +402,12 @@ namespace SanguoshaServer.Package
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.From.Phase == PlayerPhase.Discard
-                && move.From.HasFlag(Name) && move.To_place == Place.DiscardPile && move.From_places.Contains(Place.PlaceHand)
-                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.From.Phase == PlayerPhase.Discard && move.From.HasFlag(Name)
+                && move.From_places.Contains(Place.PlaceHand) && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
             {
-                move.From.AddMark(Name);
+                for (int i = 0; i < move.Card_ids.Count; i++)
+                    if (move.From_places[i] == Place.PlaceHand)
+                        move.From.AddMark(Name);
             }
             else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.Discard)
                 player.SetMark(Name, 0);
@@ -484,7 +486,7 @@ namespace SanguoshaServer.Package
             }
             else
             {
-                room.SendCompulsoryTriggerLog(player, Name);
+                room.SendCompulsoryTriggerLog(player, "juejue");
                 return true;
             }
         }
@@ -959,8 +961,7 @@ namespace SanguoshaServer.Package
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.From.Phase == PlayerPhase.Discard
-                && move.To_place == Place.DiscardPile && (move.From_places.Contains(Place.PlaceHand) || move.From_places.Contains(Place.PlaceEquip))
-                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
+                && (move.From_places.Contains(Place.PlaceHand) || move.From_places.Contains(Place.PlaceEquip)) && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
             {
                 for (int i = 0; i < move.Card_ids.Count; i++)
                     if (move.From_places[i] == Place.PlaceHand || move.From_places[i] == Place.PlaceEquip)
@@ -1012,7 +1013,7 @@ namespace SanguoshaServer.Package
             limit_mark = "@qingyin";
         }
 
-        public override bool IsEnabledAtPlay(Room room, Player player) => player.GetMark(Name) > 0;
+        public override bool IsEnabledAtPlay(Room room, Player player) => player.GetMark(limit_mark) > 0;
 
         public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(QingyinCard.ClassName) { Skill = Name, ShowSkill = Name };
     }
@@ -1631,11 +1632,11 @@ namespace SanguoshaServer.Package
             else if (triggerEvent == TriggerEvent.EventPhaseStart)
             {
                 List<int> ids = new List<int>();
-                foreach (int id in ask_who.GetCards("h"))
+                foreach (int id in ask_who.GetCards("e"))
                     if (RoomLogic.CanDiscard(room, ask_who, ask_who, id))
                         ids.Add(id);
                 List<string> strs = JsonUntity.IntList2StringList(ids);
-                List<int> dis = room.AskForExchange(ask_who, Name, 1, 1, "@xishe:" + player.Name, string.Empty, string.Join("#", strs), info.SkillPosition);
+                List<int> dis = room.AskForExchange(ask_who, Name, 1, 0, "@xishe:" + player.Name, string.Empty, string.Join("#", strs), info.SkillPosition);
                 if (dis.Count > 0)
                 {
                     room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
@@ -1658,17 +1659,17 @@ namespace SanguoshaServer.Package
                 WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_xishe", DistanceLimited = false };
                 room.UseCard(new CardUseStruct(slash, ask_who, player, false));
 
-                while (player.Alive && ask_who.Alive && player.HasEquip())
+                while (player.Alive && ask_who.Alive && ask_who.HasEquip())
                 {
                     WrappedCard card = new WrappedCard(Slash.ClassName) { Skill = "_xishe", DistanceLimited = false };
                     if (RoomLogic.IsProhibited(room, ask_who, player, card) == null)
                     {
                         List<int> ids = new List<int>();
-                        foreach (int id in ask_who.GetCards("h"))
+                        foreach (int id in ask_who.GetCards("e"))
                             if (RoomLogic.CanDiscard(room, ask_who, ask_who, id))
                                 ids.Add(id);
                         List<string> strs = JsonUntity.IntList2StringList(ids);
-                        List<int> dis = room.AskForExchange(ask_who, Name, 1, 1, "@xishe:" + player.Name, string.Empty, string.Join("#", strs), info.SkillPosition);
+                        List<int> dis = room.AskForExchange(ask_who, Name, 1, 0, "@xishe:" + player.Name, string.Empty, string.Join("#", strs), info.SkillPosition);
                         if (dis.Count > 0)
                         {
                             room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);

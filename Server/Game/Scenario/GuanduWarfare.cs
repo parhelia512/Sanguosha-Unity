@@ -501,8 +501,12 @@ namespace SanguoshaServer.Scenario
         protected override void RewardAndPunish(Room room, Player killer, Player victim)
         {
             //杀死同阵营惩罚
-            if (killer.Alive && victim.Camp == killer.Camp)
-                room.ThrowAllHandCardsAndEquips(killer);
+            object data = victim;
+            if (!room.RoomThread.Trigger(TriggerEvent.RewardPunish, room, killer, ref data))
+            {
+                if (killer.Alive && victim.Camp == killer.Camp)
+                    room.ThrowAllHandCardsAndEquips(killer);
+            }
         }
     }
 }

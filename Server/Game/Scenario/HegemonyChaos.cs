@@ -708,23 +708,27 @@ namespace SanguoshaServer.Scenario
             if (!killer.Alive || !killer.HasShownOneGeneral())
                 return;
 
-            if (!RoomLogic.IsFriendWith(room, killer, victim))
+            object data = victim;
+            if (!room.RoomThread.Trigger(TriggerEvent.RewardPunish, room, killer, ref data))
             {
-                if (killer.GetRoleEnum() == PlayerRole.Careerist)
-                    room.DrawCards(killer, 3, "gamerule");
-                else
+                if (!RoomLogic.IsFriendWith(room, killer, victim))
                 {
-                    int n = 1;
-                    foreach (Player p in room.GetOtherPlayers(victim))
+                    if (killer.GetRoleEnum() == PlayerRole.Careerist)
+                        room.DrawCards(killer, 3, "gamerule");
+                    else
                     {
-                        if (RoomLogic.IsFriendWith(room, victim, p))
-                            ++n;
+                        int n = 1;
+                        foreach (Player p in room.GetOtherPlayers(victim))
+                        {
+                            if (RoomLogic.IsFriendWith(room, victim, p))
+                                ++n;
+                        }
+                        room.DrawCards(killer, n, "gamerule");
                     }
-                    room.DrawCards(killer, n, "gamerule");
                 }
+                else
+                    room.ThrowAllHandCardsAndEquips(killer);
             }
-            else
-                room.ThrowAllHandCardsAndEquips(killer);
         }
 
         protected override void OnBuryVictim(Room room, Player player, ref object data)
