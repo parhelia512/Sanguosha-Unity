@@ -304,6 +304,7 @@ namespace SanguoshaServer.AI
                     for (int i = 0; i < count; i++)
                         card.AddSubCard(ids[i]);
                     use.Card = card;
+                    use.To.Add(target);
                 }
             }
         }
