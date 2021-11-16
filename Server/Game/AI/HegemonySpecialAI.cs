@@ -328,7 +328,7 @@ namespace SanguoshaServer.AI
 
         public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
-            CardUseStruct use = new CardUseStruct();
+            CardUseStruct use = new CardUseStruct(null, player, new List<Player>());
             Room room = ai.Room;
             Player target = room.Current;
             int count = target.GetMark(Name);
