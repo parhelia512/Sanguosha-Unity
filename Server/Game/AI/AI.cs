@@ -3048,6 +3048,7 @@ namespace SanguoshaServer.AI
 
             if (from.ContainsTag("wenji") && from.GetTag("wenji") is List<string> names && names.Contains(Slash.ClassName))
                 force_hit = 1;
+            if (card.GetSkillName() == "xishe" && to.Hp < from.Hp) force_hit = 1;
             if (HasSkill("fuqi", from) && RoomLogic.DistanceTo(room, from, to) == 1)
                 force_hit = 1;
             if (HasSkill("wanglie", from) && from.Phase == PlayerPhase.Play && !IsFriend(from, to)) force_hit = 1;
