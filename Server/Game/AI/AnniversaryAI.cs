@@ -44,6 +44,8 @@ namespace SanguoshaServer.AI
                 new SouyingAI(),
                 new XiliAI(),
                 new ZhanyuanAI(),
+                new YouyanAI(),
+                new ZhuihuanAI(),
 
                 new GuolunAI(),
                 new SongSangAI(),
@@ -1327,6 +1329,43 @@ namespace SanguoshaServer.AI
                 if (ai.IsFriend(p)) return new List<Player> { p };
 
             return new List<Player>();
+        }
+    }
+
+    public class YouyanAI : SkillEvent
+    {
+        public YouyanAI() : base("youyan") { }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
+    }
+
+    public class ZhuihuanAI : SkillEvent
+    {
+        public ZhuihuanAI() : base("zhuihuan")
+        {
+            key = new List<string> { "playerChosen:zhuihuan" };
+        }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (ai.Self == player) return;
+            if (data is string choice)
+            {
+                string[] choices = choice.Split(':');
+                if (choices[1] == Name)
+                {
+                    Room room = ai.Room;
+                    Player target = room.FindPlayer(choices[2]);
+
+                    if (target != player && ai.GetPlayerTendency(target) != "unknown")
+                        ai.UpdatePlayerRelation(player, target, true);
+                }
+            }
+        }
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            List<Player> friends = ai.GetFriends(player);
+            ai.SortByDefense(ref friends, false);
+            return new List<Player> { friends[0] };
         }
     }
 
