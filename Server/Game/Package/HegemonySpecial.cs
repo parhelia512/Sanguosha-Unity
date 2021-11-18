@@ -55,6 +55,9 @@ namespace SanguoshaServer.Package
                 new Zhiwei(),
                 new AocaiHegemony(),
                 new DuwuHegemony(),
+                new Diaogui(),
+                new Fengyang(),
+                new FengYangFix(),
 
             };
             skill_cards = new List<FunctionCard>
@@ -68,6 +71,7 @@ namespace SanguoshaServer.Package
                 new AocaiHegemonyCard(),
                 new DuwuHegemonyCard(),
                 new JuejueCard(),
+                new DiaoguiCard(),
             };
             related_skills = new Dictionary<string, List<string>>
             {
@@ -77,6 +81,7 @@ namespace SanguoshaServer.Package
                 { "kuangcai_hegemony", new List<string> { "#kuangcai_hegemony", "#kuangcai_hegemony-max" } },
                 { "juejue", new List<string> { "#juejue" } },
                 { "fangyuan", new List<string> { "#fangyuan" } },
+                { "fengyang", new List<string> { "#fengyang" } },
             };
         }
     }
@@ -2190,6 +2195,143 @@ namespace SanguoshaServer.Package
                 room.SendLog(log);
                 room.LoseHp(player);
             }
+        }
+    }
+
+    public class Diaogui : OneCardViewAsSkill
+    {
+        public Diaogui() : base("diaogui")
+        {
+            filter_pattern = "EquipCard";
+        }
+
+        public override bool IsEnabledAtPlay(Room room, Player player)
+        {
+            return !player.IsNude() && !player.HasUsed(DiaoguiCard.ClassName);
+        }
+
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            if (card != null)
+            {
+                WrappedCard dg = new WrappedCard(DiaoguiCard.ClassName) { Skill = Name, ShowSkill = Name };
+                dg.AddSubCard(card);
+                return dg;
+            }
+            return null;
+        }
+    }
+
+    public class DiaoguiCard : SkillCard
+    {
+        public static string ClassName = "DiaoguiCard";
+        public DiaoguiCard() : base(ClassName)
+        {
+            will_throw = false;
+        }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            WrappedCard lt = new WrappedCard(LureTiger.ClassName);
+            lt.AddSubCards(card.SubCards);
+            lt = RoomLogic.ParseUseCard(room, lt);
+            return base.TargetFilter(room, targets, to_select, Self, lt);
+        }
+
+        public override void OnUse(Room room, CardUseStruct card_use)
+        {
+            WrappedCard lt = new WrappedCard(LureTiger.ClassName) { Skill = "diaogui", ShowSkill = "diaogui", SkillPosition = card_use.Card.SkillPosition };
+            lt.AddSubCards(card_use.Card.SubCards);
+            lt = RoomLogic.ParseUseCard(room, lt);
+
+            List<Player> targets = room.AliveCount() >= 4 ? RoomLogic.GetFormation(room, card_use.From) : new List<Player>();
+            int count = targets.Count;
+
+            room.UseCard(new CardUseStruct(lt, card_use.From, card_use.To, true));
+
+            if (card_use.From.Alive)
+            {
+                targets = room.AliveCount() >= 4 ? RoomLogic.GetFormation(room, card_use.From) : new List<Player>();
+                int dix = targets.Count - count;
+                if (dix > 0)
+                    room.DrawCards(card_use.From, dix, "diaogui");
+            }
+        }
+    }
+
+    public class Fengyang : BattleArraySkill
+    {
+        public Fengyang() : base("fengyang", ArrayType.Formation)
+        {
+            events = new List<TriggerEvent>{ TriggerEvent.EventPhaseStart, TriggerEvent.Death, TriggerEvent.EventAcquireSkill, TriggerEvent.GeneralShown,TriggerEvent.GeneralHidden,TriggerEvent.RemoveStateChanged };
+        }
+        public override bool CanPreShow() => false;
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            Player current = room.Current;
+            if (player == null || current == null) return;
+
+            if (triggerEvent == TriggerEvent.EventPhaseStart)
+            {
+                if (player.Phase != PlayerPhase.RoundStart)
+                    return;
+            }
+            else if (triggerEvent == TriggerEvent.Death)
+            {
+                if (player != current && !RoomLogic.IsFriendWith(room, player, player))
+                    return;
+            }
+            else if (triggerEvent == TriggerEvent.GeneralShown)
+            {
+                if (player.HasShownAllGenerals() || !RoomLogic.InFormationRalation(room, current, player))
+                    return;
+            }
+            else if (triggerEvent == TriggerEvent.GeneralHidden && player.HasShownOneGeneral())
+            {
+                return;
+            }
+
+            if (room.AliveCount() < 4)
+                return;
+
+            if (current != null && current.Alive && current.Phase != PlayerPhase.NotActive)
+            {
+                List<Player> jiangweis = RoomLogic.FindPlayersBySkillName(room, Name);
+                foreach (Player jiangwei in jiangweis)
+                {
+                    if (RoomLogic.PlayerHasShownSkill(room, jiangwei, Name) && RoomLogic.InFormationRalation(room, jiangwei, current))
+                    {
+                        room.DoBattleArrayAnimate(jiangwei);
+                        break;
+                    }
+                }
+            }
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            return new TriggerStruct();
+        }
+    }
+
+    public class FengYangFix : FixCardSkill
+    {
+        public FengYangFix() : base("#fengyang")
+        {
+        }
+        public override bool IsCardFixed(Room room, Player from, Player to, string flags, HandlingMethod method)
+        {
+            if (room.AliveCount() >= 4 && !RoomLogic.IsFriendWith(room, from, to) && (method == HandlingMethod.MethodGet || method == HandlingMethod.MethodDiscard) && flags.Contains("e"))
+            {
+                List<Player> players = RoomLogic.GetFormation(room, to);
+                if (players.Count > 1)
+                {
+                    foreach (Player p in players)
+                        if (RoomLogic.PlayerHasShownSkill(room, p, "fengyang"))
+                            return true;
+                }
+            }
+
+            return false;
         }
     }
 }

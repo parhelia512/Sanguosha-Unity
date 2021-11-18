@@ -991,7 +991,7 @@ namespace SanguoshaServer.Game
             return base.Triggerable(player, room) && room.GetAlivePlayers().Count >= 4;
         }
 
-       public virtual void SummonFriends(Room room, Player player)
+        public virtual void SummonFriends(Room room, Player player)
         {
             room.SummonFriends(player, Type);
         }

@@ -40,6 +40,7 @@ namespace SanguoshaServer.AI
                 new ZhenteAI(),
                 new AocaiHegemonyAI(),
                 new DuwuHegemonyAI(),
+                new DiaoguiAI(),
             };
             use_cards = new List<UseCard>
             {
@@ -49,6 +50,7 @@ namespace SanguoshaServer.AI
                 new ZaoyunCardAI(),
                 new QingyinCardAI(),
                 new DuwuHegemonyCardAI(),
+                new DiaoguiCardAI(),
             };
         }
     }
@@ -858,5 +860,186 @@ namespace SanguoshaServer.AI
         }
 
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 5;
+    }
+
+    public class DiaoguiAI : SkillEvent
+    {
+        public DiaoguiAI() : base("diaogui") { }
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            if (!player.HasUsed(DiaoguiCard.ClassName))
+            {
+                Room room = ai.Room;
+                List<int> ids = player.GetCards("he"), can_use = new List<int>(), equips = new List<int>();
+                ids.AddRange(player.GetHandPile());
+                foreach (int id in ids)
+                {
+                    WrappedCard card = room.GetCard(id);
+                    Place place = room.GetCardPlace(id);
+                    if (Engine.GetFunctionCard(card.Name) is BasicCard && RoomLogic.IsCardLimited(room, player, card, FunctionCard.HandlingMethod.MethodUse, place == Place.PlaceHand))
+                    {
+                        if (place == Place.PlaceEquip)
+                            equips.Add(id);
+                        else
+                            can_use.Add(id);
+                    }
+                }
+
+                double value = 0;
+                int sub = -1;
+                if (equips.Count > 0)
+                {
+                    List<double> values = ai.SortByKeepValue(ref equips, false);
+                    value = values[0];
+                    sub = equips[0];
+                }
+                if ((sub == -1 || value >= 0) && can_use.Count > 0)
+                {
+                    List<double> values = ai.SortByUseValue(ref can_use, false);
+                    double _value = values[0];
+                    if (_value < value || sub == -1)
+                    {
+                        sub = can_use[0];
+                        value = _value;
+                    }
+                }
+
+                WrappedCard lt = new WrappedCard(LureTiger.ClassName);
+                lt.AddSubCard(sub);
+                lt = RoomLogic.ParseUseCard(room, lt);
+                if (room.AliveCount() >= 4)
+                {
+                    List<Player> targets = room.AliveCount() >= 4 ? RoomLogic.GetFormation(room, player) : new List<Player>();
+                    int count_right = 0, count_left = 0, use = 2 + Engine.CorrectCardTarget(room, TargetModSkill.ModType.ExtraMaxTarget, player, lt);
+                    for (int i = 0; i < room.AliveCount() - 1; i++)
+                    {
+                        Player target = room.GetNextAlive(player, i, false);
+                        if (!target.Removed)
+                        {
+                            if (RoomLogic.WillBeFriendWith(room, player, target))
+                            {
+                                count_right++;
+                            }
+                            else if (use > 0 && RoomLogic.IsProhibited(room, player, target, lt) == null && !ai.IsCancelTarget(lt, target, player) && ai.IsCardEffect(lt, target, player))
+                            {
+                                use--;
+                            }
+                            else
+                                break;
+                        }
+                    }
+                    if (count_right > 0 && count_right + 1 > targets.Count)
+                    {
+                        WrappedCard huomo = new WrappedCard(DiaoguiCard.ClassName) { Skill = Name, ShowSkill = Name };
+                        huomo.AddSubCard(sub);
+                        return new List<WrappedCard> { huomo };
+                    }
+                    else
+                    {
+                        use = 2 + Engine.CorrectCardTarget(room, TargetModSkill.ModType.ExtraMaxTarget, player, lt);
+                        for (int i = 0; i < room.AliveCount() - 1; i++)
+                        {
+                            Player target = room.GetLastAlive(player, i, false);
+                            if (!target.Removed)
+                            {
+                                if (RoomLogic.WillBeFriendWith(room, player, target))
+                                {
+                                    count_left++;
+                                }
+                                else if (use > 0 && RoomLogic.IsProhibited(room, player, target, lt) == null && !ai.IsCancelTarget(lt, target, player) && ai.IsCardEffect(lt, target, player))
+                                {
+                                    use--;
+                                }
+                                else
+                                    break;
+                            }
+                        }
+                        if (count_left > 0 && count_left + 1 > targets.Count)
+                        {
+                            WrappedCard huomo = new WrappedCard(DiaoguiCard.ClassName) { Skill = Name, ShowSkill = Name };
+                            huomo.AddSubCard(sub);
+                            return new List<WrappedCard> { huomo };
+                        }
+                    }
+                }
+
+                if (sub >= 0)
+                {
+                    if (ai.GetUseValue(lt, player) > value)
+                    {
+                        WrappedCard huomo = new WrappedCard(DiaoguiCard.ClassName) { Skill = Name, ShowSkill = Name };
+                        huomo.AddSubCard(sub);
+                        lt.UserString = RoomLogic.CardToString(room, huomo);
+                        return new List<WrappedCard> { lt };
+                    }
+                }
+            }
+
+            return new List<WrappedCard>();
+        }
+    }
+
+    public class DiaoguiCardAI : UseCard
+    {
+        public DiaoguiCardAI() : base(DiaoguiCard.ClassName)
+        {
+        }
+
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            WrappedCard lt = new WrappedCard(LureTiger.ClassName);
+            lt.AddSubCards(card.SubCards);
+            Room room = ai.Room;
+            lt = RoomLogic.ParseUseCard(room, lt);
+            List<Player> targets = room.AliveCount() >= 4 ? RoomLogic.GetFormation(room, player) : new List<Player>();
+            List<Player> targets_right = new List<Player>(), targets_left = new List<Player>();
+            int count_right = 0, count_left = 0, target_count = 2 + Engine.CorrectCardTarget(room, TargetModSkill.ModType.ExtraMaxTarget, player, lt);
+            for (int i = 0; i < room.AliveCount() - 1; i++)
+            {
+                Player target = room.GetNextAlive(player, i, false);
+                if (!target.Removed)
+                {
+                    if (RoomLogic.WillBeFriendWith(room, player, target))
+                    {
+                        count_right++;
+                    }
+                    else if (target_count > 0 && RoomLogic.IsProhibited(room, player, target, lt) == null && !ai.IsCancelTarget(lt, target, player) && ai.IsCardEffect(lt, target, player))
+                    {
+                        target_count--;
+                        targets_right.Add(target);
+                    }
+                    else
+                        break;
+                }
+            }
+
+
+            target_count = 2 + Engine.CorrectCardTarget(room, TargetModSkill.ModType.ExtraMaxTarget, player, lt);
+            for (int i = 0; i < room.AliveCount() - 1; i++)
+            {
+                Player target = room.GetLastAlive(player, i, false);
+                if (!target.Removed)
+                {
+                    if (RoomLogic.WillBeFriendWith(room, player, target))
+                    {
+                        count_left++;
+                    }
+                    else if (target_count > 0 && RoomLogic.IsProhibited(room, player, target, lt) == null && !ai.IsCancelTarget(lt, target, player) && ai.IsCardEffect(lt, target, player))
+                    {
+                        target_count--;
+                        targets_left.Add(target);
+                    }
+                    else
+                        break;
+                }
+            }
+            use.Card = card;
+            if (count_left > count_right)
+                use.To = targets_left;
+            else
+                use.To = targets_right;
+        }
+
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 6;
     }
 }
