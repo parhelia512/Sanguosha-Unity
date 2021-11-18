@@ -2054,6 +2054,7 @@ namespace SanguoshaServer.Package
 
         private void View(Room room, Player player, string head)
         {
+            room.ShowSkill(player, "aocai_hegemony", head);
             int count = 2;
             List<int> guanxing = room.GetNCards(count, false);
             room.NotifySkillInvoked(player, "aocai_hegemony");
@@ -2184,7 +2185,7 @@ namespace SanguoshaServer.Package
                 }
             }
 
-            if (player.Alive && !player.HasFlag(Name))
+            if (player.Alive && !player.HasFlag("duwu_hegemony"))
             {
                 LogMessage log = new LogMessage
                 {
