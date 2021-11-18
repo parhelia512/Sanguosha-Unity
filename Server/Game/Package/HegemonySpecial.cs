@@ -2235,7 +2235,7 @@ namespace SanguoshaServer.Package
             WrappedCard lt = new WrappedCard(LureTiger.ClassName);
             lt.AddSubCards(card.SubCards);
             lt = RoomLogic.ParseUseCard(room, lt);
-            return base.TargetFilter(room, targets, to_select, Self, lt);
+            return Engine.GetFunctionCard(LureTiger.ClassName).TargetFilter(room, targets, to_select, Self, lt);
         }
 
         public override void OnUse(Room room, CardUseStruct card_use)
@@ -2245,14 +2245,14 @@ namespace SanguoshaServer.Package
             lt = RoomLogic.ParseUseCard(room, lt);
 
             List<Player> targets = room.AliveCount() >= 4 ? RoomLogic.GetFormation(room, card_use.From) : new List<Player>();
-            int count = targets.Count;
+            int count = targets.Count > 1 ? targets.Count : 0;
 
             room.UseCard(new CardUseStruct(lt, card_use.From, card_use.To, true));
 
             if (card_use.From.Alive)
             {
                 targets = room.AliveCount() >= 4 ? RoomLogic.GetFormation(room, card_use.From) : new List<Player>();
-                int dix = targets.Count - count;
+                int dix = (targets.Count > 1 ? targets.Count : 0) - count;
                 if (dix > 0)
                     room.DrawCards(card_use.From, dix, "diaogui");
             }
