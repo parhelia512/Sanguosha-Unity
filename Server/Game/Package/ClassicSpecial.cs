@@ -9541,6 +9541,12 @@ namespace SanguoshaServer.Package
                     };
                     room.SendLog(log);
 
+                    if (use.AddHistory)
+                    {
+                        use.AddHistory = false;
+                        player.AddHistory(use.Card.Name, -1);
+                    }
+
                     use.ExDamage += 1;
                     data = use;
 
