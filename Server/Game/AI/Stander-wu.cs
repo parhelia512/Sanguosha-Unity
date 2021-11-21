@@ -2069,6 +2069,7 @@ namespace SanguoshaServer.AI
                             double v = good - cost;
                             if (v > best)
                             {
+                                best = v;
                                 targets = new List<Player> { enemy, friend };
                                 subs = new List<int>(result);
                             }
@@ -2076,14 +2077,7 @@ namespace SanguoshaServer.AI
                     }
                 }
             }
-
-            if (targets.Count > 0)
-            {
-                card.AddSubCards(subs);
-                use.Card = card;
-                use.To = targets;
-            }
-
+            
             foreach (Player friend in ai.FriendNoSelf)
             {
                 if (ai.HasSkill("lianying", friend))
@@ -2121,6 +2115,7 @@ namespace SanguoshaServer.AI
                             double v = good - cost;
                             if (v > best)
                             {
+                                best = v;
                                 targets = new List<Player> { p, friend };
                                 subs = new List<int>(result);
                             }

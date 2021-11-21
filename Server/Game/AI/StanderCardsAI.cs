@@ -3704,7 +3704,7 @@ namespace SanguoshaServer.AI
                 return -101;
             double value = 0 - enemy.HandcardNum;
 
-            if (ai.HasSkill("haoshi|tuxi|tuxi_jx|lijian|fanjian|dimeng|jijiu|jieyin|beige", enemy)
+            if (ai.HasSkill("haoshi|tuxi|tuxi_jx|lijian|fanjian|dimeng|jijiu|jieyin|beige|haoshi_classic", enemy)
                 || (ai.HasSkill("zaiqi", enemy) && enemy.GetLostHp() > 1))
                 value += value + 10;
 

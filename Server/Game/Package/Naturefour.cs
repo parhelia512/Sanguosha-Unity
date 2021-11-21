@@ -93,6 +93,10 @@ namespace SanguoshaServer.Package
                 new PoluSJ(),
                 new ZhijianJX(),
                 new Hanzhan(),
+                new HaoshiClassic(),
+                new HaoshiCGive(),
+                new DimengClassic(),
+                new DimengClassicEffect(),
             };
             skill_cards = new List<FunctionCard>
             {
@@ -102,6 +106,8 @@ namespace SanguoshaServer.Package
                 new GuhuoCard(),
                 new TiaoxinJXCard(),
                 new ShensuJXCard(),
+                new HaoshiCCard(),
+                new DimengCCard(),
             };
             related_skills = new Dictionary<string, List<string>>
             {
@@ -116,6 +122,8 @@ namespace SanguoshaServer.Package
                 { "cangzhuo", new List<string>{ "#cangzhuo-max" } },
                 { "lianhuan_jx", new List<string>{ "#lianhuan_jx" } },
                 { "jianchu_jx", new List<string>{ "#jianchu-tar" } },
+                { "haoshi_classic", new List<string>{ "#haoshi_classic" } },
+                { "dimeng_classic", new List<string>{ "#dimeng_classic" } },
             };
         }
     }
@@ -4542,6 +4550,324 @@ namespace SanguoshaServer.Package
             }
 
             return false;
+        }
+    }
+
+    public class HaoshiCCard : SkillCard
+    {
+        public static string ClassName = "HaoshiCCard";
+        public HaoshiCCard() : base(ClassName)
+        {
+            will_throw = false;
+        }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            if (targets.Count > 0 || to_select == Self)
+                return false;
+
+            return to_select.HandcardNum == Self.GetMark("haoshi_classic");
+        }
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_GIVE, card_use.From.Name,
+                card_use.To[0].Name, "haoshi_classic", null);
+
+            card_use.From.SetTag("haoshi_target", card_use.To[0].Name);
+            room.SetPlayerStringMark(card_use.To[0], "haoshi_classic", string.Empty);
+
+            ResultStruct result = card_use.From.Result;
+            result.Assist += card_use.Card.SubCards.Count;
+            card_use.From.Result = result;
+
+            room.MoveCardTo(card_use.Card, card_use.To[0], Place.PlaceHand, reason);
+        }
+    }
+    public class HaoshiClassicViewAsSkill : ViewAsSkill
+    {
+        public HaoshiClassicViewAsSkill() : base("haoshi_classic")
+        {
+        }
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position = null)
+        {
+            return reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && pattern == "@@haoshi_classic!";
+        }
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
+        {
+            if (player.HasEquip(to_select.Name))
+                return false;
+
+            int length = player.HandcardNum / 2;
+            return selected.Count < length;
+        }
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count != player.HandcardNum / 2)
+                return null;
+
+            WrappedCard card = new WrappedCard(HaoshiCCard.ClassName)
+            {
+                Skill = "_haoshi_classic",
+                Mute = true
+            };
+            card.AddSubCards(cards);
+            return card;
+        }
+    }
+    public class HaoshiClassic : TriggerSkill
+    {
+        public HaoshiClassic() : base("haoshi_classic")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseProceeding, TriggerEvent.TargetConfirmed, TriggerEvent.TurnStart, TriggerEvent.Death };
+            view_as_skill = new HaoshiClassicViewAsSkill();
+            skill_type = SkillType.Replenish;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if ((triggerEvent == TriggerEvent.TurnStart || triggerEvent == TriggerEvent.Death) && player.ContainsTag("haoshi_target") && player.GetTag("haoshi_target") is string target_name)
+            {
+                player.RemoveTag("haoshi_target");
+                Player target = room.FindPlayer(target_name);
+                if (target != null)
+                    room.RemovePlayerMark(target, Name);
+            }
+
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseProceeding && base.Triggerable(player, room) && player.Phase == PlayerPhase.Draw && (int)data >= 0)
+                return new TriggerStruct(Name, player);
+            else if (triggerEvent == TriggerEvent.TargetConfirmed && player.Alive && data is CardUseStruct use && player.ContainsTag("haoshi_target") && player.GetTag("haoshi_target") is string target_name)
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                if (fcard is Slash || fcard.IsNDTrick())
+                {
+                    Player target = room.FindPlayer(target_name);
+                    if (target != null && !target.IsKongcheng())
+                        return new TriggerStruct(Name, target);
+                }
+            }
+
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseProceeding && room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.SetTag(Name, info.SkillPosition);
+                return info;
+            }
+            else if (triggerEvent == TriggerEvent.TargetConfirmed)
+                return info;
+
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseProceeding && data is int count)
+            {
+                count += 2;
+                data = count;
+                player.SetFlags(Name);
+            }
+            else if (data is CardUseStruct use)
+            {
+                room.SetTag(Name, player);
+                List<int> ids = room.AskForExchange(ask_who, Name, 1, 0, string.Format("@haoshi-give:{0}:{1}:{2}", player.Name, use.From.Name, use.Card.Name), string.Empty, ".", null);
+                room.RemoveTag(Name);
+                if (ids.Count > 0)
+                    room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, ask_who.Name, player.Name, Name, string.Empty), false);
+            }
+
+            return false;
+        }
+    }
+    public class HaoshiCGive : TriggerSkill
+    {
+        public HaoshiCGive() : base("#haoshi_classic")
+        {
+            events.Add(TriggerEvent.AfterDrawNCards);
+            frequency = Frequency.Compulsory;
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player lusu, ref object data, Player ask_who)
+        {
+            if (lusu == null || !lusu.Alive) return new TriggerStruct();
+            if (lusu.HasFlag("haoshi_classic"))
+            {
+                if (lusu.HandcardNum <= 5)
+                {
+                    lusu.SetFlags("-haoshi_classic");
+                    return new TriggerStruct();
+                }
+                TriggerStruct trigger = new TriggerStruct(Name, lusu)
+                {
+                    SkillPosition = (string)lusu.GetTag("haoshi_classic")
+                };
+                return trigger;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player lusu, ref object data, Player ask_who, TriggerStruct info)
+        {
+            lusu.SetFlags("-haoshi_classic");
+            lusu.RemoveTag("haoshi_classic");
+            List<Player> other_players = room.GetOtherPlayers(lusu);
+            int least = 1000;
+            foreach (Player player in other_players)
+                least = Math.Min(player.HandcardNum, least);
+            lusu.SetMark("haoshi_classic", least);
+
+            if (room.AskForUseCard(lusu, "@@haoshi_classic!", "@haoshi", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition) == null)
+            {
+                // force lusu to give his half cards
+                Player beggar = null;
+                foreach (Player player in other_players)
+                {
+                    if (player.HandcardNum == least)
+                    {
+                        beggar = player;
+                        break;
+                    }
+                }
+
+                int n = lusu.HandcardNum / 2;
+                List<int> to_give = new List<int>(), hands = lusu.GetCards("h");
+                for (int i = 0; i < n; i++)
+                    to_give.Add(hands[i]);
+
+                ResultStruct result = lusu.Result;
+                result.Assist += to_give.Count;
+                lusu.Result = result;
+
+
+                lusu.SetTag("haoshi_target", beggar.Name);
+                room.SetPlayerStringMark(beggar, "haoshi_classic", string.Empty);
+
+                CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_GIVE, lusu.Name, beggar.Name, "haoshi_classic", null);
+                CardsMoveStruct move = new CardsMoveStruct(to_give, beggar, Place.PlaceHand, reason);
+                List<CardsMoveStruct> moves = new List<CardsMoveStruct> { move };
+                room.MoveCardsAtomic(moves, false);
+            }
+            return false;
+        }
+    }
+    public class DimengCCard : SkillCard
+    {
+        public static string ClassName = "DimengCCard";
+        public DimengCCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            if (to_select == Self) return false;
+
+            if (targets.Count == 0) return true;
+
+            if (targets.Count == 1)
+                return (!targets[0].IsKongcheng() || !to_select.IsKongcheng()) && Math.Abs(targets[0].HandcardNum - to_select.HandcardNum) <= Self.GetCardCount(true);
+
+            return false;
+        }
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card) => targets.Count == 2;
+        public override void OnUse(Room room, CardUseStruct card_use)
+        {
+            Player a = card_use.To[0];
+            Player b = card_use.To[1];
+            a.SetFlags("DimengTarget");
+            b.SetFlags("DimengTarget");
+            base.OnUse(room, card_use);
+        }
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player a = card_use.To[0];
+            Player b = card_use.To[1];
+
+            int n1 = a.HandcardNum;
+            int n2 = b.HandcardNum;
+
+            ResultStruct result = card_use.From.Result;
+            result.Assist += Math.Abs(n1 - n2);
+            card_use.From.Result = result;
+
+            CardsMoveStruct move1 = new CardsMoveStruct(a.GetCards("h"), b, Place.PlaceHand,
+                new CardMoveReason(MoveReason.S_REASON_SWAP, a.Name, b.Name, "dimeng_classic", null));
+            CardsMoveStruct move2 = new CardsMoveStruct(b.GetCards("h"), a, Place.PlaceHand,
+                new CardMoveReason(MoveReason.S_REASON_SWAP, b.Name, a.Name, "dimeng_classic", null));
+            List<CardsMoveStruct> exchangeMove = new List<CardsMoveStruct> { move1, move2 };
+            room.MoveCards(exchangeMove, false);
+
+            LogMessage log = new LogMessage
+            {
+                Type = "#Dimeng",
+                From = a.Name,
+                To = new List<string> { b.Name },
+                Arg = n1.ToString(),
+                Arg2 = n2.ToString()
+            };
+            room.SendLog(log);
+            a.SetFlags("-DimengTarget");
+            b.SetFlags("-DimengTarget");
+
+            if (card_use.From.Alive)
+            {
+                List<string> names = new List<string> { a.Name, b.Name };
+                card_use.From.SetTag("dimeng_classic", names);
+            }
+
+            Thread.Sleep(500);
+        }
+    }
+
+    public class DimengClassicEffect : TriggerSkill
+    {
+        public DimengClassicEffect() : base("#dimeng_classic")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseEnd };
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (player.Phase == PlayerPhase.Play && player.Alive && player.ContainsTag("dimeng_classic"))
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.GetTag("dimeng_classic") is List<string> names)
+            {
+                player.RemoveTag(Name);
+                Player a = room.FindPlayer(names[0]);
+                Player b = room.FindPlayer(names[1]);
+                if (a != null && b != null && a.HandcardNum != b.HandcardNum && !player.IsNude())
+                {
+                    int count = Math.Abs(a.HandcardNum - b.HandcardNum);
+                    room.AskForDiscard(player, "dimeng_classic", count, count, false, true, "@dimeng-discard:::" + count.ToString(), false, info.SkillPosition);
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class DimengClassic : ZeroCardViewAsSkill
+    {
+        public DimengClassic() : base("dimeng_classic")
+        {
+            skill_type = SkillType.Wizzard;
+        }
+        public override WrappedCard ViewAs(Room room, Player player)
+        {
+            WrappedCard card = new WrappedCard(DimengCCard.ClassName)
+            {
+                Skill = Name,
+                ShowSkill = Name
+            };
+            return card;
+        }
+        public override bool IsEnabledAtPlay(Room room, Player player)
+        {
+            return !player.HasUsed(DimengCCard.ClassName);
         }
     }
 

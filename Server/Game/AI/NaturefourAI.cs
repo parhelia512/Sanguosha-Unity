@@ -2085,4 +2085,228 @@ namespace SanguoshaServer.AI
             return result;
         }
     }
+
+
+    public class HaoshiClassicAI : SkillEvent
+    {
+        public HaoshiClassicAI() : base("haoshi_classic")
+        {
+        }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            Room room = ai.Room;
+            int draw = (int)data;
+            int count = player.HandcardNum + draw + 2;
+            if (player.HasTreasure(JadeSeal.ClassName))
+                count++;
+            if (player.GetMark("@tangerine") > 0) count++;
+            if (player.GetMark("duliang") > 0) count++;
+            if (player.GetMark("@rob") > 0) count++;
+            if (ai.HasSkill("dujin")) count += player.GetEquips().Count / 2 + 1;
+
+            if (count > 5)
+            {
+                int least = 1000;
+                foreach (Player p in room.GetOtherPlayers(player))
+                    least = Math.Min(p.HandcardNum, least);
+
+                foreach (Player p in ai.FriendNoSelf)
+                {
+                    if (p.HandcardNum == least)
+                        return true;
+                }
+                return false;
+            }
+            else
+                return true;
+        }
+
+        public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
+        {
+            Room room = ai.Room;
+            if (room.GetTag(Name) is Player target && ai.IsFriend(target))
+            {
+                KeyValuePair<Player, int> pair = ai.GetCardNeedPlayer(player.GetCards("h"), new List<Player> { target }, Player.Place.PlaceHand);
+                if (pair.Key != null && pair.Value >= 0)
+                    return new List<int> { pair.Value };
+            }
+
+            return new List<int>();
+        }
+
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            CardUseStruct use = new CardUseStruct
+            {
+                From = player,
+                To = new List<Player>()
+            };
+
+            Room room = ai.Room;
+            int least = 1000;
+            foreach (Player p in room.GetOtherPlayers(player))
+                least = Math.Min(p.HandcardNum, least);
+
+            List<Player> targets = new List<Player>();
+            foreach (Player p in ai.FriendNoSelf)
+                if (p.HandcardNum == least)
+                    targets.Add(p);
+
+            if (targets.Count > 0)
+            {
+                ai.SortByDefense(ref targets, false);
+                use.Card = new WrappedCard(HaoshiCard.ClassName)
+                {
+                    Skill = "_haoshi_classic",
+                    Mute = true
+                };
+                List<int> ids = player.GetCards("h");
+                ai.SortByUseValue(ref ids, false);
+                for (int i = 0; i < player.HandcardNum / 2; i++)
+                    use.Card.AddSubCard(ids[i]);
+
+                use.To.Add(targets[0]);
+            }
+
+            return use;
+        }
+    }
+
+    public class HaoshiCCardAI : UseCard
+    {
+        public HaoshiCCardAI() : base(HaoshiCCard.ClassName)
+        {
+        }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            {
+                Player target = use.To[0];
+                if (ai is StupidAI && ai.GetPlayerTendency(target) != "unknown")
+                    ai.UpdatePlayerRelation(player, target, true);
+            }
+        }
+    }
+    public class DimengClassicAI : SkillEvent
+    {
+        public DimengClassicAI() : base("dimeng_classic")
+        { }
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            if (ai.WillShowForAttack() && ai.FriendNoSelf.Count > 0 && !player.HasUsed(DimengCCard.ClassName))
+                return new List<WrappedCard> { new WrappedCard(DimengCCard.ClassName) { Skill = Name, ShowSkill = Name } };
+
+            return null;
+        }
+    }
+
+    public class DimengCCardAI : UseCard
+    {
+        public DimengCCardAI() : base(DimengCCard.ClassName)
+        { }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            {
+                Player target1 = use.To[0];
+                Player target2 = use.To[1];
+                Player target = null;
+                Player enemy = null;
+                if (ai.HasSkill("zishu", target1)) enemy = target1;
+                if (ai.HasSkill("zishu", target2)) enemy = target2;
+                if (target1.HandcardNum > target2.HandcardNum)
+                {
+                    if (enemy != target2)
+                        target = target2;
+                    if (enemy == null) enemy = target1;
+                }
+                else if (target2.HandcardNum > target1.HandcardNum)
+                {
+                    if (enemy != target1)
+                        target = target1;
+                    if (enemy == null) enemy = target2;
+                }
+
+                if (ai is StupidAI && target != null && ai.GetPlayerTendency(target) != "unknown")
+                {
+                    ai.UpdatePlayerRelation(player, target, true);
+                    if (enemy != null) ai.UpdatePlayerRelation(player, enemy, false);
+                }
+            }
+        }
+
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
+        {
+            return 2.8;
+        }
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            Room room = ai.Room;
+            List<Player> targets = new List<Player>();
+            double best = 0;
+            List<Player> enemies = ai.GetEnemies(player);
+            int hands = player.GetCardCount(true);
+            foreach (Player enemy in enemies)
+            {
+                foreach (Player friend in ai.FriendNoSelf)
+                {
+                    if (ai.HasSkill("zishu", friend)) continue;
+                    int count = enemy.HandcardNum - friend.HandcardNum;
+                    if (count >= 0)
+                    {
+                        double good = count * 2;
+                        if (ai.HasSkill("lianying", enemy))
+                            good -= 1.5 * Math.Min(enemy.HandcardNum, enemies.Count);
+
+                        if (ai.HasSkill("lianying", friend))
+                            good += 1.5 * Math.Min(friend.HandcardNum, ai.GetFriends(player).Count);
+                        if (ai.HasSkill("zishu", enemy)) good += 1.5 * friend.HandcardNum;
+
+
+                        if (hands >= count)
+                        {
+                            double v = good;
+                            if (v > best)
+                            {
+                                best = v;
+                                targets = new List<Player> { enemy, friend };
+                            }
+                        }
+                    }
+                }
+            }
+
+            foreach (Player friend in ai.FriendNoSelf)
+            {
+                if (ai.HasSkill("lianying", friend))
+                {
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (friend == p) continue;
+                        int count = Math.Abs(p.HandcardNum - friend.HandcardNum);
+                        double good = 1.5 * Math.Min(friend.HandcardNum, ai.GetFriends(player).Count);
+                        if (!ai.IsFriend(p)) good -= (friend.HandcardNum - p.HandcardNum) * 1.5;
+
+                        if (hands >= count)
+                        {
+                            double v = good;
+                            if (v > best)
+                            {
+                                best = v;
+                                targets = new List<Player> { p, friend };
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (targets.Count > 0)
+            {
+                use.Card = card;
+                use.To = targets;
+            }
+        }
+    }
 }
