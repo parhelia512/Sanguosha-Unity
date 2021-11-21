@@ -702,7 +702,7 @@ namespace SanguoshaServer.AI
                 Room room = ai.Room;
                 WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_xishe", DistanceLimited = false };
                 List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { slash }, new List<Player> { room.Current }, false);
-                if (scores[0].Score > 5)
+                if (scores.Count > 0 && scores[0].Score > 5)
                 {
                     List<string> strs = new List<string>(pattern.Split('#'));
                     if (strs.Count > 0)
