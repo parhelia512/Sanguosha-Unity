@@ -3590,7 +3590,7 @@ namespace SanguoshaServer.Package
                 int id = room.AskForCardChosen(player, target, "he", Name, false, HandlingMethod.MethodNone, null);
                 WrappedCard card = room.GetCard(id);
                 FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                if (!(fcard is DelayedTrick))
+                if (!(fcard is DelayedTrick) || fcard is Lightning)
                 {
                     WrappedCard trick = new WrappedCard(WrappedCard.IsBlack(RoomLogic.GetCardSuit(room, card)) ? SupplyShortage.ClassName : Indulgence.ClassName);
                     trick.AddSubCard(card);

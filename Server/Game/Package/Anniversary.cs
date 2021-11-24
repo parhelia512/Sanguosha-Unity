@@ -3065,9 +3065,11 @@ namespace SanguoshaServer.Package
 
                 if (reco)
                 {
-                    RecoverStruct recover = new RecoverStruct();
-                    recover.Who = move.From;
-                    recover.Recover = 1;
+                    RecoverStruct recover = new RecoverStruct
+                    {
+                        Who = ask_who,
+                        Recover = 1
+                    };
                     room.Recover(move.To, recover, true);
                 }
             }
