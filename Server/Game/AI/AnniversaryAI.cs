@@ -865,7 +865,7 @@ namespace SanguoshaServer.AI
                     Player target = null;
                     foreach (Player p in room.GetOtherPlayers(player))
                     {
-                        if (p.HasFlag("Name"))
+                        if (p.HasFlag(Name))
                         {
                             target = p;
                             break;

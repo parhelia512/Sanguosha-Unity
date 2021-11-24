@@ -3058,7 +3058,13 @@ namespace SanguoshaServer.Package
                     move.To.AddMark(Name);
                     room.SetPlayerStringMark(move.To, Name, move.To.GetMark(Name).ToString());
                     room.SendCompulsoryTriggerLog(move.From, Name);
-                    if (red) reco = move.To.IsWounded() && room.AskForSkillInvoke(ask_who, Name, "@yishe-recover:" + move.To.Name, info.SkillPosition);
+
+                    if (red)
+                    {
+                        move.To.SetFlags(Name);
+                        reco = move.To.IsWounded() && room.AskForSkillInvoke(ask_who, Name, "@yishe-recover:" + move.To.Name, info.SkillPosition);
+                        move.To.SetFlags("-yishe_dfr");
+                    }
                 }
                 else
                     reco = true;
