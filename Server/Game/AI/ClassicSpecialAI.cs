@@ -138,6 +138,7 @@ namespace SanguoshaServer.AI
                 new CanshiSHAI(),
                 new ChouhaiAI(),
                 new XiashuAI(),
+                new KuanshiAI(),
                 new QizhouAI(),
                 new ShanxiAI(),
                 new WeiyiAI(),
@@ -8221,6 +8222,37 @@ namespace SanguoshaServer.AI
 
                 return good;
             }
+        }
+    }
+
+    public class KuanshiAI : SkillEvent
+    {
+        public KuanshiAI() : base("kuanshi")
+        {
+            key = new List<string> { "playerChosen:kuanshi" };
+        }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (ai.Self == player) return;
+            if (data is string choice && ai.Self != player)
+            {
+                string[] choices = choice.Split(':');
+                if (choices[1] == Name)
+                {
+                    Room room = ai.Room;
+                    Player target = room.FindPlayer(choices[2]);
+
+                    if (player != target && ai.GetPlayerTendency(target) != "unknown")
+                        ai.UpdatePlayerRelation(player, target, true);
+                }
+            }
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            List<Player> friends = ai.GetFriends(player);
+            ai.SortByDefense(ref friends, false);
+            return new List<Player> { friends[0] };
         }
     }
 

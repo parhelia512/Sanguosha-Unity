@@ -14313,29 +14313,25 @@ namespace SanguoshaServer.Package
     {
         public Kuanshi() : base("kuanshi")
         {
-            events.Add(TriggerEvent.EventPhaseStart);
+            events = new List<TriggerEvent> { TriggerEvent.TurnStart, TriggerEvent.EventPhaseStart, TriggerEvent.Death };
             skill_type = SkillType.Defense;
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (player.Phase == PlayerPhase.RoundStart && player.GetMark(Name) > 0)
+            if ((triggerEvent == TriggerEvent.TurnStart || triggerEvent == TriggerEvent.Death) && player.GetMark(Name) > 0)
             {
                 player.SetMark(Name, 0);
                 foreach (Player p in room.GetAlivePlayers())
                     if (p.ContainsTag(Name) && p.GetTag(Name) is string name && name == player.Name)
                         p.RemoveTag(Name);
-
-                if (player.GetMark("kuanshi_skip") > 0)
-                {
-                    player.SetMark("kuanshi_skip", 0);
-                    room.SkipPhase(player, PlayerPhase.Draw);
-                }
             }
         }
-        public override bool Triggerable(Player target, Room room)
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            return base.Triggerable(target, room) && target.Phase == PlayerPhase.Finish;
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
         }
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
@@ -14367,6 +14363,7 @@ namespace SanguoshaServer.Package
             room.RemoveTag(Name);
             player.AddMark(Name);
             target.SetTag(Name, player.Name);
+            room.SetPlayerStringMark(target, Name, string.Empty);
 
             return false;
         }
@@ -14376,13 +14373,19 @@ namespace SanguoshaServer.Package
     {
         public KuanshiIm() : base("#kuanshi")
         {
-            events = new List<TriggerEvent> { TriggerEvent.DamageDefined };
+            events = new List<TriggerEvent> { TriggerEvent.Damaged, TriggerEvent.EventPhaseChanging };
             frequency = Frequency.Compulsory;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.GetMark("kuanshi_damage") > 0)
+                player.SetMark("kuanshi_damage", 0);
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is DamageStruct damage && damage.Damage >= 2 && player.ContainsTag("kuanshi") && player.GetTag("kuanshi") is string name)
+            if (triggerEvent == TriggerEvent.Damaged && data is DamageStruct damage && player.Alive && player.ContainsTag("kuanshi") && player.GetTag("kuanshi") is string name)
             {
                 Player target = room.FindPlayer(name);
                 if (target != null) return new TriggerStruct(Name, target);
@@ -14393,23 +14396,31 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
-            player.RemoveTag("kuanshi");
-            ask_who.AddMark("kuanshi_skip");
-            room.SendCompulsoryTriggerLog(ask_who, "kuanshi");
-            if (RoomLogic.PlayerHasSkill(room, ask_who, Name))
+            if (data is DamageStruct damage)
             {
-                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, "kuanshi", info.SkillPosition);
-                room.BroadcastSkillInvoke("kuanshi", "male", 2, gsk.General, gsk.SkinId);
+                player.AddMark("kuanshi_damage", damage.Damage);
+                if (player.GetMark("kuanshi_damage") > 1)
+                {
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                    player.RemoveTag("kuanshi");
+                    room.RemovePlayerStringMark(player, "kuanshi");
+                    room.SendCompulsoryTriggerLog(ask_who, "kuanshi");
+                    if (RoomLogic.PlayerHasSkill(room, ask_who, Name))
+                    {
+                        GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, "kuanshi", info.SkillPosition);
+                        room.BroadcastSkillInvoke("kuanshi", "male", 2, gsk.General, gsk.SkinId);
+                    }
+
+                    RecoverStruct recover = new RecoverStruct
+                    {
+                        Recover = 1,
+                        Who = ask_who
+                    };
+                    room.Recover(player, recover, true);
+                }
             }
-            LogMessage log = new LogMessage
-            {
-                Type = "#damaged-prevent",
-                From = player.Name,
-                Arg = "kuanshi"
-            };
-            room.SendLog(log);
-            return true;
+
+            return false;
         }
     }
 
