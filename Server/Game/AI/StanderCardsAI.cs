@@ -4970,7 +4970,7 @@ namespace SanguoshaServer.AI
             {
                 foreach (WrappedCard slash in slashes)
                 {
-                    if (!ai.IsCancelTarget(slash, target2, player) && ai.IsCardEffect(slash, target2, player))
+                    if (!ai.IsCancelTarget(slash, target2, player) && ai.IsCardEffect(slash, target2, player) && Slash.Instance.TargetFilter(room, new List<Player>(), target2, player, slash))
                     {
                         use.Card = slash;
                         use.To = new List<Player> { target2 };
@@ -4984,7 +4984,7 @@ namespace SanguoshaServer.AI
                 {
                     foreach (WrappedCard slash in slashes)
                     {
-                        if (ai.IsCancelTarget(slash, target2, player) || !ai.IsCardEffect(slash, target2, player))
+                        if ((ai.IsCancelTarget(slash, target2, player) || !ai.IsCardEffect(slash, target2, player))  && Slash.Instance.TargetFilter(room, new List<Player>(), target2, player, slash))
                         {
                             use.Card = slash;
                             use.To = new List<Player> { target2 };
