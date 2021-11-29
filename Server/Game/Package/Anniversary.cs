@@ -129,6 +129,7 @@ namespace SanguoshaServer.Package
                 new Yangzhong(),
                 new Huangkong(),
                 new YixiangSP(),
+                new YirangSP(),
                 new Mouni(),
                 new Zongfan(),
                 new Zhangu(),
@@ -7075,7 +7076,100 @@ namespace SanguoshaServer.Package
             return false;
         }
     }
-    
+
+    public class YirangSP : TriggerSkill
+    {
+        public YirangSP() : base("yirang_sp")
+        {
+            events.Add(TriggerEvent.EventPhaseStart);
+            skill_type = SkillType.Recover;
+        }
+
+        public override bool Triggerable(Player target, Room room)
+        {
+            if (base.Triggerable(target, room) && target.Phase == PlayerPhase.Play && !target.IsNude())
+            {
+                bool check = false;
+                foreach (int id in target.GetCards("he"))
+                {
+                    if (Engine.GetFunctionCard(room.GetCard(id).Name).TypeID != CardType.TypeBasic)
+                    {
+                        check = true;
+                        break;
+                    }
+                }
+
+                if (check) return true;
+            }
+
+            return false;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@yirang_sp", true, true, info.SkillPosition);
+            if (target != null)
+            {
+                room.SetTag(Name, target);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            Player target = (Player)room.GetTag(Name);
+            room.RemoveTag(Name);
+            
+            List<int> ids = new List<int>();
+            foreach (int id in player.GetCards("he"))
+            {
+                CardType type = Engine.GetFunctionCard(room.GetCard(id).Name).TypeID;
+                if (type != CardType.TypeBasic)
+                    ids.Add(id);
+            }
+
+            ResultStruct result = player.Result;
+            result.Assist += ids.Count;
+            player.Result = result;
+
+            room.ObtainCard(target, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, Name, string.Empty), false);
+
+            if (player.Alive)
+            {
+                int count = target.MaxHp - player.MaxHp;
+                if (count > 0)
+                {
+                    player.MaxHp += count;
+                    room.BroadcastProperty(player, "MaxHp");
+
+                    LogMessage log = new LogMessage
+                    {
+                        Type = "$GainMaxHp",
+                        From = player.Name,
+                        Arg = count.ToString()
+                    };
+                    room.SendLog(log);
+
+                    room.RoomThread.Trigger(TriggerEvent.MaxHpChanged, room, player);
+                }
+
+            }
+            if (player.Alive && player.IsWounded())
+            {
+                RecoverStruct recover = new RecoverStruct
+                {
+                    Who = player,
+                    Recover = Math.Min(ids.Count, player.GetLostHp())
+                };
+                room.Recover(player, recover, true);
+            }
+
+            return false;
+        }
+    }
+
     public class Mouni : TriggerSkill
     {
         public Mouni() : base("mouni")
@@ -7164,7 +7258,11 @@ namespace SanguoshaServer.Package
                         break;
                 }
                 if (target.Alive) target.SetFlags("-mouni");
-                if (skip && player.Alive) room.SkipPhase(player, PlayerPhase.Play, true);
+                if (skip && player.Alive)
+                {
+                    room.SkipPhase(player, PlayerPhase.Play, true);
+                    room.SkipPhase(player, PlayerPhase.Discard, true);
+                }
                 if (count > 0 && !skip)
                     player.SetFlags("zongfan");
             }

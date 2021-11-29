@@ -1839,7 +1839,7 @@ namespace SanguoshaServer.Package
                 {
                     Type = "$GainMaxHp",
                     From = player.Name,
-                    Arg = "1"
+                    Arg = count.ToString()
                 };
                 room.SendLog(log);
 
