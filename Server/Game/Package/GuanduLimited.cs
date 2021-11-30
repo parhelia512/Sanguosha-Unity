@@ -515,7 +515,7 @@ namespace SanguoshaServer.Package
             List<CardsMoveStruct> moves = new List<CardsMoveStruct>();
             while (cards.Count > 0 && friends.Count > 0)
             {
-                WrappedCard card = room.AskForUseCard(player, "@@shushou", "@shushou", null, -1, FunctionCard.HandlingMethod.MethodNone, true, info.SkillPosition);
+                WrappedCard card = room.AskForUseCard(player, FunctionCard.RespondType.Skill, "@@shushou", "@shushou", null, -1, FunctionCard.HandlingMethod.MethodNone, true, info.SkillPosition);
                 if (card != null)
                 {
                     Player target = (Player)room.GetTag("shushou_target");
@@ -766,7 +766,7 @@ namespace SanguoshaServer.Package
                 FunctionCard fcard = Engine.GetFunctionCard(card.Name);
                 if (fcard.IsAvailable(room, target, card))
                 {
-                    WrappedCard use = room.AskForUseCard(target, card_id.ToString(), "@yuanlue:" + card_use.From.Name, null);
+                    WrappedCard use = room.AskForUseCard(target, RespondType.None, card_id.ToString(), "@yuanlue:" + card_use.From.Name, null);
                     if (use != null && card_use.From.Alive)
                         room.DrawCards(card_use.From, 1, "yuanlue");
                 }
@@ -1250,7 +1250,7 @@ namespace SanguoshaServer.Package
                         FunctionCard fcard = Engine.GetFunctionCard(card_name);
                         if (fcard != null && fcard.IsAvailable(room, player, card))
                         {
-                            room.AskForUseCard(player, "@@choulue", "@choulue-use:::" + card_name, null, -1, FunctionCard.HandlingMethod.MethodUse, false, info.SkillPosition);
+                            room.AskForUseCard(player, FunctionCard.RespondType.Skill, "@@choulue", "@choulue-use:::" + card_name, null, -1, FunctionCard.HandlingMethod.MethodUse, false, info.SkillPosition);
                         }
                     }
                 }
@@ -1493,7 +1493,7 @@ namespace SanguoshaServer.Package
             player.SetFlags("slashTargetFix");
             player.SetFlags("slashTargetFixToOne");
             effect.To.SetFlags("SlashAssignee");
-            WrappedCard slash = room.AskForUseCard(player, "Slash:qigong", "@qigong:" + effect.To.Name, null, -1, FunctionCard.HandlingMethod.MethodUse, false);
+            WrappedCard slash = room.AskForUseCard(player, FunctionCard.RespondType.Slash, "Slash:qigong", "@qigong:" + effect.To.Name, null, -1, FunctionCard.HandlingMethod.MethodUse, false);
             if (slash == null)
             {
                 player.SetFlags("-slashTargetFix");

@@ -493,29 +493,24 @@ namespace SanguoshaServer.Game
             return GuhuoType.VirtualCard;
         }
 
+        protected bool MatchSlash(RespondType respond) => (int)(respond & RespondType.Basic) % 2 == 1;
+        protected bool MatchJink(RespondType respond) => (int)(respond & RespondType.Basic) % 4 >= 2;
+        protected bool MatchAnaleptic(RespondType respond) => (int)(respond & RespondType.Basic) % 8 >= 4;
+        protected bool MatchPeach(RespondType respond) => (respond & RespondType.Basic) >= RespondType.Peach;
+        protected bool MatchBasic(RespondType respond) => (respond & RespondType.Basic) > RespondType.None;
+        protected bool MatchNTTrick(RespondType respond) => (int)(respond & RespondType.Trick) % 32 == 16;
+        protected bool MatchRetrial(RespondType respond) => (respond & RespondType.Retrial) == RespondType.Retrial;
+
         public virtual bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
         {
             return false;
         }
         public abstract WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player);
-        public virtual bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position = null)
+        public virtual bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position = null)
         {
-            bool huashen = false;
-            if (invoker.ContainsTag("Huashens"))
-            {
-                //List<string> huashens = (List<string>)(invoker.GetTag("Huashens"));                 //for huashen
-                //foreach (string general in huashens) {
-                //    if (Engine.GetHuashenSkills(general).contains(Name))
-                //    {
-                //        huashen = true;
-                //        break;
-                //    }
-                //}
-            }
+            if (!RoomLogic.PlayerHasSkill(room, invoker, Name)) return false;
 
-            if (!RoomLogic.PlayerHasSkill(room, invoker, Name) && !huashen) return false;
-
-            if (reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && pattern == Nullification.ClassName)
+            if (reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && respond == RespondType.Nullification)
                 return IsEnabledAtNullification(room, invoker);
 
             switch (reason)
@@ -524,7 +519,7 @@ namespace SanguoshaServer.Game
                     return IsEnabledAtPlay(room, invoker);
                 case CardUseReason.CARD_USE_REASON_RESPONSE:
                 case CardUseReason.CARD_USE_REASON_RESPONSE_USE:
-                    return IsEnabledAtResponse(room, invoker, pattern);
+                    return IsEnabledAtResponse(room, invoker, respond, pattern);
                 default:
                     return false;
             }
@@ -533,7 +528,7 @@ namespace SanguoshaServer.Game
         {
             return string.IsNullOrEmpty(response_pattern);
         }
-        public virtual bool IsEnabledAtResponse(Room room, Player player, string pattern)
+        public virtual bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
         {
             if (!string.IsNullOrEmpty(response_pattern))
                 return Engine.GetPattern(pattern).GetPatternString() == Engine.GetPattern(response_pattern).GetPatternString();
@@ -682,7 +677,7 @@ namespace SanguoshaServer.Game
             frequency = Frequency.Compulsory;
         }
 
-        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position)
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position)
         {
             if (reason == CardUseReason.CARD_USE_REASON_PLAY)
                 return !invoker.HasShownSkill(Name, position == "head");
@@ -898,7 +893,7 @@ namespace SanguoshaServer.Game
             };
             return card;
         }
-        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position)
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position)
         {
             DistanceSkill skill = (DistanceSkill)Engine.GetSkill(Name);
             bool head = (position == "head" ? true : false);

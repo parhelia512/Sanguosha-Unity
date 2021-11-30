@@ -292,7 +292,7 @@ namespace SanguoshaServer.Package
             {
                 target.SetFlags("imperialorder_target");        //这个flag表明该玩家为敕令的固定目标，且会自动在ViewAsSkill生成随机敕令牌后清除
                 player.SetTag("order_reason", "quanjin");
-                WrappedCard card = room.AskForUseCard(player, "@@imperialorder!", "@quanjin-target:" + target.Name, null, -1, HandlingMethod.MethodUse);
+                WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@imperialorder!", "@quanjin-target:" + target.Name, null, -1, HandlingMethod.MethodUse);
                 if (card == null)
                 {
                     string card_name = player.ContainsTag("imperialorder_select") ? ((string)player.GetTag("imperialorder_select")).Split('+')[0] : string.Empty;
@@ -481,7 +481,7 @@ namespace SanguoshaServer.Package
                     if (p.Alive)
                     {
                         p.SetMark("juejue", count);
-                        WrappedCard card = room.AskForUseCard(p, "@@juejue", string.Format("@juejue:{0}::{1}", player.Name, count), null);
+                        WrappedCard card = room.AskForUseCard(p, RespondType.Skill, "@@juejue", string.Format("@juejue:{0}::{1}", player.Name, count), null);
                         p.SetMark("juejue", 0);
                         if (card == null && player.Alive)
                             room.Damage(new DamageStruct("juejue", player, p));
@@ -502,7 +502,7 @@ namespace SanguoshaServer.Package
         public JuejueVS() : base("juejue")
         {}
 
-        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position = null) => pattern == "@@juejue";
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position = null) => pattern == "@@juejue";
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
             => selected.Count < player.GetMark(Name) && room.GetCardPlace(to_select.Id) == Place.PlaceHand;
 
@@ -945,7 +945,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.AskForUseCard(player, "@@jujian_hegemony", "@jujian", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+            room.AskForUseCard(player, RespondType.Skill, "@@jujian_hegemony", "@jujian", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
             return new TriggerStruct();
         }
 
@@ -2000,20 +2000,12 @@ namespace SanguoshaServer.Package
         {
             return false;
         }
-        public override bool IsEnabledAtResponse(Room room, Player player, string pattern)
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
         {
-            if (player.Phase != PlayerPhase.NotActive)
+            if (player.Phase != PlayerPhase.NotActive && !MatchBasic(respond) && !MatchRetrial(respond))
                 return false;
 
-            foreach (FunctionCard fcard in room.AvailableFunctionCards)
-            {
-                if (!(fcard is BasicCard)) continue;
-                WrappedCard card = new WrappedCard(fcard.Name);
-                if (Engine.MatchExpPattern(room, pattern, player, card))
-                    return true;
-            }
-
-            return false;
+            return true;
         }
 
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
@@ -2145,7 +2137,7 @@ namespace SanguoshaServer.Package
         public override void Use(Room room, CardUseStruct card_use)
         {
             Player player = card_use.From;
-            WrappedCard card = room.AskForUseCard(player, "@@imperialorder!", "@duwu_select", null, -1, HandlingMethod.MethodUse);
+            WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@imperialorder!", "@duwu_select", null, -1, HandlingMethod.MethodUse);
             if (card == null)
             {
                 string card_name = player.ContainsTag("imperialorder_select") ? ((string)player.GetTag("imperialorder_select")).Split('+')[0] : string.Empty;

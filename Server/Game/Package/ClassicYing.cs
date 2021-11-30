@@ -1519,7 +1519,7 @@ namespace SanguoshaServer.Package
             if (data is CardUseStruct use)
             {
                 room.SetTag(Name, data);
-                room.AskForUseCard(player, "@@congjian_jx", "@congjian_jx:::" + use.Card.Name, null, -1, FunctionCard.HandlingMethod.MethodUse, true, info.SkillPosition);
+                room.AskForUseCard(player, FunctionCard.RespondType.Skill, "@@congjian_jx", "@congjian_jx:::" + use.Card.Name, null, -1, FunctionCard.HandlingMethod.MethodUse, true, info.SkillPosition);
                 room.RemoveTag(Name);
             }
 
@@ -2557,7 +2557,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player erzhang, TriggerStruct info)
         {
-            room.AskForUseCard(player, "@@kuizhu", string.Format("@kuizhu:::{0}", player.GetMark(Name)), null, -1, FunctionCard.HandlingMethod.MethodUse, true, info.SkillPosition);
+            room.AskForUseCard(player, FunctionCard.RespondType.Skill, "@@kuizhu", string.Format("@kuizhu:::{0}", player.GetMark(Name)), null, -1, FunctionCard.HandlingMethod.MethodUse, true, info.SkillPosition);
             return new TriggerStruct();
         }
     }

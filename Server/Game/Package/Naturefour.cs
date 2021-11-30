@@ -596,15 +596,8 @@ namespace SanguoshaServer.Package
             return to_select.Suit == WrappedCard.CardSuit.Spade && room.GetCardPlace(to_select.Id) != Place.PlaceEquip
                 && !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse);
         }
-        public override bool IsEnabledAtResponse(Room room, Player player, string pattern)
-        {
-            if (room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE)
-            {
-                WrappedCard card = new WrappedCard(Analeptic.ClassName);
-                if (Engine.MatchExpPattern(room, pattern, player, card)) return true;
-            }
-            return false;
-        }
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern) =>
+            MatchAnaleptic(respond) && room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE;
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {
             WrappedCard dismantlement = new WrappedCard(Analeptic.ClassName);
@@ -839,9 +832,9 @@ namespace SanguoshaServer.Package
             return !player.HasFlag(Name);
         }
 
-        public override bool IsEnabledAtResponse(Room room, Player player, string pattern)
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
         {
-            return !player.HasFlag(Name);
+            return !player.HasFlag(Name) && (MatchBasic(respond) || MatchNTTrick(respond));
         }
 
         public override bool IsEnabledAtNullification(Room room, Player player)
@@ -1219,7 +1212,7 @@ namespace SanguoshaServer.Package
         {
             response_or_use = true;
         }
-        public override bool IsAvailable(Room room, Player player, CardUseReason reason, string pattern, string position = null)
+        public override bool IsAvailable(Room room, Player player, CardUseReason reason, RespondType respond, string pattern, string position = null)
         {
             return reason == CardUseReason.CARD_USE_REASON_PLAY && player.HasFlag("shuangxiong_jx_" + position) && player.GetMark("shuangxiong_jx") != 0;
         }
@@ -2033,9 +2026,9 @@ namespace SanguoshaServer.Package
             skill_type = SkillType.Alter;
         }
         public override bool IsEnabledAtPlay(Room room, Player player) => true;
-        public override bool IsEnabledAtResponse(Room room, Player player, string pattern)
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
         {
-            if (room.GetRoomState().GetCurrentCardUseReason() == CardUseStruct.CardUseReason.CARD_USE_REASON_RESPONSE_USE)
+            if (MatchNTTrick(respond) && room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE)
             {
                 WrappedCard card = new WrappedCard(SupplyShortage.ClassName);
                 if (Engine.MatchExpPattern(room, pattern, player, card)) return true;
@@ -2177,7 +2170,7 @@ namespace SanguoshaServer.Package
             List<int> ids = caoren.GetCardCount(false) == 1 ? caoren.GetCards("h") : new List<int>();
             if (ids.Count == 0)
             {
-                WrappedCard use = room.AskForUseCard(caoren, "@@jushou_jx", "@jushou", null, -1, FunctionCard.HandlingMethod.MethodUse, true, info.SkillPosition);
+                WrappedCard use = room.AskForUseCard(caoren, RespondType.Skill, "@@jushou_jx", "@jushou", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
                 if (use != null)
                     ids = new List<int>(use.SubCards);
                 else
@@ -2357,7 +2350,7 @@ namespace SanguoshaServer.Package
                 }
             }
             else if (change.To == PlayerPhase.NotActive)
-                room.AskForUseCard(player, "@@fangquan_jx", "@fangquan-discard", null, -1, HandlingMethod.MethodDiscard, true, info.SkillPosition);
+                room.AskForUseCard(player, RespondType.Skill, "@@fangquan_jx", "@fangquan-discard", null, -1, HandlingMethod.MethodDiscard, true, info.SkillPosition);
 
             return new TriggerStruct();
         }
@@ -3542,7 +3535,7 @@ namespace SanguoshaServer.Package
         {
         }
         public override bool IsEnabledAtPlay(Room room, Player player) => false;
-        public override bool IsEnabledAtResponse(Room room, Player player, string pattern) => pattern.StartsWith("@@shensu_jx");
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern) => pattern.StartsWith("@@shensu_jx");
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
         {
             if (room.GetRoomState().GetCurrentCardUsePattern().EndsWith("1"))
@@ -3609,7 +3602,7 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player xiahouyuan, ref object data, Player ask_who, TriggerStruct info)
         {
             PhaseChangeStruct change = (PhaseChangeStruct)data;
-            if (change.To == PlayerPhase.Judge && room.AskForUseCard(xiahouyuan, "@@shensu_jx1", "@shensu_jx1", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition) != null)
+            if (change.To == PlayerPhase.Judge && room.AskForUseCard(xiahouyuan, RespondType.Skill, "@@shensu_jx1", "@shensu_jx1", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition) != null)
             {
                 if (room.ContainsTag("shensu_invoke" + xiahouyuan.Name))
                 {
@@ -3618,7 +3611,7 @@ namespace SanguoshaServer.Package
                     return info;
                 }
             }
-            else if (change.To == PlayerPhase.Play && room.AskForUseCard(xiahouyuan, "@@shensu_jx2", "@shensu_jx2", null, -1, HandlingMethod.MethodDiscard, true, info.SkillPosition) != null)
+            else if (change.To == PlayerPhase.Play && room.AskForUseCard(xiahouyuan, RespondType.Skill, "@@shensu_jx2", "@shensu_jx2", null, -1, HandlingMethod.MethodDiscard, true, info.SkillPosition) != null)
             {
                 if (room.ContainsTag("shensu_invoke" + xiahouyuan.Name))
                 {
@@ -3626,7 +3619,7 @@ namespace SanguoshaServer.Package
                     return info;
                 }
             }
-            else if (change.To == PlayerPhase.Discard && room.AskForUseCard(xiahouyuan, "@@shensu_jx3", "@shensu_jx3", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition) != null)
+            else if (change.To == PlayerPhase.Discard && room.AskForUseCard(xiahouyuan, RespondType.Skill, "@@shensu_jx3", "@shensu_jx3", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition) != null)
             {
                 if (room.ContainsTag("shensu_invoke" + xiahouyuan.Name))
                 {
@@ -3902,7 +3895,7 @@ namespace SanguoshaServer.Package
         public TianxiangJXViewAsSkill() : base("tianxiang_jx")
         {
         }
-        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position = null)
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position = null)
         {
             return reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && pattern == "@@tianxiang_jx";
         }
@@ -3941,7 +3934,7 @@ namespace SanguoshaServer.Package
         {
             xiaoqiao.SetFlags("-tianxiang_invoke");
             room.SetTag("TianxiangDamage", data);
-            room.AskForUseCard(xiaoqiao, "@@tianxiang_jx", "@tianxiang_jx-card", null, -1, HandlingMethod.MethodDiscard, true, info.SkillPosition);
+            room.AskForUseCard(xiaoqiao, RespondType.Skill, "@@tianxiang_jx", "@tianxiang_jx-card", null, -1, HandlingMethod.MethodDiscard, true, info.SkillPosition);
             room.RemoveTag("TianxiangDamage");
             if (xiaoqiao.HasFlag("tianxiang_invoke"))
                 return info;
@@ -4587,7 +4580,7 @@ namespace SanguoshaServer.Package
         public HaoshiClassicViewAsSkill() : base("haoshi_classic")
         {
         }
-        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position = null)
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position = null)
         {
             return reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && pattern == "@@haoshi_classic!";
         }
@@ -4628,7 +4621,7 @@ namespace SanguoshaServer.Package
                 player.RemoveTag("haoshi_target");
                 Player target = room.FindPlayer(target_name);
                 if (target != null)
-                    room.RemovePlayerMark(target, Name);
+                    room.RemovePlayerStringMark(target, Name);
             }
 
         }
@@ -4717,7 +4710,7 @@ namespace SanguoshaServer.Package
                 least = Math.Min(player.HandcardNum, least);
             lusu.SetMark("haoshi_classic", least);
 
-            if (room.AskForUseCard(lusu, "@@haoshi_classic!", "@haoshi", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition) == null)
+            if (room.AskForUseCard(lusu, RespondType.Skill, "@@haoshi_classic!", "@haoshi", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition) == null)
             {
                 // force lusu to give his half cards
                 Player beggar = null;

@@ -1225,7 +1225,7 @@ namespace SanguoshaServer.Package
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player skill_target, ref object data, Player ask_who, TriggerStruct info)
         {
             room.SendCompulsoryTriggerLog(ask_who, Name, true);
-            if (room.AskForCard(skill_target, Name, ".|.|.|equipped!", "@fengshi-discard:" + ask_who.Name) == null)
+            if (room.AskForCard(skill_target, Name, FunctionCard.RespondType.None, ".|.|.|equipped!", "@fengshi-discard:" + ask_who.Name) == null)
             {
                 List<int> equips_candiscard = new List<int>();
                 foreach (int e in skill_target.GetEquips())
@@ -1301,14 +1301,18 @@ namespace SanguoshaServer.Package
                 return false;
             return Slash.IsAvailable(room, player) && player.CanShowGeneral(null);
         }
-        public override bool IsEnabledAtResponse(Room room, Player player, string pattern)
+        public override bool IsEnabledAtResponse(Room room, Player player, FunctionCard.RespondType respond, string pattern)
         {
-            Player zhangjiao = RoomLogic.GetLord(room, player.Kingdom);
-            if (zhangjiao == null || !RoomLogic.PlayerHasShownSkill(room, zhangjiao, "hongfa")
-                || zhangjiao.GetPile("heavenly_army").Count == 0 || !RoomLogic.WillBeFriendWith(room, player, zhangjiao))
-                return false;
+            if (MatchSlash(respond))
+            {
+                Player zhangjiao = RoomLogic.GetLord(room, player.Kingdom);
+                if (zhangjiao == null || !RoomLogic.PlayerHasShownSkill(room, zhangjiao, "hongfa")
+                    || zhangjiao.GetPile("heavenly_army").Count == 0 || !RoomLogic.WillBeFriendWith(room, player, zhangjiao))
+                    return false;
 
-            return pattern == Slash.ClassName && player.CanShowGeneral(null);
+                return player.CanShowGeneral(null);
+            }
+            return false;
         }
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {

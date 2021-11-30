@@ -747,7 +747,7 @@ namespace SanguoshaServer.Package
             while (player.Alive && basic.Count > 0)
             {
                 player.Piles["#denglou"] = new List<int>(basic);
-                WrappedCard card = room.AskForUseCard(player, "@@denglou", "@denglou-use", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+                WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@denglou", "@denglou-use", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
                 player.Piles["#denglou"].Clear();
                 if (card != null)
                     basic.RemoveAll(t => card.SubCards.Contains(t));
@@ -2338,7 +2338,7 @@ namespace SanguoshaServer.Package
             room.DrawCards(player, Math.Min(5, player.MaxHp - player.HandcardNum), Name);
             if (player.Alive && !player.IsKongcheng())
             {
-                if (room.AskForUseCard(player, "@@lilu!", "@lilu", null, -1, HandlingMethod.MethodNone, true, info.SkillPosition) == null)
+                if (room.AskForUseCard(player, RespondType.Skill, "@@lilu!", "@lilu", null, -1, HandlingMethod.MethodNone, true, info.SkillPosition) == null)
                 {
                     List<int> hands = new List<int>(player.GetCards("h"));
                     Shuffle.shuffle(ref hands);
@@ -3186,7 +3186,8 @@ namespace SanguoshaServer.Package
                 target = damage.From;
 
             if (target != null) target.SetFlags(Name);
-            WrappedCard card = room.AskForUseCard(player, "@@shunshi", target == null ? "@shunshi" : "@shunshi-exsi:" + target.Name, null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
+            WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@shunshi",
+                target == null ? "@shunshi" : "@shunshi-exsi:" + target.Name, null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
             if (card != null)
             {
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
@@ -3291,11 +3292,11 @@ namespace SanguoshaServer.Package
         public Tunan() : base("tunan")
         {
         }
-        public override bool IsAvailable(Room room, Player invoker, CardUseStruct.CardUseReason reason, string pattern, string position = null)
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position = null)
         {
             switch (reason)
             {
-                case CardUseStruct.CardUseReason.CARD_USE_REASON_PLAY:
+                case CardUseReason.CARD_USE_REASON_PLAY:
                     return RoomLogic.PlayerHasSkill(room, invoker, Name) && !invoker.HasUsed(TunanCard.ClassName);
                 case CardUseReason.CARD_USE_REASON_RESPONSE_USE when pattern.StartsWith("@@tunan"):
                     return true;
@@ -3369,10 +3370,10 @@ namespace SanguoshaServer.Package
             target.SetMark("tunan", ids[0]);
             WrappedCard card = room.GetCard(ids[0]);
             FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-            if (!fcard.IsAvailable(room, target, card) || room.AskForUseCard(target, "@@tunan", "@tunan-use", null, -1, HandlingMethod.MethodUse, false) == null)
+            if (!fcard.IsAvailable(room, target, card) || room.AskForUseCard(target, RespondType.Skill, "@@tunan", "@tunan-use", null, -1, HandlingMethod.MethodUse, false) == null)
             {
                 target.SetFlags("tunan");
-                room.AskForUseCard(target, "@@tunan", "@tunan-slash", null, -1, HandlingMethod.MethodUse, false);
+                room.AskForUseCard(target, RespondType.Skill, "@@tunan", "@tunan-slash", null, -1, HandlingMethod.MethodUse, false);
                 target.SetFlags("-tunan");
             }
             target.SetMark("tunan", 0);
@@ -6452,7 +6453,7 @@ namespace SanguoshaServer.Package
 
             room.Judge(ref judge);
             player.SetMark(Name, judge.JudgeNumber);
-            room.AskForUseCard(player, "@@jijing", "@jijing:::" + judge.Card.Number.ToString(), null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+            room.AskForUseCard(player, RespondType.Skill, "@@jijing", "@jijing:::" + judge.Card.Number.ToString(), null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
             return false;
         }
     }
@@ -6836,7 +6837,7 @@ namespace SanguoshaServer.Package
             int count = player.GetMark("@gd_liang");
             while (cards.Count > 0 && friends.Count > 0 && count > 0)
             {
-                WrappedCard card = room.AskForUseCard(player, "@@liangying_classic", string.Format("@liangying_classic:::{0}", count),
+                WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@liangying_classic", string.Format("@liangying_classic:::{0}", count),
                     null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
                 if (card != null)
                 {
@@ -7293,7 +7294,7 @@ namespace SanguoshaServer.Package
             room.SetPlayerMark(player, Name, 1);
             room.SendCompulsoryTriggerLog(player, Name);
 
-            WrappedCard card = room.AskForUseCard(player, "@@zongfan", "@zongfan", null, -1, HandlingMethod.MethodNone, false, info.SkillPosition);
+            WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@zongfan", "@zongfan", null, -1, HandlingMethod.MethodNone, false, info.SkillPosition);
             if (player.Alive)
                 room.HandleAcquireDetachSkills(player, "-mouni|zhangu", false);
 
@@ -8547,7 +8548,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.AskForUseCard(player, "@@qinguo", "@qinguo-slash", null, -1, HandlingMethod.MethodUse, false, info.SkillPosition);
+            room.AskForUseCard(player, RespondType.Skill, "@@qinguo", "@qinguo-slash", null, -1, HandlingMethod.MethodUse, false, info.SkillPosition);
             return new TriggerStruct();
         }
 

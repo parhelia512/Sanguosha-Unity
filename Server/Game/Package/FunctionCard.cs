@@ -31,6 +31,26 @@ namespace SanguoshaServer.Package
             MethodNone, MethodUse, MethodResponse, MethodDiscard, MethodRecast, MethodPindian, MethodGet
         };
 
+        public enum RespondType
+        {
+            None                  = 0x0000000,
+            Card                  = 0x00FFFFF,
+            Basic                 = 0x000000F,
+            Slash                 = 0x0000001,
+            Jink                  = 0x0000002,
+            Analeptic             = 0x0000004,
+            Peach                 = 0x0000008,
+            PeachAnaleptic        = 0x000000B,
+            Trick                 = 0x00000F0,
+            NTTrick               = 0x0000010,
+            NTTrickSlash          = 0x0000011,
+            DelayedTrick          = 0x0000020,
+            Nullification         = 0x0000040,
+            Equip                 = 0x0000F00,
+            Skill                 = 0x000F000,
+            Retrial               = 0x00F0000,
+        }
+
         public string Name => card_name;
         public bool WillThrow => will_throw;
         public bool HasPreact => has_preact;

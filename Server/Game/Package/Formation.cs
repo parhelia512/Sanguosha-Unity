@@ -274,7 +274,7 @@ namespace SanguoshaServer.Package
         {
             player.RemoveTag("ziliang");
             player.SetTag("ziliang_aidata", p.Name);
-            if (room.AskForUseCard(player, "@@ziliang", "@ziliang-give", null, -1, HandlingMethod.MethodNone, true, info.SkillPosition) != null)
+            if (room.AskForUseCard(player, RespondType.Skill, "@@ziliang", "@ziliang-give", null, -1, HandlingMethod.MethodNone, true, info.SkillPosition) != null)
                 return info;
 
             return new TriggerStruct();
@@ -374,7 +374,7 @@ namespace SanguoshaServer.Package
         {
             target.RemoveTag("huyuan_equip");
             target.RemoveTag("huyuan_target");
-            bool invoke = room.AskForUseCard(target, "@@huyuan", "@huyuan-equip", null, -1, HandlingMethod.MethodNone, true, info.SkillPosition) != null;
+            bool invoke = room.AskForUseCard(target, RespondType.Skill, "@@huyuan", "@huyuan-equip", null, -1, HandlingMethod.MethodNone, true, info.SkillPosition) != null;
             if (invoke && target.ContainsTag("huyuan_target"))
             {
                 room.BroadcastSkillInvoke(Name, target, info.SkillPosition);
@@ -1021,7 +1021,7 @@ namespace SanguoshaServer.Package
             {
                 List<string> prompt_list = new List<string> { "@qianhuan-cancel", string.Empty, use.To[0].Name, use.Card.Name };
                 string prompt = string.Join(":", prompt_list);
-                if (room.AskForUseCard(yuji, "@@qianhuan", prompt, null, -1, HandlingMethod.MethodNone, true, info.SkillPosition) != null)
+                if (room.AskForUseCard(yuji, RespondType.Skill, "@@qianhuan", prompt, null, -1, HandlingMethod.MethodNone, true, info.SkillPosition) != null)
                 {
                     if (yuji != use.To[0])
                     {
@@ -1040,7 +1040,7 @@ namespace SanguoshaServer.Package
                 WrappedCard card = move.Reason.Card;
                 List<string> prompt_list = new List<string> { "@qianhuan-cancel", string.Empty, move.To.Name, card.Name };
                 string prompt = string.Join(":", prompt_list);
-                if (room.AskForUseCard(yuji, "@@qianhuan", prompt, null, -1, HandlingMethod.MethodNone, true, info.SkillPosition) != null)
+                if (room.AskForUseCard(yuji, RespondType.Skill, "@@qianhuan", prompt, null, -1, HandlingMethod.MethodNone, true, info.SkillPosition) != null)
                 {
                     room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, yuji.Name, move.To.Name);
                     invoke = true;

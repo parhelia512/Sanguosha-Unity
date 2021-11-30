@@ -78,6 +78,10 @@ namespace SanguoshaServer
         //for choose player min & max, huashen box or other dialog
         private List<string> ex_information;
 
+        //respond_type
+        private RespondType respond_type;
+        private Player dying = null;
+
         //choose player
         private int max_num, min_num;
         private string hightlight_skill;
@@ -161,7 +165,7 @@ namespace SanguoshaServer
             return true;
         }
 
-        public bool PlayCardRequst(Room room, Player player, CommandType type, string prompt = null,
+        public bool PlayCardRequst(Room room, Player player, CommandType type, RespondType respond, string prompt = null,
             HandlingMethod method = HandlingMethod.MethodNone, int notice_index = -1, string position = null)
         {
             this.room = room;
@@ -177,6 +181,7 @@ namespace SanguoshaServer
             else
                 hightlight_skill = null;
             ex_information = null;
+            respond_type = respond;
 
             string pattern = room.GetRoomState().GetCurrentCardUsePattern(player);
             CardUseStruct.CardUseReason reason = room.GetRoomState().GetCurrentCardUseReason();
@@ -186,14 +191,14 @@ namespace SanguoshaServer
                 cancel_able = !string.IsNullOrEmpty(pattern) || type == CommandType.S_COMMAND_PLAY_CARD;
 
             const string rx_pattern = @"@?@?([_A-Za-z]+)(\d+)?!?";
-            if (!string.IsNullOrEmpty(pattern))
+            if (respond == RespondType.Skill && !string.IsNullOrEmpty(pattern))
             {
                 Match result = Regex.Match(pattern, rx_pattern);
                 if (player != null && result.Length > 0)
                 {
                     string skill_name = result.Groups[1].ToString();
                     ViewAsSkill skill = Engine.GetViewAsSkill(skill_name);
-                    if (skill != null && skill.IsAvailable(room, player, reason, pattern, position))
+                    if (skill != null && skill.IsAvailable(room, player, reason, respond, pattern, position))
                     {
                         skill_invoke = true;
                         pending_skill = skill;
@@ -271,6 +276,7 @@ namespace SanguoshaServer
             requestor = null;
             ExpectedReplyCommand = CommandType.S_COMMAND_ASK_PEACH;
             method = HandlingMethod.MethodUse;
+            this.dying = dying;
 
             hightlight_skill = null;
             pending_skill = null;
@@ -729,6 +735,9 @@ namespace SanguoshaServer
             {
                 foreach (Player player in requestors)
                 {
+                    if (ExpectedReplyCommand == CommandType.S_COMMAND_ASK_PEACH)
+                        respond_type = dying == player ? RespondType.PeachAnaleptic : RespondType.Peach;
+
                     available_equip_skills[player.Name] = new List<string>();
                     available_head_skills[player.Name] = new List<string>();
                     string pattern = room.GetRoomState().GetCurrentCardUsePattern(player);
@@ -738,7 +747,7 @@ namespace SanguoshaServer
                         if (skill != null)
                         {
                             ViewAsSkill vs = ViewAsSkill.ParseViewAsSkill(skill);
-                            if (vs != null && vs.IsAvailable(room, player, reason, pattern))
+                            if (vs != null && vs.IsAvailable(room, player, reason, respond_type, pattern))
                             {
                                 if (available_equip_skills.ContainsKey(player.Name))
                                     available_equip_skills[player.Name].Add(skill.Name);
@@ -757,7 +766,7 @@ namespace SanguoshaServer
                     foreach (string skill in heads)
                     {
                         ViewAsSkill vs = ViewAsSkill.ParseViewAsSkill(skill);
-                        if (vs != null && vs.IsAvailable(room, player, reason, pattern, "head"))
+                        if (vs != null && vs.IsAvailable(room, player, reason, respond_type, pattern, "head"))
                         {
                             if (available_head_skills.ContainsKey(player.Name))
                                 available_head_skills[player.Name].Add(skill);
@@ -774,7 +783,7 @@ namespace SanguoshaServer
                     foreach (string skill in deputys)
                     {
                         ViewAsSkill vs = ViewAsSkill.ParseViewAsSkill(skill);
-                        if (vs != null && vs.IsAvailable(room, player, reason, pattern, "deputy"))
+                        if (vs != null && vs.IsAvailable(room, player, reason, respond_type, pattern, "deputy"))
                         {
                             if (available_deputy_skills.ContainsKey(player.Name))
                                 available_deputy_skills[player.Name].Add(skill);
@@ -800,8 +809,11 @@ namespace SanguoshaServer
             if (promoter != null && !skill_invoke && pending_skill == null && !string.IsNullOrEmpty(promote.SkillName) && room.GetPlayers(ClientId).Contains(promoter)
                     && room.GetRoomState().GetCurrentCardUsePattern(promoter) == promote.Pattern && reason == promote.Reason)
             {
+                if (ExpectedReplyCommand == CommandType.S_COMMAND_ASK_PEACH)
+                    respond_type = dying == promoter ? RespondType.PeachAnaleptic : RespondType.Peach;
+
                 ViewAsSkill pro_skill = Engine.GetViewAsSkill(promote.SkillName);
-                if (pro_skill != null && pro_skill.IsAvailable(room, promoter, promote.Reason, room.GetRoomState().GetCurrentCardUsePattern(promoter), promote.SkillPosition))
+                if (pro_skill != null && pro_skill.IsAvailable(room, promoter, promote.Reason, respond_type, room.GetRoomState().GetCurrentCardUsePattern(promoter), promote.SkillPosition))
                 {
                     pending_skill = pro_skill;
                     skill_position = promote.SkillPosition;
@@ -842,7 +854,7 @@ namespace SanguoshaServer
 
                     #region new transfer card
                     if (ExpectedReplyCommand == CommandType.S_COMMAND_PLAY_CARD
-                        && transfer.IsAvailable(room, player, room.GetRoomState().GetCurrentCardUseReason(), string.Empty))
+                        && transfer.IsAvailable(room, player, room.GetRoomState().GetCurrentCardUseReason(), RespondType.None, string.Empty))
                     {
                         if (available_head_skills.ContainsKey(player.Name))
                             available_head_skills[player.Name].Add("transfer");
@@ -2070,8 +2082,10 @@ namespace SanguoshaServer
                 string position = args[3];
                 auto_target = bool.Parse(args[4]);
 
+                if (ExpectedReplyCommand == CommandType.S_COMMAND_ASK_PEACH)
+                    respond_type = dying == player ? RespondType.PeachAnaleptic : RespondType.Peach;
                 string pattern = room.GetRoomState().GetCurrentCardUsePattern(player);
-                if (player != null && skill != null && skill.IsAvailable(room, player, room.GetRoomState().GetCurrentCardUseReason(), pattern, position)
+                if (player != null && skill != null && skill.IsAvailable(room, player, room.GetRoomState().GetCurrentCardUseReason(), respond_type, pattern, position)
                         && ((available_equip_skills.ContainsKey(player.Name) && available_equip_skills[player.Name].Contains(skill_name))
                         || (position == "head" && available_head_skills.ContainsKey(player.Name) && available_head_skills[player.Name].Contains(skill_name))
                         || (position == "deputy" && available_deputy_skills.ContainsKey(player.Name) && available_deputy_skills[player.Name].Contains(skill_name))))
@@ -2194,7 +2208,11 @@ namespace SanguoshaServer
             {
                 string skill = args[1];
                 ViewAsSkill vs = Engine.GetViewAsSkill(skill);
-                if (vs != null && vs.IsAvailable(room, skill_owner, room.GetRoomState().GetCurrentCardUseReason(), room.GetRoomState().GetCurrentCardUsePattern(skill_owner)))
+
+                if (ExpectedReplyCommand == CommandType.S_COMMAND_ASK_PEACH)
+                    respond_type = dying == skill_owner ? RespondType.PeachAnaleptic : RespondType.Peach;
+
+                if (vs != null && vs.IsAvailable(room, skill_owner, room.GetRoomState().GetCurrentCardUseReason(), respond_type, room.GetRoomState().GetCurrentCardUsePattern(skill_owner)))
                 {
                     success = true;
                     pending_skill = vs;

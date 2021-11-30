@@ -5883,23 +5883,23 @@ namespace SanguoshaServer.Game
             }
         }
 
-        public WrappedCard AskForCard(Player player, string reason, string pattern, string prompt, object data, string skill_name)
+        public WrappedCard AskForCard(Player player, string reason, RespondType respond, string pattern, string prompt, object data, string skill_name)
         {
-            return AskForCard(player, reason, pattern, prompt, data, HandlingMethod.MethodDiscard, null, false, skill_name, false);
+            return AskForCard(player, reason, respond, pattern, prompt, data, HandlingMethod.MethodDiscard, null, false, skill_name, false);
         }
 
-        public WrappedCard AskForCard(Player player, string reason, string pattern, string prompt,
+        public WrappedCard AskForCard(Player player, string reason, RespondType respond, string pattern, string prompt,
             object data = null, HandlingMethod method = HandlingMethod.MethodDiscard, Player to = null, bool isRetrial = false,
             string _skill_name = null, bool isProvision = false)
         {
-            return AskForCard(player, reason, pattern, prompt, data, method, _skill_name, to, isRetrial, isProvision).Card;
+            return AskForCard(player, reason, respond, pattern, prompt, data, method, _skill_name, to, isRetrial, isProvision).Card;
         }
 
         private WrappedCard provided = null;
         private bool has_provided;
         private List<Player> _alivePlayers = new List<Player>();
 
-        public CardResponseStruct AskForCard(Player player, string reason, string _pattern, string prompt, object data, HandlingMethod method,
+        public CardResponseStruct AskForCard(Player player, string reason, RespondType respond, string _pattern, string prompt, object data, HandlingMethod method,
             string _skill_name, Player to, bool isRetrial, bool isProvision)
         {
             CardResponseStruct resp = new CardResponseStruct() { From = player };
@@ -5976,7 +5976,7 @@ namespace SanguoshaServer.Game
                     else
                     {
                         Interactivity client = GetInteractivity(player);
-                        bool success = client != null && client.PlayCardRequst(this, player, CommandType.S_COMMAND_RESPONSE_CARD, prompt, method);
+                        bool success = client != null && client.PlayCardRequst(this, player, CommandType.S_COMMAND_RESPONSE_CARD, respond, prompt, method);
                         List<string> clientReply = client?.ClientReply;
                         if (client != null && success && clientReply != null && clientReply.Count != 0)
                         {
@@ -7038,7 +7038,7 @@ namespace SanguoshaServer.Game
             }
             else
             {
-                bool success = GetInteractivity(player).PlayCardRequst(this, player, CommandType.S_COMMAND_PLAY_CARD);
+                bool success = GetInteractivity(player).PlayCardRequst(this, player, CommandType.S_COMMAND_PLAY_CARD, RespondType.None);
                 List<string> clientReply = GetInteractivity(player).ClientReply;
 
                 //if (m_surrenderRequestReceived)
@@ -7486,7 +7486,7 @@ namespace SanguoshaServer.Game
             card_ids = MoveCardsAtomic(new List<CardsMoveStruct> { move }, unhide);
         }
 
-        public WrappedCard AskForUseCard(Player player, string _pattern, string prompt, UseRespond data, int notice_index = -1,
+        public WrappedCard AskForUseCard(Player player, RespondType respond, string _pattern, string prompt, UseRespond data, int notice_index = -1,
             HandlingMethod method = HandlingMethod.MethodUse, bool addHistory = true, string position = null)
         {
 
@@ -7537,7 +7537,7 @@ namespace SanguoshaServer.Game
                 else
                 {
                     Interactivity client = GetInteractivity(player);
-                    bool success = client != null && client.PlayCardRequst(this, player, CommandType.S_COMMAND_RESPONSE_CARD, prompt, method, notice_index, position);
+                    bool success = client != null && client.PlayCardRequst(this, player, CommandType.S_COMMAND_RESPONSE_CARD, respond, prompt, method, notice_index, position);
                     if (success)
                     {
                         List<string> clientReply = client?.ClientReply;
@@ -7597,7 +7597,7 @@ namespace SanguoshaServer.Game
             foreach (Player victim in victims)
                 victim.SetFlags("SlashAssignee");
 
-            WrappedCard slash = AskForUseCard(slasher, Slash.ClassName, prompt, data, -1, HandlingMethod.MethodUse, addHistory);
+            WrappedCard slash = AskForUseCard(slasher, RespondType.Slash, Slash.ClassName, prompt, data, -1, HandlingMethod.MethodUse, addHistory);
             if (slash == null)
             {
                 slasher.SetFlags("-slashTargetFix");
@@ -8275,7 +8275,7 @@ namespace SanguoshaServer.Game
         public bool AskForExCollateral(Player player, ref CardUseStruct use)
         {
             SetTag("Current_Collateral", use);
-            WrappedCard card = AskForUseCard(player, "@@CollateralEx", "@Collateral", null);
+            WrappedCard card = AskForUseCard(player, RespondType.Skill, "@@CollateralEx", "@Collateral", null);
             bool invoke = false;
             if (card != null && GetTag("CollateralEx") is Player target)
             {

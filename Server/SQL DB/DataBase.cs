@@ -120,7 +120,6 @@ namespace SanguoshaServer
             myConnection.Open();
             myCommand.ExecuteNonQuery();
             myConnection.Close();
-            myConnection.Dispose();
         }
     }
 }

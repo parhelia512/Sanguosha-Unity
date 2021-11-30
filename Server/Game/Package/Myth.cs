@@ -658,7 +658,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.AskForUseCard(player, "@@kuangfeng", "@kuangfeng", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+            room.AskForUseCard(player, RespondType.Skill, "@@kuangfeng", "@kuangfeng", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
             return new TriggerStruct();
         }
     }
@@ -789,7 +789,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.AskForUseCard(player, "@@dawu", "@dawu", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+            room.AskForUseCard(player, RespondType.Skill, "@@dawu", "@dawu", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
             return new TriggerStruct();
         }
     }
@@ -1172,12 +1172,9 @@ namespace SanguoshaServer.Package
             return false;
         }
 
-        public override bool IsEnabledAtResponse(Room room, Player player, string pattern)
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
         {
-            WrappedCard slash = new WrappedCard(FireSlash.ClassName);
-            WrappedCard peach = new WrappedCard(Peach.ClassName);
-            WrappedCard jink = new WrappedCard(Jink.ClassName);
-            return Engine.MatchExpPattern(room, pattern, player, slash) || Engine.MatchExpPattern(room, pattern, player, jink) || Engine.MatchExpPattern(room, pattern, player, peach);
+            return MatchSlash(respond) || MatchJink(respond) || MatchPeach(respond);
         }
 
         public override bool IsEnabledAtPlay(Room room, Player player)
@@ -1631,7 +1628,7 @@ namespace SanguoshaServer.Package
                 string prompt = string.Join(":", prompt_list);
 
                 room.SetTag(Name, data);
-                WrappedCard card = room.AskForCard(player, Name, "..", prompt, data, HandlingMethod.MethodResponse, judge.Who, true);
+                WrappedCard card = room.AskForCard(player, Name, RespondType.Retrial, "..", prompt, data, HandlingMethod.MethodResponse, judge.Who, true);
                 room.RemoveTag(Name);
                 if (card != null)
                 {

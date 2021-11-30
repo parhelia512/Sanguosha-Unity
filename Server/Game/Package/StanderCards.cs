@@ -833,7 +833,7 @@ namespace SanguoshaServer.Package
                 string prompt = string.Format("savage-assault-slash:{0}", effect.From.Name);
                 if (i < effect.BasicEffect.Effect2 - 1)
                     prompt = string.Format("savage-assault-slash-{1}:{0}::{1}", effect.From.Name, effect.BasicEffect.Effect2 - 1);
-                WrappedCard slash = room.AskForCard(effect.To, Name, Slash.ClassName, prompt, effect, HandlingMethod.MethodResponse,
+                WrappedCard slash = room.AskForCard(effect.To, Name, RespondType.Slash, Slash.ClassName, prompt, effect, HandlingMethod.MethodResponse,
                     effect.From.Alive ? effect.From : null);
                 if (slash != null)
                 {
@@ -891,7 +891,7 @@ namespace SanguoshaServer.Package
                 string prompt = string.Format("archery-attack-jink:{0}", effect.From.Name);
                 if (i < effect.BasicEffect.Effect2 -1)
                     prompt = string.Format("archery-attack-jink-:{0}::{1}", effect.From.Name, effect.BasicEffect.Effect2 - i);
-                WrappedCard jink = room.AskForCard(effect.To, Name, Jink.ClassName, prompt, effect, HandlingMethod.MethodResponse,
+                WrappedCard jink = room.AskForCard(effect.To, Name, RespondType.Jink, Jink.ClassName, prompt, effect, HandlingMethod.MethodResponse,
                     effect.From.Alive ? effect.From : null);
 
                 if (jink != null && jink.Skill != EightDiagram.ClassName)
@@ -919,7 +919,7 @@ namespace SanguoshaServer.Package
         {
         }
 
-        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position = null)
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, FunctionCard.RespondType respond, string pattern, string position = null)
         {
             return pattern == "@@CollateralEx";
         }
@@ -1174,7 +1174,7 @@ namespace SanguoshaServer.Package
                 int count = counts[first.Name];
                 while (count > 0)
                 {
-                    WrappedCard slash = room.AskForCard(first, Name, first == effect.To ? pattern : Slash.ClassName,
+                    WrappedCard slash = room.AskForCard(first, Name, RespondType.Slash, first == effect.To ? pattern : Slash.ClassName,
                         string.Format("duel-slash:{0}::{1}", second.Name, count), effect, HandlingMethod.MethodResponse, second);
                     count--;
                     if (slash == null)
@@ -1732,7 +1732,7 @@ namespace SanguoshaServer.Package
                 WrappedCard.GetSuitIcon(RoomLogic.GetCardSuit(room, room.GetCard(id))), WrappedCard.IsBlack(suit) ? "black" : "red");
             if (effect.From.Alive)
             {
-                WrappedCard card_to_throw = room.AskForCard(effect.From, Name, pattern, prompt, effect, HandlingMethod.MethodDiscard);
+                WrappedCard card_to_throw = room.AskForCard(effect.From, Name, RespondType.None, pattern, prompt, effect, HandlingMethod.MethodDiscard);
                 if (card_to_throw != null)
                 {
                     room.SetEmotion(effect.From, "fire_attack");
@@ -2119,10 +2119,9 @@ namespace SanguoshaServer.Package
             return Slash.IsAvailable(room, player)
                 && player.GetMark("Equips_nullified_to_Yourself") == 0;
         }
-        public override bool IsEnabledAtResponse(Room room, Player player, string pattern)
+        public override bool IsEnabledAtResponse(Room room, Player player, FunctionCard.RespondType respond, string pattern)
         {
-            pattern = Engine.GetPattern(pattern).GetPatternString();
-            return pattern.StartsWith(Slash.ClassName) && player.GetMark("Equips_nullified_to_Yourself") == 0;
+            return MatchSlash(respond) && player.GetMark("Equips_nullified_to_Yourself") == 0;
         }
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
         {
@@ -2162,7 +2161,7 @@ namespace SanguoshaServer.Package
 
             WrappedCard card = null;
             if (player.GetCardCount(true) >= 3) // Need 2 more cards except from the weapon itself
-                card = room.AskForCard(player, Name, "@@Axe", "@Axe:" + effect.To.Name, data, Name);
+                card = room.AskForCard(player, Name, FunctionCard.RespondType.Skill, "@@Axe", "@Axe:" + effect.To.Name, data, Name);
             if (card != null)
             {
                 room.SetEmotion(player, "axe");
@@ -2510,7 +2509,7 @@ namespace SanguoshaServer.Package
                     }
                     if (players.Count == 0)
                         return false;
-                    room.AskForUseCard(player, "@@Triblade", "@Triblade", null);
+                    room.AskForUseCard(player, FunctionCard.RespondType.Skill, "@@Triblade", "@Triblade", null);
                 }
 
                 foreach (Player p in room.GetAllPlayers())
@@ -2848,13 +2847,13 @@ namespace SanguoshaServer.Package
         public Companion() : base("companion")
         {
         }
-        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position = null)
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, FunctionCard.RespondType respond, string pattern, string position = null)
         {
             if (invoker.GetMark("@companion") > 0)
             {
                 if (reason == CardUseReason.CARD_USE_REASON_PLAY)
                     return true;
-                else if (reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE)
+                else if (reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && MatchPeach(respond))
                 {
                     WrappedCard peach = new WrappedCard(Peach.ClassName);
                     FunctionCard fcard = Peach.Instance;
@@ -2917,7 +2916,7 @@ namespace SanguoshaServer.Package
         public MegatamaVS() : base("megatama")
         {
         }
-        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position = null)
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, FunctionCard.RespondType respond, string pattern, string position = null)
         {
             if (invoker.GetMark("@megatama") > 0)
             {
@@ -2956,7 +2955,7 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.AskForUseCard(player, "@@megatama", "@megatama-max", null);
+            room.AskForUseCard(player, FunctionCard.RespondType.Skill, "@@megatama", "@megatama-max", null);
             return new TriggerStruct();
         }
         public override bool OnPhaseChange(Room room, Player player, TriggerStruct info)
@@ -3066,7 +3065,7 @@ namespace SanguoshaServer.Package
         public Pioneer() : base("pioneer")
         {
         }
-        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position = null)
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, FunctionCard.RespondType respond, string pattern, string position = null)
         {
             if (invoker.GetMark("@pioneer") > 0 && reason == CardUseReason.CARD_USE_REASON_PLAY)
             {

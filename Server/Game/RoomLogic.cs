@@ -1039,7 +1039,7 @@ namespace SanguoshaServer.Game
             foreach (string skill_name in room.Skills)
             {
                 ViewAsSkill vsskill = Engine.GetViewAsSkill(skill_name);
-                if (vsskill != null && vsskill.IsAvailable(room, player, CardUseStruct.CardUseReason.CARD_USE_REASON_RESPONSE_USE, Nullification.ClassName)) return true;
+                if (vsskill != null && vsskill.IsAvailable(room, player, CardUseStruct.CardUseReason.CARD_USE_REASON_RESPONSE_USE, RespondType.Nullification, Nullification.ClassName)) return true;
             }
 
             return false;

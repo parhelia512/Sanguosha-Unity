@@ -564,7 +564,7 @@ namespace SanguoshaServer.Package
         {
         }
 
-        public override bool IsAvailable(Room room, Player invoker, CardUseStruct.CardUseReason reason, string pattern, string position = null)
+        public override bool IsAvailable(Room room, Player invoker, CardUseStruct.CardUseReason reason, FunctionCard.RespondType respond, string pattern, string position = null)
         {
             return reason == CardUseStruct.CardUseReason.CARD_USE_REASON_RESPONSE_USE && pattern == "@@JadeSeal!";
         }
@@ -605,7 +605,7 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.EventPhaseProceeding)
                 return info;
-            if (room.AskForUseCard(player, "@@JadeSeal!", "@JadeSeal", null) == null)
+            if (room.AskForUseCard(player, FunctionCard.RespondType.Skill, "@@JadeSeal!", "@JadeSeal", null) == null)
             {
                 WrappedCard kb = new WrappedCard(KnownBoth.ClassName)
                 {
@@ -1424,7 +1424,7 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             ask_who.RemoveMark("ThreatenEmperorExtraTurn");
-            if (room.AskForCard(ask_who, Name, ".", "@threaten_emperor", data, Name) != null)
+            if (room.AskForCard(ask_who, Name, FunctionCard.RespondType.None, ".", "@threaten_emperor", data, Name) != null)
                 return info;
             return new TriggerStruct();
         }
@@ -1508,7 +1508,7 @@ namespace SanguoshaServer.Package
         }
         public override void OnEffect(Room room, CardEffectStruct effect)
         {
-            if (room.AskForCard(effect.To, Name, "EquipCard", "@edict-equip") != null)
+            if (room.AskForCard(effect.To, Name, RespondType.None, "EquipCard", "@edict-equip") != null)
                 return;
             List<string> choices = new List<string> { "losehp" };
             if (!effect.To.HasShownAllGenerals() && ((!effect.To.General1Showed && effect.To.CanShowGeneral("h"))
@@ -1592,7 +1592,7 @@ namespace SanguoshaServer.Package
         {
         }
 
-        public override bool IsAvailable(Room room, Player invoker, CardUseStruct.CardUseReason reason, string pattern, string position = null)
+        public override bool IsAvailable(Room room, Player invoker, CardUseStruct.CardUseReason reason, FunctionCard.RespondType respond, string pattern, string position = null)
         {
             return reason == CardUseStruct.CardUseReason.CARD_USE_REASON_PLAY && !invoker.IsKongcheng() && !invoker.HasFlag(Name);
         }

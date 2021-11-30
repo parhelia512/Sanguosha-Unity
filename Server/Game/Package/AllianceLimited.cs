@@ -326,7 +326,7 @@ namespace SanguoshaServer.Package
                 ask_who.SetFlags("slashTargetFix");
                 player.SetFlags("SlashAssignee");
 
-                WrappedCard used = room.AskForUseCard(ask_who, "Slash:fangong", "@fangong-slash:" + player.Name, null, -1, HandlingMethod.MethodUse, false);
+                WrappedCard used = room.AskForUseCard(ask_who, RespondType.Slash, "Slash:fangong", "@fangong-slash:" + player.Name, null, -1, HandlingMethod.MethodUse, false);
                 if (used == null)
                 {
                     ask_who.SetFlags("-slashTargetFix");
