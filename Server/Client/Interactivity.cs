@@ -303,6 +303,7 @@ namespace SanguoshaServer
             requestor = null;
             ExpectedReplyCommand = CommandType.S_COMMAND_NULLIFICATION;
             method = HandlingMethod.MethodUse;
+            respond_type = RespondType.Nullification;
 
             hightlight_skill = null;
             pending_skill = null;
