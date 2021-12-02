@@ -804,7 +804,7 @@ namespace SanguoshaServer.Package
 
             if (ask_who.Alive)
             {
-                WrappedCard dm = room.AskForUseCard(ask_who, "@@lixia_hegemony", "@lixia-discard:" + ss.Name, null);
+                WrappedCard dm = room.AskForUseCard(ask_who, RespondType.Skill, "@@lixia_hegemony", "@lixia-discard:" + ss.Name, null);
                 if (dm != null)
                 {
                     List<int> ids = new List<int>(dm.SubCards);
@@ -838,7 +838,7 @@ namespace SanguoshaServer.Package
             return selected.Count < 2 && RoomLogic.CanDiscard(room, player, player, to_select.Id) && room.GetCardPlace(to_select.Id) == Place.PlaceHand;
         }
 
-        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, string pattern, string position = null)
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position = null)
         {
             return reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && pattern == "@@lixia_hegemony";
         }
