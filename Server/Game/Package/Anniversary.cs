@@ -148,6 +148,9 @@ namespace SanguoshaServer.Package
                 new Zhuangrong(),
                 new Shenwei(),
                 new ShenweiMax(),
+                new Chaofeng(),
+                new Chuanshu(),
+                new Chuanyun(),
 
                 new Guolun(),
                 new Songsang(),
@@ -8231,6 +8234,175 @@ namespace SanguoshaServer.Package
         public override int GetExtra(Room room, Player target)
         {
             return RoomLogic.PlayerHasSkill(room, target, "shenwei") ? 2 : 0;
+        }
+    }
+
+    public class Chaofeng : TriggerSkill
+    {
+        public Chaofeng() : base("chaofeng")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.DamageCaused, TriggerEvent.CardsMoveOneTime };
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.To_place == Place.DiscardPile && move.Reason.SkillName == Name
+                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && move.Card_ids.Count == 1)
+            {
+                move.From.SetTag(Name, move.Card_ids[0]);
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.DamageCaused && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play && !player.HasFlag(Name))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is DamageStruct damage && room.AskForDiscard(player, Name, 1, 1, true, false, "@chaofeng:" + damage.To.Name, true, info.SkillPosition))
+            {
+                player.SetFlags(Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is DamageStruct damage && player.GetTag(Name) is int id)
+            {
+                player.RemoveTag(Name);
+                int count = 1;
+                WrappedCard card = room.GetCard(id);
+                bool add = false;
+                if (damage.Card != null && !Engine.IsSkillCard(damage.Card.Name))
+                {
+                    if (card.Suit == damage.Card.Suit) count++;
+                    if (card.Number == damage.Card.Number) add = true;
+                }
+
+                room.DrawCards(player, count, Name);
+
+                if (add)
+                {
+                    LogMessage log = new LogMessage
+                    {
+                        Type = "#AddDamage",
+                        From = player.Name,
+                        To = new List<string> { damage.To.Name },
+                        Arg = Name,
+                        Arg2 = (++damage.Damage).ToString()
+                    };
+                    room.SendLog(log);
+                    data = damage;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class Chuanshu : TriggerSkill
+    {
+        public Chuanshu() : base("chuanshu")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.Death };
+            frequency = Frequency.Limited;
+            limit_mark = "@chuanshu";
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Start && base.Triggerable(player, room) && player.GetMark(limit_mark) == 1)
+            {
+                int min = 100;
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    if (p.Hp < min)
+                        min = p.Hp;
+                }
+                if (player.Hp == min)
+                    return new TriggerStruct(Name, player);
+            }
+            else if (triggerEvent == TriggerEvent.Death && player.GetMark(limit_mark) == 1 && RoomLogic.PlayerHasSkill(room, player, Name))
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@chuanshu-target", true, true, info.SkillPosition);
+            if (target != null)
+            {
+                room.SetTag(Name, target);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                room.RemovePlayerMark(player, limit_mark);
+                return info;
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.DoSuperLightbox(player, info.SkillPosition, Name);
+            if (room.GetTag(Name) is Player target)
+            {
+                room.RemoveTag(Name);
+                room.HandleAcquireDetachSkills(target, "chaofeng", true);
+            }
+            if (player.Alive)
+            {
+                room.LoseMaxHp(player);
+                if (player.Alive)
+                    room.HandleAcquireDetachSkills(player, "longdan_jx|congjian_jx|chuanyun", true);
+            }
+
+            return false;
+        }
+    }
+
+    public class Chuanyun : TriggerSkill
+    {
+        public Chuanyun() : base("chuanyun")
+        {
+            events = new List<TriggerEvent> {  TriggerEvent.TargetChosen };
+            skill_type = SkillType.Attack;
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.TargetChosen && base.Triggerable(player, room) && data is CardUseStruct use && use.Card != null)
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                if (fcard is Slash)
+                    return new TriggerStruct(Name, player, use.To);
+            }
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player skill_target, ref object data, Player player, TriggerStruct info)
+        {
+            if (skill_target.HasEquip() && RoomLogic.CanDiscard(room, skill_target, skill_target, "e") && room.AskForSkillInvoke(player, Name, skill_target, info.SkillPosition))
+            {
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, skill_target.Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player skill_target, ref object data, Player machao, TriggerStruct info)
+        {
+            List<int> revers = new List<int>();
+            foreach (int id in skill_target.GetCards("e"))
+                if (!RoomLogic.CanDiscard(room, skill_target, skill_target, id)) revers.Add(id);
+            List<int> discard = room.ForceToDiscard(skill_target, skill_target.GetCards("e"), 1, true);
+            if (discard.Count > 0)
+                room.ThrowCard(ref discard, new CardMoveReason(MoveReason.S_REASON_THROW, skill_target.Name, Name, string.Empty), skill_target);
+
+            return false;
         }
     }
 
