@@ -8401,7 +8401,7 @@ namespace SanguoshaServer.AI
                             break;
                         }
                     }
-                    if (target.Hp != player.Hp && ai.GetPlayerTendency(target) != "unknown") ai.UpdatePlayerRelation(player, target, target.Hp < player.Hp);
+                    if (target != null && target.Hp != player.Hp && ai.GetPlayerTendency(target) != "unknown") ai.UpdatePlayerRelation(player, target, target.Hp < player.Hp);
                 }
                 else if (str == key[1])
                 {
