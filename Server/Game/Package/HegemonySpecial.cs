@@ -579,6 +579,7 @@ namespace SanguoshaServer.Package
         public FangyuanMax() : base("#fangyuan") { }
         public override int GetExtra(Room room, Player target)
         {
+            int count = 0;
             if (target.HasShownOneGeneral() && room.AliveCount() >= 4)
             {
                 Player p1 = room.GetLastAlive(target);
@@ -589,10 +590,13 @@ namespace SanguoshaServer.Package
 
                 if ((target != p3 && RoomLogic.InSiegeRelation(room, target, p3, p1) && (RoomLogic.PlayerHasShownSkill(room, target, Name) || RoomLogic.PlayerHasShownSkill(room, p3, Name)))
                     || (target != p4 && RoomLogic.InSiegeRelation(room, target, p4, p2) && (RoomLogic.PlayerHasShownSkill(room, target, Name) || RoomLogic.PlayerHasShownSkill(room, p4, Name))))
-                    return 1;
+                    count ++;
+
+                if (p1 != p2 && RoomLogic.InSiegeRelation(room, p1, p2, target) && (RoomLogic.PlayerHasShownSkill(room, p1, Name) || RoomLogic.PlayerHasShownSkill(room, p2, Name)))
+                    count--;
             }
 
-            return 0;
+            return count;
         }
     }
 
