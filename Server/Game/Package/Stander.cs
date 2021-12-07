@@ -4403,25 +4403,20 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            Player target = room.AskForPlayerChosen(player, room.GetAlivePlayers(), Name, "leiji-invoke", true, true, info.SkillPosition);
+            Player target = room.AskForPlayerChosen(player, room.GetAlivePlayers(), Name, "@leiji-invoke", true, true, info.SkillPosition);
             if (target != null)
             {
-                player.SetTag("leiji-target", target.Name);
+                room.SetTag(Name, target);
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                 return info;
             }
-            else
-            {
-                player.RemoveTag("leiji-target");
-                return new TriggerStruct();
-            }
+            return new TriggerStruct();
         }
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player zhangjiao, ref object data, Player ask_who, TriggerStruct info)
         {
-            Player target = room.FindPlayer((string)zhangjiao.GetTag("leiji-target"));
-            zhangjiao.RemoveTag("leiji-target");
-            if (target != null)
+            if (room.GetTag(Name) is Player target)
             {
+                room.RemoveTag(Name);
                 JudgeStruct judge = new JudgeStruct
                 {
                     Pattern = ".|spade",
