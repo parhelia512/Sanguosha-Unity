@@ -8495,13 +8495,13 @@ namespace SanguoshaServer.Package
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && player.Phase != PlayerPhase.NotActive && player.GetMark(Name) == 0)
+            if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && room.Current != null && !room.ContainsTag(Name))
             {
                 use.Card.SetFlags(Name);
-                player.AddMark(Name);
+                room.SetTag(Name, true);
             }
             else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
-                player.SetMark(Name, 0);
+                room.RemoveTag(Name);
         }
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
