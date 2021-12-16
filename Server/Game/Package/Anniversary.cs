@@ -10599,11 +10599,20 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if ((triggerEvent == TriggerEvent.Damage && room.AskForSkillInvoke(player, Name, "@zhukou-draw:::" + player.GetMark("zhukou_used").ToString(), info.SkillPosition))
-                || (triggerEvent == TriggerEvent.EventPhaseStart && room.AskForSkillInvoke(player, Name, "@zhukou-damage", info.SkillPosition)))
+            if (triggerEvent == TriggerEvent.Damage && room.AskForSkillInvoke(player, Name, "@zhukou-draw:::" + player.GetMark("zhukou_used").ToString(), info.SkillPosition))
             {
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                 return info;
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart)
+            {
+                List<Player> victims = room.AskForPlayersChosen(player, room.GetOtherPlayers(player), Name, 0, 2, "@zhukou-damage", true, info.SkillPosition);
+                if (victims.Count > 0)
+                {
+                    room.SetTag(Name, victims);
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    return info;
+                }
             }
             return new TriggerStruct();
         }
@@ -10612,9 +10621,9 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.Damage)
                 room.DrawCards(player, player.GetMark("zhukou_used"), Name);
-            else
+            else if (room.GetTag(Name) is List<Player> targets)
             {
-                List<Player> targets = room.GetOtherPlayers(player);
+                room.RemoveTag(Name);
                 room.SortByActionOrder(ref targets);
                 foreach (Player p in targets)
                 {
@@ -10639,16 +10648,13 @@ namespace SanguoshaServer.Package
         {
             if (player.Phase == PlayerPhase.Start && base.Triggerable(player, room) && player.GetMark(Name) == 0)
             {
-                bool invoke = true;
-                foreach (Player p in room.GetOtherPlayers(player))
+                int count = 0;
+                foreach (Player p in room.GetAlivePlayers())
                 {
                     if (!p.IsWounded())
-                    {
-                        invoke = false;
-                        break;
-                    }
+                        count++;
                 }
-                if (invoke)
+                if (count > player.Hp)
                     return new TriggerStruct(Name, player);
             }
 
@@ -10747,7 +10753,18 @@ namespace SanguoshaServer.Package
                     room.DrawCards(player, 2, Name);
                     break;
                 case "slash":
-                    player.SetFlags("yuyun_slash");
+                    {
+                        player.SetFlags("yuyun_slash");
+                        Player victim = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@yuyun-slash", false, true, position);
+                        if (victim != null)
+                        {
+                            room.Damage(new DamageStruct(Name, player, victim));
+                            if (victim.Alive)
+                            {
+                                victim.SetFlags("yuyun_victim");
+                            }
+                        }
+                    }
                     break;
                 case "max":
                     player.SetFlags("yuyun_max");
@@ -10757,7 +10774,7 @@ namespace SanguoshaServer.Package
                         List<Player> targets = new List<Player>();
                         foreach (Player p in room.GetOtherPlayers(player))
                         {
-                            if (!p.IsNude() && RoomLogic.CanDiscard(room, player, p, "he"))
+                            if (!p.IsNude() && RoomLogic.CanGetCard(room, player, p, "hej"))
                                 targets.Add(p);
                         }
 
@@ -10765,32 +10782,19 @@ namespace SanguoshaServer.Package
                         {
                             Player target = room.AskForPlayerChosen(player, targets, Name, "@yuyun-disacard", false, true, position);
                             room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
-                            List<string> handles = new List<string>();
-                            if (!target.IsKongcheng())
-                                handles.Add("h^false^discard");
-                            if (target.HasEquip())
-                                handles.Add("e^false^discard");
-                            List<int> ids = room.AskForCardsChosen(player, target, handles, Name);
-                            room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, target.Name, Name, string.Empty), target, player);
+
+                            int id = room.AskForCardChosen(player, target, "hej", Name, false, HandlingMethod.MethodGet);
+                            room.ObtainCard(player,room.GetCard(id), new CardMoveReason(MoveReason.S_REASON_GOTCARD, player.Name, target.Name, Name, string.Empty), false);
                         }
                     }
                     break;
                 case "full":
                     {
                         List<Player> targets = new List<Player>();
-                        int min = 200;
                         foreach (Player p in room.GetOtherPlayers(player))
                         {
-                            if (p.HandcardNum < min)
-                                min = p.HandcardNum;
-                        }
-                        if (min < 5)
-                        {
-                            foreach (Player p in room.GetOtherPlayers(player))
-                            {
-                                if (p.HandcardNum == min)
-                                    targets.Add(p);
-                            }
+                            if (p.HandcardNum < 5 && p.HandcardNum < p.MaxHp)
+                                targets.Add(p);
                         }
 
                         if (targets.Count > 0)
@@ -10823,14 +10827,15 @@ namespace SanguoshaServer.Package
     public class YuyunTar : TargetModSkill
     {
         public YuyunTar() : base("#yuyun-tar", false) { }
-        public override int GetResidueNum(Room room, Player from, WrappedCard card)
+
+        public override bool CheckSpecificAssignee(Room room, Player from, Player to, WrappedCard card, string pattern)
         {
-            return from.HasFlag("yuyun_slash") && WrappedCard.IsBlack(card.Suit) ? 1000 : 0;
+            return from.HasFlag("yuyun_slash") && to.HasFlag("yuyun_victim");
         }
 
         public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern)
         {
-            return from.HasFlag("yuyun_slash") && WrappedCard.IsBlack(card.Suit);
+            return from.HasFlag("yuyun_slash") && to.HasFlag("yuyun_victim");
         }
     }
 }

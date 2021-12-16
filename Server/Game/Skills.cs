@@ -935,12 +935,12 @@ namespace SanguoshaServer.Game
         public virtual string Pattern => pattern;
         public virtual int GetResidueNum(Room room, Player from, WrappedCard card) => 0;
         public virtual int GetExtraTargetNum(Room room, Player from, WrappedCard card) => 0;
-        public virtual bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => false;
-        public virtual bool CheckSpecificAssignee(Room room, Player from, Player to, WrappedCard card, string pattern) => false;
-        public virtual bool IgnoreCount(Room room, Player from, WrappedCard card) => false;
+        public virtual bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => false;  //某卡牌使用时不受距离限制
+        public virtual bool CheckSpecificAssignee(Room room, Player from, Player to, WrappedCard card, string pattern) => false;  //某卡牌可以不受限制的指定特定目标，如【杀】
+        public virtual bool IgnoreCount(Room room, Player from, WrappedCard card) => false;  //某卡牌使用时不会计入使用次数
         public virtual bool CheckExtraTargets(Room room, Player from, Player to, WrappedCard card,
                                   List<Player> previous_targets, List<Player> targets = null) => false;
-        public virtual bool CheckSpecificTarget(Room room, Player from, Player to, WrappedCard card) => false;
+        public virtual bool CheckSpecificTarget(Room room, Player from, Player to, WrappedCard card) => false;  //某卡牌只能指定特定目标，如陷嗣【杀】只能指定刘封
         public virtual bool InAttackRange(Room room, Player from, Player to, WrappedCard card) => false;
         public virtual void GetEffectIndex(Room room, Player player, WrappedCard card, ModType type, ref int index, ref string skill_name, ref string general_name, ref int skin_id)
         {

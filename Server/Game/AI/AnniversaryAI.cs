@@ -2262,14 +2262,24 @@ namespace SanguoshaServer.AI
         {
             if (data is string str && str.StartsWith("@zhukou-draw"))
                 return true;
-            else
-            {
-                double value = 0;
-                foreach (Player p in ai.Room.GetOtherPlayers(player))
-                    value += ai.GetDamageScore(new DamageStruct(Name, player, p)).Score;
 
-                return value > 4;
+            return false;
+        }
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            List<Player> victims = new List<Player>();
+            List<ScoreStruct> scores = new List<ScoreStruct>();
+            foreach (Player p in ai.Room.GetOtherPlayers(player))
+            {
+                ScoreStruct score = ai.GetDamageScore(new DamageStruct(Name, player, p));
+                score.Players = new List<Player> { p };
+                scores.Add(score);
             }
+            scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+            for (int i = 0; i < Math.Min(2, scores.Count); i++)
+                if (scores[i].Score > 0) victims.AddRange(scores[i].Players);
+
+            return victims;
         }
     }
 
@@ -2285,19 +2295,10 @@ namespace SanguoshaServer.AI
             else if (choice.Contains("full"))
             {
                 Room room = ai.Room;
-                int min = 200;
                 foreach (Player p in room.GetOtherPlayers(player))
                 {
-                    if (p.HandcardNum < min)
-                        min = p.HandcardNum;
-                }
-                if (min < 5)
-                {
-                    foreach (Player p in room.GetOtherPlayers(player))
-                    {
-                        if (p.HandcardNum == min && p.MaxHp - p.HandcardNum >= 2 && ai.IsFriend(p))
-                            return "full";
-                    }
+                    if (p.HandcardNum <= 5 && p.MaxHp - p.HandcardNum >= 2 && ai.IsFriend(p))
+                        return "full";
                 }
             }
             else if (choice.Contains("max") && ai.GetOverflow(player) > 3)
@@ -2318,17 +2319,27 @@ namespace SanguoshaServer.AI
                         return new List<Player> { p };
                 }
             }
+            else if (player.HasFlag("yuyun_slash"))
+            {
+                List<Player> victims = new List<Player>();
+                List<ScoreStruct> scores = new List<ScoreStruct>();
+                foreach (Player p in targets)
+                {
+                    ScoreStruct score = ai.GetDamageScore(new DamageStruct(Name, player, p));
+                    score.Players = new List<Player> { p };
+                    scores.Add(score);
+                }
+                scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+                if (scores[0].Score > 0) return scores[0].Players;
+            }
             else
             {
+                List<ScoreStruct> scores = new List<ScoreStruct>();
                 foreach (Player p in targets)
-                {
-                    if (ai.IsEnemy(p) && p.HasEquip() && !p.IsKongcheng()) return new List<Player> { p };
-                }
-                ai.SortByDefense(ref targets, false);
-                foreach (Player p in targets)
-                {
-                    if (ai.IsEnemy(p)) return new List<Player> { p };
-                }
+                    scores.Add(ai.FindCards2Discard(player, p, Name, "hej", HandlingMethod.MethodGet));
+
+                scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+                if (scores[0].Score > 0) return scores[0].Players;
             }
             return new List<Player>();
         }
