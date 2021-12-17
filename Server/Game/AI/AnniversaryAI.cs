@@ -88,6 +88,7 @@ namespace SanguoshaServer.AI
                 new YixiangSPAI(),
                 new YirangSPAI(),
                 new GuowuAI(),
+                new ZhengeAI(),
             };
 
             use_cards = new List<UseCard>
@@ -3440,5 +3441,67 @@ namespace SanguoshaServer.AI
     {
         public GuowuAI() : base("guowu") { }
         public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
+    }
+
+    public class ZhengeAI : SkillEvent
+    {
+        public ZhengeAI() : base("zhenge")
+        {
+            key = new List<string> { "playerChosen:zhenge" };
+        }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (ai.Self == player || player.HasFlag(Name)) return;
+            if (data is string choice)
+            {
+                string[] choices = choice.Split(':');
+                if (choices[1] == Name)
+                {
+                    Room room = ai.Room;
+                    Player target = room.FindPlayer(choices[2]);
+
+                    if (ai.GetPlayerTendency(target) != "unknown")
+                        ai.UpdatePlayerRelation(player, target, true);
+                }
+            }
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            Room room = ai.Room;
+            if (player.HasFlag(Name) && room.GetTag(Name) is Player target)
+            {
+                List<ScoreStruct> scores = new List<ScoreStruct>();
+                WrappedCard slash = new WrappedCard(Slash.ClassName);
+                foreach (Player p in targets)
+                {
+                    ScoreStruct effect = ai.SlashIsEffective(slash, target, p);
+                    effect.Players = new List<Player> { p };
+                    scores.Add(effect);
+                }
+
+                if (scores.Count > 0)
+                {
+                    scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+                    if (scores[0].Score > 0) return scores[0].Players;
+                }
+            }
+            else
+            {
+                List<Player> friends = ai.GetFriends(player);
+                foreach (Player p in friends)
+                    if (p.GetMark(Name) == 0) return new List<Player> { p };
+
+                foreach (Player p in friends)
+                    if (ai.HasSkill("wushuang|tieqi_jx|liegong_jx|duanbing_jx", p)) return new List<Player> { p };
+
+                foreach (Player p in friends)
+                    if (p.GetMark(Name) < 2 && !p.GetWeapon()) return new List<Player> { p };
+
+                return new List<Player> { player };
+            }
+
+            return new List<Player>();
+        }
     }
 }

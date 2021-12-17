@@ -8444,7 +8444,6 @@ namespace SanguoshaServer.Package
         {
             if (room.GetTag(Name) is Player target)
             {
-                room.RemoveTag(Name);
                 int count = Math.Min(5, target.GetMark(Name) + 1);
                 target.SetMark(Name, count);
                 room.SetPlayerStringMark(target, Name, count.ToString());
@@ -8476,6 +8475,7 @@ namespace SanguoshaServer.Package
                             room.UseCard(new CardUseStruct(slash, target, victim, false));
                     }
                 }
+                room.RemoveTag(Name);
             }
             return false;
         }
