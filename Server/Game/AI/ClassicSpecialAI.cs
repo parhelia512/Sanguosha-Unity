@@ -6877,7 +6877,7 @@ namespace SanguoshaServer.AI
                 if (range && target.HandcardNum + target.GetPile("wooden_ox").Count > 3)
                 {
                     if (value < 3 && target == player) return new List<int> { ids[0] };
-                    if (ai.GetDamageScore(damage).Score < -3 && ai.HasSkill("wushuang_jx|jianchu", target) && value < 3)
+                    if (ai.GetDamageScore(damage).Score < -3 && ai.HasSkill("wushuang|jianchu", target) && value < 3)
                         return new List<int> { ids[0] };
                 }
             }

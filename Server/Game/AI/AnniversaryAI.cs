@@ -3493,7 +3493,7 @@ namespace SanguoshaServer.AI
                     if (p.GetMark(Name) == 0) return new List<Player> { p };
 
                 foreach (Player p in friends)
-                    if (ai.HasSkill("wushuang|tieqi_jx|liegong_jx|duanbing_jx", p)) return new List<Player> { p };
+                    if (ai.HasSkill("wushuang|tieqi_jx|liegong_jx|duanbing_jx|pojun|jianchu|moukui", p)) return new List<Player> { p };
 
                 foreach (Player p in friends)
                     if (p.GetMark(Name) < 2 && !p.GetWeapon()) return new List<Player> { p };

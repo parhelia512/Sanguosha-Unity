@@ -7842,7 +7842,7 @@ namespace SanguoshaServer.AI
                     else if (use.EffectCount[index].Effect2 == 1 && use.Card.Name == SavageAssault.ClassName && ai.GetKnownCardsNums(Slash.ClassName, "he", player) > 0)
                         avoid = true;
                     else if (use.EffectCount[index].Effect2 == 1 && use.Card.Name == Duel.ClassName
-                        && ai.GetKnownCardsNums(Slash.ClassName, "he", player) > 2 && !ai.HasSkill("wushuang|wushuang_jx", use.From))
+                        && ai.GetKnownCardsNums(Slash.ClassName, "he", player) > 2 && !ai.HasSkill("wushuang", use.From))
                         avoid = true;
 
                     if (!avoid)
