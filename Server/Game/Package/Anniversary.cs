@@ -226,6 +226,7 @@ namespace SanguoshaServer.Package
                 new QingchengCCard(),
                 new ShunshiCard(),
                 new BazhanCard(),
+                new ZhukouCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -4599,6 +4600,10 @@ namespace SanguoshaServer.Package
                 move.To.SetFlags(Name);
                 room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, move.To.Name);
                 room.SendCompulsoryTriggerLog(ask_who, Name);
+
+                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
+                room.BroadcastSkillInvoke(Name, "male", 1, gsk.General, gsk.SkinId);
+
                 bool red = false, black = false;
 
                 if (ask_who.Limitation.ContainsKey(Name))
@@ -4617,11 +4622,12 @@ namespace SanguoshaServer.Package
                 }
                 LogMessage log = new LogMessage
                 {
+                    Type = "#bazhan-color",
                     From = move.To.Name
                 };
                 if (black && red) log.Type = "#bazhan-all";
-                else if (black) log.Type = "#bazhan-black";
-                else log.Type = "#bazhan-red";
+                else if (black) log.Arg = "black";
+                else log.Type = "red";
                 room.SendLog(log);
 
                 string pattern = red ? ".|red" : string.Empty;
@@ -4640,6 +4646,9 @@ namespace SanguoshaServer.Package
                     Player target = room.AskForPlayerChosen(ask_who, targets, Name, "@jiaoying", true, true, info.SkillPosition);
                     if (target != null)
                     {
+                        GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
+                        room.BroadcastSkillInvoke(Name, "male", 2, gsk.General, gsk.SkinId);
+
                         int count = 5 - target.HandcardNum;
                         room.DrawCards(target, new DrawCardStruct(count, ask_who, Name));
                     }
@@ -10792,6 +10801,7 @@ namespace SanguoshaServer.Package
         public Zhukou() : base("zhukou")
         {
             events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.Damage, TriggerEvent.EventPhaseStart, TriggerEvent.CardResponded, TriggerEvent.EventPhaseChanging };
+            view_as_skill = new ZhukouVS();
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
@@ -10840,10 +10850,9 @@ namespace SanguoshaServer.Package
             }
             else if (triggerEvent == TriggerEvent.EventPhaseStart)
             {
-                List<Player> victims = room.AskForPlayersChosen(player, room.GetOtherPlayers(player), Name, 0, 2, "@zhukou-damage", true, info.SkillPosition);
-                if (victims.Count > 0)
+                WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@zhukou", string.Format("@zhukou-damage:::{0}", Math.Min(2, room.AliveCount() - 1)), null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+                if (card != null)
                 {
-                    room.SetTag(Name, victims);
                     room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                     return info;
                 }
@@ -10870,6 +10879,31 @@ namespace SanguoshaServer.Package
         }
     }
 
+    public class ZhukouVS : ZeroCardViewAsSkill
+    {
+        public ZhukouVS() : base("zhukou") { response_pattern = "@@zhukou"; }
+        public override WrappedCard ViewAs(Room room, Player player)
+        {
+            return new WrappedCard(ZhukouCard.ClassName);
+        }
+    }
+
+    public class ZhukouCard : SkillCard
+    {
+        public static string ClassName = "ZhukouCard";
+        public ZhukouCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            int count = Math.Min(2, room.AliveCount() - 1);
+            return targets.Count < count && Self != to_select;
+        }
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card) => targets.Count == Math.Min(2, room.AliveCount() - 1);
+        public override void OnUse(Room room, CardUseStruct card_use)
+        {
+            room.SetTag("zhukou", card_use.To);
+        }
+    }
+
     public class Mangqing : PhaseChangeSkill
     {
         public Mangqing() : base("mangqing")
@@ -10885,7 +10919,7 @@ namespace SanguoshaServer.Package
                 int count = 0;
                 foreach (Player p in room.GetAlivePlayers())
                 {
-                    if (!p.IsWounded())
+                    if (p.IsWounded())
                         count++;
                 }
                 if (count > player.Hp)

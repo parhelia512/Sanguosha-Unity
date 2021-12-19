@@ -2266,8 +2266,12 @@ namespace SanguoshaServer.AI
 
             return false;
         }
-        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
+            CardUseStruct use = new CardUseStruct(null, player, new List<Player>());
+            Room room = ai.Room;
+
             List<Player> victims = new List<Player>();
             List<ScoreStruct> scores = new List<ScoreStruct>();
             foreach (Player p in ai.Room.GetOtherPlayers(player))
@@ -2276,11 +2280,21 @@ namespace SanguoshaServer.AI
                 score.Players = new List<Player> { p };
                 scores.Add(score);
             }
+            double value = 0;
             scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
             for (int i = 0; i < Math.Min(2, scores.Count); i++)
-                if (scores[i].Score > 0) victims.AddRange(scores[i].Players);
+            {
+                value += scores[i].Score;
+                victims.AddRange(scores[i].Players);
+            }
 
-            return victims;
+            if (value > 0)
+            {
+                use.Card = new WrappedCard(ZhukouCard.ClassName);
+                use.To = victims;
+            }
+
+            return use;
         }
     }
 

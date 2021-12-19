@@ -42,6 +42,8 @@ namespace SanguoshaServer.AI
                 new PoluSJAI(),
                 new ZhijianJXAI(),
                 new HanzhanAI(),
+                new HaoshiClassicAI(),
+                new DimengClassicAI(),
 
                 new QiangxiJXAI(),
                 new TuntianJXAI(),
@@ -56,6 +58,7 @@ namespace SanguoshaServer.AI
                 new QiangxiJXCardAI(),
                 new HuangtianCardAI(),
                 new TiaoxinJXCardAI(),
+                new DimengCCardAI(),
             };
         }
     }
