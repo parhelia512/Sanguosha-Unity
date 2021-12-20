@@ -182,11 +182,11 @@ namespace SanguoshaServer.Game
                 {
                     string[] num_params = number.Split('~');
                     int from, to;
-                    if (num_params[0].Length == 0)
+                    if (string.IsNullOrEmpty(num_params[0]))
                         from = 1;
                     else
                         from = int.Parse(num_params[0]);
-                    if (num_params.Length == 1 && num_params[1].Length == 0)
+                    if (string.IsNullOrEmpty(num_params[1]))
                         to = 13;
                     else
                         to = int.Parse(num_params[1]);
