@@ -8790,13 +8790,13 @@ namespace SanguoshaServer.Package
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
             if (triggerEvent == TriggerEvent.CardFinished && player != null && player.Alive && player.Phase == PlayerPhase.Play
-                && data is CardUseStruct use && use.Card.Suit == WrappedCard.CardSuit.Spade && use.IsHandcard)
+                && data is CardUseStruct use && WrappedCard.IsBlack(use.Card.Suit) && use.IsHandcard)
             {
                 foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
                     if (p != player && !p.IsNude() && !p.HasFlag(Name))
                         triggers.Add(new TriggerStruct(Name, p));
             }
-            else if (triggerEvent == TriggerEvent.FinishJudge && data is JudgeStruct judge && judge.Card.Suit == WrappedCard.CardSuit.Spade)
+            else if (triggerEvent == TriggerEvent.FinishJudge && data is JudgeStruct judge && WrappedCard.IsBlack(judge.Card.Suit))
             {
                 foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
                     if (p != player)
@@ -8818,6 +8818,7 @@ namespace SanguoshaServer.Package
                     GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
                     room.BroadcastSkillInvoke(Name, "male", 1, gsk.General, gsk.SkinId);
                     room.NotifySkillInvoked(ask_who, Name);
+                    room.ThrowCard(ref ids, ask_who, null, Name);
                     return info;
                 }
             }
@@ -8861,7 +8862,7 @@ namespace SanguoshaServer.Package
                 && base.Triggerable(move.To, room) && move.To.Phase != PlayerPhase.NotActive && move.From_places.Contains(Place.DrawPile) && !move.To.HasFlag(Name))
             {
                 foreach (int id in move.Card_ids)
-                    if (room.GetCard(id).Suit == WrappedCard.CardSuit.Heart && room.GetCardPlace(id) == Place.PlaceHand && room.GetCardOwner(id) == move.To)
+                    if (WrappedCard.IsRed(room.GetCard(id).Suit) && room.GetCardPlace(id) == Place.PlaceHand && room.GetCardOwner(id) == move.To)
                         return new TriggerStruct(Name, move.To);
             }
             return new TriggerStruct();
@@ -8873,7 +8874,7 @@ namespace SanguoshaServer.Package
             {
                 List<int> ids = new List<int>();
                 foreach (int id in move.Card_ids)
-                    if (room.GetCard(id).Suit == WrappedCard.CardSuit.Heart && room.GetCardPlace(id) == Place.PlaceHand && room.GetCardOwner(id) == move.To)
+                    if (WrappedCard.IsRed(room.GetCard(id).Suit) && room.GetCardPlace(id) == Place.PlaceHand && room.GetCardOwner(id) == move.To)
                         ids.Add(id);
 
                 List<int> discard = room.AskForExchange(ask_who, Name, ids.Count, 0, "@difa", string.Empty,
@@ -8920,6 +8921,7 @@ namespace SanguoshaServer.Package
                         {
                             ids.Add(id);
                             gets.Add(card_name);
+                            break;
                         }
                     }
                 }
@@ -8934,6 +8936,7 @@ namespace SanguoshaServer.Package
                         {
                             ids.Add(id);
                             gets.Add(card_name);
+                            break;
                         }
                     }
                 }

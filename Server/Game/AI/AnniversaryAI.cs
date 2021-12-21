@@ -3322,7 +3322,7 @@ namespace SanguoshaServer.AI
 
         public override bool IsCardEffect(TrustedAI ai, WrappedCard card, Player from, Player to)
         {
-            if (from.Phase == PlayerPhase.Play && ai.HasSkill(Name, to))
+            if (card != null && to != null && from != null && from.Phase == PlayerPhase.Play && ai.HasSkill(Name, to))
             {
                 FunctionCard fcard = Engine.GetFunctionCard(card.Name);
                 if (!(fcard is DelayedTrick) && WrappedCard.IsBlack(card.Suit) && !(fcard is SkillCard))

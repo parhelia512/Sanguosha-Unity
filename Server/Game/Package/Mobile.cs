@@ -1588,7 +1588,7 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is CardUseStruct use && base.Triggerable(player, room) && use.From != null && use.To.Count == 1 && use.From != use.To[0])
+            if (data is CardUseStruct use && base.Triggerable(player, room) && use.From != null && use.To.Count == 1 && use.From != use.To[0] && !player.HasFlag(Name))
             {
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
                 if (!(fcard is SkillCard))
@@ -1601,6 +1601,7 @@ namespace SanguoshaServer.Package
         {
             if (room.AskForSkillInvoke(ask_who, Name, data, info.SkillPosition))
             {
+                player.SetFlags(Name);
                 room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                 return info;
             }
