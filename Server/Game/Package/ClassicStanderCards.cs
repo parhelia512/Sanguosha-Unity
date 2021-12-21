@@ -23,6 +23,9 @@ namespace SanguoshaServer.Package
                 new QuenchedKnifeSkill(),
                 new QuenchedKnifeTM(),
                 new WaterSwordSkill(),
+                new Comb1Skill(),
+                new Comb2Skill(),
+                new Comb3Skill(),
             };
             cards = new List<FunctionCard> {
                 new ClassicBlade(),
@@ -35,6 +38,9 @@ namespace SanguoshaServer.Package
                 new PosionedDagger(),   //混毒弯匕
                 new QuenchedKnife(),    //烈淬刀
                 new WaterSword(),       //水波剑
+                new Comb1(),
+                new Comb2(),
+                new Comb3(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -670,6 +676,160 @@ namespace SanguoshaServer.Package
                 }
             }
 
+            return false;
+        }
+    }
+
+    //琼梳
+
+    public class Comb1 : Treasure
+    {
+        public static string ClassName = "Comb1";
+        public Comb1() : base(ClassName) { }
+        public override void OnInstall(Room room, Player player, WrappedCard card)
+        {
+            player.SetFlags("-Comb1");
+            base.OnInstall(room, player, card);
+        }
+    }
+
+    public class Comb1Skill : TreasureSkill
+    {
+        public Comb1Skill() : base(Comb1.ClassName)
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TargetChoosing };
+        }
+        
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && !player.HasFlag(Name) && use.To.Count == 1 && use.To[0].Alive && room.GetOtherPlayers(player).Count > 1)
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardUseStruct use)
+            {
+                List<Player> targets = room.GetOtherPlayers(player), victims = new List<Player>();
+                targets.Remove(use.To[0]);
+                foreach (Player p in targets)
+                {
+                    if (p.Hp == use.To[0].Hp || p.HandcardNum == use.To[0].HandcardNum)
+                        victims.Add(p);
+                }
+                if (victims.Count > 0)
+                {
+                    room.SetTag("extra_target_skill", data);                   //for AI
+                    Player target = room.AskForPlayerChosen(player, targets, Name, string.Format("@comb1-extra:{0}::{1}", use.To[0].Name, use.Card.Name), true, true);
+                    room.RemoveTag("extra_target_skill");
+                    if (target != null)
+                    {
+                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
+                        LogMessage log = new LogMessage
+                        {
+                            Type = "$comb1_target",
+                            From = player.Name,
+                            To = new List<string> { target.Name },
+                            Card_str = RoomLogic.CardToString(room, use.Card),
+                            Arg = Name
+                        };
+                        room.SendLog(log);
+
+                        room.SetTag(Name, target);
+                        return info;
+                    }
+                }
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.GetTag(Name) is Player target && data is CardUseStruct use)
+            {
+                room.RemoveTag(Name);
+                use.To.Add(target);
+                use.EffectCount.Add(new CardBasicEffect(target, 0, 0, 0));
+                room.SortByActionOrder(ref use);
+                data = use;
+            };
+
+            return false;
+        }
+    }
+
+    //犀梳
+
+    public class Comb2 : Treasure
+    {
+        public static string ClassName = "Comb2";
+        public Comb2() : base(ClassName) { }
+    }
+
+    public class Comb2Skill : TreasureSkill
+    {
+        public Comb2Skill() : base("Comb2")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart };
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && (player.Phase == Player.PlayerPhase.Judge || player.Phase == Player.PlayerPhase.Discard) && !player.IsNude())
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForDiscard(player, Name, 1, 1, true, true, "@Comb2:::" + (player.Phase == Player.PlayerPhase.Judge ? "judge_phase" : "discard_phase"), true))
+                return info;
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            LogMessage log = new LogMessage
+            {
+                Type = "#Comb2",
+                From = player.Name,
+                Arg = player.Phase == Player.PlayerPhase.Judge ? "judge_phase" : "discard_phase"
+            };
+            room.SendLog(log);
+            return true;
+        }
+    }
+
+    //金梳
+
+    public class Comb3 : Treasure
+    {
+        public static string ClassName = "Comb3";
+        public Comb3() : base(ClassName) { }
+    }
+
+    public class Comb3Skill : TreasureSkill
+    {
+        public Comb3Skill() : base("Comb3")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart };
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && player.Phase == Player.PlayerPhase.Play && player.HandcardNum < player.MaxHp)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(player, Name);
+            room.DrawCards(player, player.MaxHp - player.HandcardNum, Name);
             return false;
         }
     }

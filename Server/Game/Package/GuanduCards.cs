@@ -47,7 +47,7 @@ namespace SanguoshaServer.Package
                     foreach (int id in move.Card_ids)
                     {
                         int index = move.Card_ids.IndexOf(id);
-                        if (move.From_places[index] == Player.Place.PlaceEquip && room.GetCard(id).Name == Name)
+                        if (move.From_places[index] == Player.Place.PlaceEquip && Engine.GetRealCard(id).Name == Name)
                         {
                             catapult = id;
                             card_index = index;
@@ -59,6 +59,11 @@ namespace SanguoshaServer.Package
                     {
                         move.From_places.RemoveAt(card_index);
                         move.Card_ids.Remove(catapult);
+                        if (move.Reason.Card != null)
+                        {
+                            List<int> subs = room.GetSubCards(move.Reason.Card);
+                            subs.RemoveAll(t => t == catapult);
+                        }
                         data = move;
 
                         Player holder = room.Players[0];

@@ -4829,8 +4829,7 @@ namespace SanguoshaServer.Package
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
-            if (move.From != null && base.Triggerable(move.From, room) &&
-                (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && move.To_place == Place.PlaceTable)
+            if ((move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && move.To_place == Place.PlaceTable && base.Triggerable(move.From, room))
             {
                 for (int i = 0; i < move.Card_ids.Count; i++)
                 {
@@ -4844,8 +4843,7 @@ namespace SanguoshaServer.Package
         {
             CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
 
-            if (move.From != null && base.Triggerable(move.From, room)
-                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && move.To_place == Place.DiscardPile)
+            if ((move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && move.To_place == Place.DiscardPile && base.Triggerable(move.From, room))
             {
                 for (int i = 0; i < move.Card_ids.Count; i++)
                 {
@@ -4962,13 +4960,15 @@ namespace SanguoshaServer.Package
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
-            if (move.From != null)
+            if (move.From != null && move.To_place == Place.DiscardPile && move.From_places.Contains(Place.PlaceTable))
+            {
                 for (int i = 0; i < move.Card_ids.Count; i++)
                 {
                     WrappedCard card = room.GetCard(move.Card_ids[i]);
                     if (move.From_places[i] == Place.PlaceTable && card.HasFlag("lirang"))
                         card.SetFlags("-lirang");
                 }
+            }
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
