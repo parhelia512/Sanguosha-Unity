@@ -9867,7 +9867,7 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            if (triggerEvent == TriggerEvent.EventPhaseStart && player.Alive && player.Phase == PlayerPhase.RoundStart && !player.GetTreasure() && player.CanPutEquip(4))
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player.Alive && player.Phase == PlayerPhase.RoundStart)
             {
                 foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
                     if (!p.IsKongcheng()) triggers.Add(new TriggerStruct(Name, p));
@@ -9891,7 +9891,7 @@ namespace SanguoshaServer.Package
             if (ask_who.ContainsTag(Name) && ask_who.GetTag(Name) is CardType type)
             {
                 ask_who.RemoveTag(Name);
-                if (player.Alive && player.CanPutEquip(4))
+                if (player.Alive && !player.GetTreasure() && player.CanPutEquip(4))
                 {
                     string card_name = string.Empty;
                     switch (type)
