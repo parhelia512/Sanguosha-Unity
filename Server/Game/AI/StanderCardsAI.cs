@@ -70,6 +70,8 @@ namespace SanguoshaServer.AI
                 new CompanionAI(),
                 new MegatamaAI(),
                 new PioneerAI(),
+                new Comb1AI(),
+                new Comb2AI(),
             };
         }
     }
@@ -5240,6 +5242,68 @@ namespace SanguoshaServer.AI
             }
 
             return null;
+        }
+    }
+
+    public class Comb1AI : SkillEvent
+    {
+        public Comb1AI() : base("Comb1") { }
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            Room room = ai.Room;
+            if (room.GetTag("extra_target_skill") is CardUseStruct use)
+            {
+                List<ScoreStruct> scores = new List<ScoreStruct>();
+                foreach (Player p in targets)
+                {
+                    ScoreStruct score = ai.SlashIsEffective(use.Card, p);
+                    score.Players = new List<Player> { p };
+                    scores.Add(score);
+                }
+                ai.CompareByScore(ref scores);
+                if (scores[0].Score > 0)
+                    return scores[0].Players;
+            }
+
+            return new List<Player>();
+        }
+    }
+
+    public class Comb2AI : SkillEvent
+    {
+        public Comb2AI() : base("Comb2") { }
+        public override List<int> OnDiscard(TrustedAI ai, Player player, List<int> ids, int min, int max, bool option)
+        {
+            Room room = ai.Room;
+            bool skip = false;
+            if (player.Phase == PlayerPhase.Judge)
+            {
+                if (RoomLogic.PlayerContainsTrick(room, player, SupplyShortage.ClassName) || RoomLogic.PlayerContainsTrick(room, player, Indulgence.ClassName))
+                    skip = true;
+                else if (RoomLogic.PlayerContainsTrick(room, player, Lightning.ClassName))
+                {
+                    Player who = ai.GetWizzardRaceWinner(Lightning.ClassName, player);
+                    if (who != null && ai.IsEnemy(who))
+                        skip = true;
+                }
+            }
+            else
+            {
+                if (ai.GetOverflow(player) > 0)
+                    skip = true;
+            }
+
+            if (skip)
+            {
+                List<int> cards = player.GetCards("he");
+                List<double> values = ai.SortByKeepValue(ref cards, false);
+                if (values[0] > 0 && player.Phase == PlayerPhase.Judge)
+                    ai.SortByUseValue(ref cards, false);
+
+                return new List<int> { cards[0] };
+            }
+
+            return new List<int>();
         }
     }
 }

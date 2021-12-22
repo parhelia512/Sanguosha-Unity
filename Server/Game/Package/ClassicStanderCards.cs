@@ -722,7 +722,7 @@ namespace SanguoshaServer.Package
                 if (victims.Count > 0)
                 {
                     room.SetTag("extra_target_skill", data);                   //for AI
-                    Player target = room.AskForPlayerChosen(player, targets, Name, string.Format("@comb1-extra:{0}::{1}", use.To[0].Name, use.Card.Name), true, true);
+                    Player target = room.AskForPlayerChosen(player, victims, Name, string.Format("@comb1-extra:{0}::{1}", use.To[0].Name, use.Card.Name), true, true);
                     room.RemoveTag("extra_target_skill");
                     if (target != null)
                     {

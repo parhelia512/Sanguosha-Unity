@@ -179,6 +179,7 @@ namespace SanguoshaServer.Package
                 new Fusong(),
                 new Zhuangshu(),
                 new Chuiti(),
+                new ChuitiClear(),
 
                 new Shenxian(),
                 new Qiangwu(),
@@ -368,6 +369,7 @@ namespace SanguoshaServer.Package
                 { "fenxun_jx", new List<string>{ "#fenxun_jx" } },
                 { "wangong", new List<string>{ "#wangong" } },
                 { "juanxia", new List<string>{ "#juanxia" } },
+                { "chuiti", new List<string>{ "#chuiti" } },
             };
         }
     }
@@ -9833,7 +9835,7 @@ namespace SanguoshaServer.Package
                 if (remove.Count > 0)
                 {
                     for (int i = indexes.Count - 1; i >= 0; i--)
-                        move.From_places.RemoveAt(i);
+                        move.From_places.RemoveAt(indexes[i]);
                     move.Card_ids.RemoveAll(t => remove.Contains(t));
                     if (move.Reason.Card != null)
                     {
