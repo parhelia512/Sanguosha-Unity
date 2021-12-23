@@ -89,6 +89,9 @@ namespace SanguoshaServer.AI
                 new YirangSPAI(),
                 new GuowuAI(),
                 new ZhengeAI(),
+                new ChaofengAI(),
+                new ChuanshuAI(),
+                new ChuanyunAI(),
             };
 
             use_cards = new List<UseCard>
@@ -3516,6 +3519,93 @@ namespace SanguoshaServer.AI
             }
 
             return new List<Player>();
+        }
+    }
+
+    public class ChaofengAI : SkillEvent
+    {
+        public ChaofengAI() : base("chaofeng") { }
+        public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
+        {
+            Room room = ai.Room;
+            if (room.GetTag("chaofeng_damage") is DamageStruct damage)
+            {
+                double damage_v = 0;
+                List<int> ids = new List<int>();
+                Dictionary<int, double> points_keep = new Dictionary<int, double>();
+                Dictionary<int, double> points_use = new Dictionary<int, double>();
+                foreach (int id in player.GetCards("h"))
+                {
+                    if (RoomLogic.CanDiscard(room, player, player, id))
+                        ids.Add(id);
+                }
+                if (ids.Count > 0)
+                {
+                    List<double> values = ai.SortByKeepValue(ref ids);
+                    for (int i = 0; i < values.Count; i++)
+                        points_keep[ids[i]] = 2.5 - values[i];
+
+                    List<double> values_use = ai.SortByUseValue(ref ids);
+                    for (int i = 0; i < values_use.Count; i++)
+                        points_use[ids[i]] = 2.5 - values_use[i];
+
+                    if (damage.Card != null && !Engine.IsSkillCard(damage.Card.Name))
+                    {
+                        DamageStruct _damage = new DamageStruct(damage.Reason, damage.From, damage.To, damage.Damage + 1, damage.Nature);
+                        _damage.Card = damage.Card;
+                        damage_v = ai.GetDamageScore(_damage).Score - ai.GetDamageScore(damage).Score;
+                        FunctionCard damage_type = Engine.GetFunctionCard(damage.Card.Name);
+
+                        foreach (int id in ids)
+                        {
+                            double count = 0;
+                            WrappedCard card = room.GetCard(id);
+                            if (damage.Card.Suit != WrappedCard.CardSuit.NoSuit && WrappedCard.IsBlack(damage.Card.Suit) == WrappedCard.IsBlack(card.Suit)) count += 2.5;
+                            if (Engine.GetFunctionCard(card.Name).TypeID == damage_type.TypeID) count += damage_v;
+                            points_keep[id] += count;
+                            points_use[id] += count;
+                        }
+                    }
+                }
+
+                ids.Sort((x, y) => { return points_keep[x] > points_keep[y] ? -1 : 1; });
+                int keep = ids[0];
+                ids.Sort((x, y) => { return points_use[x] > points_use[y] ? -1 : 1; });
+                int use = ids[0];
+
+                if (player.Phase == PlayerPhase.NotActive && points_use[use] > 0 && points_use[use] > points_keep[keep])
+                    return new List<int> { use };
+                else if (points_keep[keep] > 0)
+                    return new List<int> { keep };
+            }
+            return new List<int>();
+        }
+    }
+
+    public class ChuanshuAI : SkillEvent
+    {
+        public ChuanshuAI() : base("chuanshu") { }
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            List<Player> friends = ai.FriendNoSelf;
+            if (friends.Count > 0)
+            {
+                ai.SortByDefense(ref friends);
+                return new List<Player> { friends[0] };
+            }
+            return new List<Player>();
+        }
+    }
+
+    public class ChuanyunAI : SkillEvent
+    {
+        public ChuanyunAI() : base("chuanyun") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is Player target && !ai.IsFriend(target) && !ai.HasSkill(TrustedAI.LoseEquipSkill, target))
+                return true;
+
+            return false;
         }
     }
 }

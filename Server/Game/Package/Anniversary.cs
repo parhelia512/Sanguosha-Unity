@@ -8520,18 +8520,24 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.DamageCaused && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play && !player.HasFlag(Name))
+            if (triggerEvent == TriggerEvent.DamageCaused && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play && !player.HasFlag(Name) && !player.IsKongcheng())
                 return new TriggerStruct(Name, player);
             return new TriggerStruct();
         }
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (data is DamageStruct damage && room.AskForDiscard(player, Name, 1, 1, true, false, "@chaofeng:" + damage.To.Name, true, info.SkillPosition))
+            if (data is DamageStruct damage)
             {
-                player.SetFlags(Name);
-                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
-                return info;
+                room.SetTag("chaofeng_damage", data);
+                bool invoke = room.AskForDiscard(player, Name, 1, 1, true, false, "@chaofeng:" + damage.To.Name, true, info.SkillPosition);
+                room.RemoveTag("chaofeng_damage");
+                if (invoke)
+                {
+                    player.SetFlags(Name);
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    return info;
+                }
             }
             return new TriggerStruct();
         }
