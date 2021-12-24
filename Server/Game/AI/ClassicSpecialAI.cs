@@ -1823,7 +1823,7 @@ namespace SanguoshaServer.AI
             List<Player> friends = ai.FriendNoSelf;
             if (friends.Count > 0)
             {
-                WrappedCard card = new WrappedCard(JujianCard.ClassName)
+                WrappedCard card = new WrappedCard(SujianCard.ClassName)
                 {
                     Skill = Name
                 };

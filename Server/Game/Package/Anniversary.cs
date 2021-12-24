@@ -2844,26 +2844,23 @@ namespace SanguoshaServer.Package
                 }
 
                 room.SetTag("extra_target_skill", data);                   //for AI
-                List<Player> players = room.AskForPlayersChosen(player, targets, Name, 0, targets.Count, "@tongyuan-extra:::" + use.Card.Name, true, info.SkillPosition);
+                Player target = room.AskForPlayerChosen(player, targets, Name, "@tongyuan-extra:::" + use.Card.Name, true, true, info.SkillPosition);
                 room.RemoveTag("extra_target_skill");
-                if (players.Count > 0)
+                if (target != null)
                 {
                     room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
-                    foreach (Player p in players)
-                    {
-                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
-                    }
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
                     LogMessage log = new LogMessage
                     {
                         Type = "$extra_target",
                         From = player.Name,
+                        To = new List<string> { target.Name },
                         Card_str = RoomLogic.CardToString(room, use.Card),
                         Arg = Name
                     };
-                    log.SetTos(players);
                     room.SendLog(log);
 
-                    use.To.AddRange(players);
+                    use.To.Add(target);
                     room.SortByActionOrder(ref use);
                     data = use;
                 }
@@ -8816,7 +8813,9 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.CardFinished)
             {
+                player.SetFlags("tianze_target");
                 List<int> ids = room.AskForExchange(ask_who, Name, 1, 0, "@tianze:" + player.Name, string.Empty, ".|black!", info.SkillPosition);
+                player.SetFlags("-tianze_target");
                 if (ids.Count > 0)
                 {
                     ask_who.SetFlags(Name);

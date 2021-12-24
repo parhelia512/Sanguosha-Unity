@@ -1776,7 +1776,7 @@ namespace SanguoshaServer.AI
                     }
                 }
 
-                for (int i = 0; i < targets_num; i++)
+                for (int i = 0; i < Math.Min(targets.Count, targets_num); i++)
                     if (scores[targets[i]] > 4 || (scores[targets[i]] > 0 && hand && ai.GetOverflow(player) > 0))
                         use.To.Add(targets[i]);
 
