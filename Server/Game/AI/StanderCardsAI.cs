@@ -4998,10 +4998,10 @@ namespace SanguoshaServer.AI
                     return use;
             }
 
-            if (ai.ProcessPublic == "===" && slashes.Count <= 2)
+            if (ai.ProcessPublic == "===" && slashes.Count <= 2 || !player.GetWeapon())
                 return use;
 
-            double keep_value = ai.GetKeepValue(player.Weapon.Key, player, Player.Place.PlaceEquip);
+            double keep_value = ai.GetKeepValue(player.Weapon.Key, player, Place.PlaceEquip);
             if (keep_value < 0)
                 return use;
 
