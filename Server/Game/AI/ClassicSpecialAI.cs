@@ -411,6 +411,8 @@ namespace SanguoshaServer.AI
             return "draw";
         }
 
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
+
         public override double TargetValueAdjust(TrustedAI ai, WrappedCard card, Player from, List<Player> targets, Player to)
         {
             if (ai.HasSkill(Name, from) && from.Phase != PlayerPhase.NotActive && from.GetMark(Name) == 0 && (card.Name.Contains(Slash.ClassName) || card.Name == Duel.ClassName)

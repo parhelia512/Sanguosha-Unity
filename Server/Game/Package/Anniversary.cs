@@ -4495,7 +4495,7 @@ namespace SanguoshaServer.Package
 
                 List<int> ids = new List<int>();
                 ids.Add(room.AskForCardChosen(player, target, "h", "bazhan", false, HandlingMethod.MethodGet));
-                if (target.HandcardNum > ids.Count && room.AskForSkillInvoke(player, Name, "@bazhan:" + target.Name, card_use.Card.SkillPosition))
+                if (target.HandcardNum > ids.Count && room.AskForSkillInvoke(player, "bazhan", "@bazhan:" + target.Name, card_use.Card.SkillPosition))
                 {
                     ids.Add(room.AskForCardChosen(player, target, "h", "bazhan", false, HandlingMethod.MethodGet, ids));
                 }

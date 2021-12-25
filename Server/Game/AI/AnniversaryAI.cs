@@ -1544,12 +1544,17 @@ namespace SanguoshaServer.AI
                             }
                         }
                     }
-                    KeyValuePair<Player, int> keys = ai.GetCardNeedPlayer(player.GetCards("h"), friends);
+                    List<int> ids = player.GetCards("h");
+                    KeyValuePair<Player, int> keys = ai.GetCardNeedPlayer(ids, friends);
                     if (keys.Key != null && keys.Value >= 0)
                     {
                         use.Card = card;
                         use.To.Add(keys.Key);
                         use.Card.AddSubCard(keys.Value);
+
+                        ids.Remove(keys.Value);
+                        KeyValuePair<Player, int> keys2 = ai.GetCardNeedPlayer(ids, new List<Player> { keys.Key });
+                        if (keys2.Key != null && keys2.Value >= 0) use.Card.AddSubCard(keys2.Value);
                     }
                 }
             }
