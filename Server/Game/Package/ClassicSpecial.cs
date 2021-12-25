@@ -13435,6 +13435,8 @@ namespace SanguoshaServer.Package
                             WrappedCard card = new WrappedCard(Slash.ClassName) { DistanceLimited = false };
                             if (player.Alive && p.Alive && RoomLogic.IsProhibited(room, player, p, card) == null && room.AskForSkillInvoke(player, Name, "@juanxia-slash:" + p.Name))
                                 room.UseCard(new CardUseStruct(card, player, p));
+                            else
+                                break;
                         }
                     }
                 }
