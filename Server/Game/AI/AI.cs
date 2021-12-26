@@ -494,8 +494,9 @@ namespace SanguoshaServer.AI
             return result;
         }
 
-        public List<WrappedCard> GetViewAsCards(Player player, int id, Place place = Place.PlaceUnknown)
+        public List<WrappedCard> GetViewAsCards(Player player, int id, Place place = Place.PlaceUnknown, List<string> ignore_list = null)
         {
+            ignore_list = ignore_list ?? new List<string>();
             List<WrappedCard> result = new List<WrappedCard>();
             WrappedCard card = room.GetCard(id);
             WrappedCard engine_card = Engine.CloneCard(Engine.GetRealCard(id));
@@ -524,6 +525,7 @@ namespace SanguoshaServer.AI
 
             foreach (string skill in GetKnownSkills(player))
             {
+                if (ignore_list.Contains(skill)) continue;
                 SkillEvent e = Engine.GetSkillEvent(skill);
                 if (e != null)
                 {
@@ -1833,14 +1835,15 @@ namespace SanguoshaServer.AI
             return result;
         }
 
-        public double GetUseValue(int id, Player player, Place place = Place.PlaceUnknown)
+        public double GetUseValue(int id, Player player, Place place = Place.PlaceUnknown, List<string> ignore_list = null)
         {
+            ignore_list = ignore_list ?? new List<string>();
             if (place == Place.PlaceUnknown) place = room.GetCardPlace(id);
-            List<WrappedCard> cards = GetViewAsCards(player, id);
+            List<WrappedCard> cards = GetViewAsCards(player, id, Place.PlaceUnknown, ignore_list);
             double value = 0;
             foreach (WrappedCard card in cards)
             {
-                double card_value = GetUseValue(card, player, place);
+                double card_value = GetUseValue(card, player, place, ignore_list);
                 if (card_value > value)
                     value = card_value;
             }
@@ -1848,8 +1851,9 @@ namespace SanguoshaServer.AI
             return value;
         }
 
-        public double GetUseValue(WrappedCard card, Player player, Place place = Place.PlaceUnknown)
+        public double GetUseValue(WrappedCard card, Player player, Place place = Place.PlaceUnknown, List<string> ignore_list = null)
         {
+            ignore_list = ignore_list ?? new List<string>();
             double basic = Engine.GetCardUseValue(card.Name);
             FunctionCard fcard = Engine.GetFunctionCard(card.Name);
             List<int> ids = new List<int>();
@@ -1870,7 +1874,7 @@ namespace SanguoshaServer.AI
                 {
                     WrappedCard same = GetSameEquip(card, player);
                     if (same != null)
-                        basic -= GetKeepValue(same.Id, player);
+                        basic -= GetKeepValue(same.Id, player, Place.PlaceUnknown, false, ignore_list);
                 }
             }
             else
@@ -1887,15 +1891,15 @@ namespace SanguoshaServer.AI
                     if (_fcard is EquipCard)
                     {
                         if (room.GetCardPlace(id) == Place.PlaceEquip)
-                            basic -= GetKeepValue(id, player);
+                            basic -= GetKeepValue(id, player, Place.PlaceUnknown, false, ignore_list);
                         else if (GetSameEquip(equip, player) == null)
                         {
-                            basic -= GetUseValue(equip, player);
+                            basic -= GetUseValue(equip, player, Place.PlaceUnknown, ignore_list);
                         }
                     }
                     else if (room.GetCardPlace(id) == Place.PlaceHand || place == Place.PlaceHand)
                     {
-                        handcard_ajust += GetKeepValue(id, player, Place.PlaceHand);
+                        handcard_ajust += GetKeepValue(id, player, Place.PlaceHand, false, ignore_list);
                         handcard_count++;
                     }
                 }
@@ -1915,16 +1919,17 @@ namespace SanguoshaServer.AI
             return basic;
         }
 
-        public double GetKeepValue(int id, Player player, Place place = Place.PlaceUnknown, bool ignore_lose_equip = false)
+        public double GetKeepValue(int id, Player player, Place place = Place.PlaceUnknown, bool ignore_lose_equip = false, List<string> ignore_list = null)
         {
+            ignore_list = ignore_list ?? new List<string>();
             if (place == Place.PlaceUnknown && room.GetCardOwner(id) == player)
                 place = room.GetCardPlace(id);
 
-            List<WrappedCard> cards = GetViewAsCards(player, id, place);
+            List<WrappedCard> cards = GetViewAsCards(player, id, place, ignore_list);
             List<double> sum = new List<double>();
             foreach (WrappedCard card in cards)
             {
-                double card_v = GetKeepValue(card, player, place, ignore_lose_equip);
+                double card_v = GetKeepValue(card, player, place, ignore_lose_equip, true, ignore_list);
                 sum.Add(card_v);
             }
             sum.Sort((x, y) => { return x < y ? -1 : 1; });
@@ -1936,8 +1941,9 @@ namespace SanguoshaServer.AI
             return value;
         }
 
-        public double GetKeepValue(WrappedCard card, Player player, Place place = Place.PlaceUnknown, bool ignore_lose_equip = false, bool find_same = true)
+        public double GetKeepValue(WrappedCard card, Player player, Place place = Place.PlaceUnknown, bool ignore_lose_equip = false, bool find_same = true, List<string> ignore_list = null)
         {
+            ignore_list = ignore_list ?? new List<string>();
             if (card.IsVirtualCard() && card.SubCards.Count != 1)
             {
                 string skill_name = card.GetSkillName();
@@ -1967,7 +1973,7 @@ namespace SanguoshaServer.AI
             {
                 WrappedCard same = GetSameEquip(card, player);
                 if (same != null)
-                    basic -= GetKeepValue(same, player, Place.PlaceUnknown, false, false);
+                    basic -= GetKeepValue(same, player, Place.PlaceUnknown, false, false, ignore_list);
             }
             else if (place == Place.PlaceHand)
             {
@@ -2009,14 +2015,15 @@ namespace SanguoshaServer.AI
             return dec;
         }
 
-        public List<double> SortByUseValue(ref List<WrappedCard> cards, bool descending = true)
+        public List<double> SortByUseValue(ref List<WrappedCard> cards, bool descending = true, List<string> ignore_list = null)
         {
+            ignore_list = ignore_list ?? new List<string>();
             Dictionary<WrappedCard, double> card_values = new Dictionary<WrappedCard, double>();
             List<WrappedCard> results = new List<WrappedCard>();
 
             foreach (WrappedCard card in cards)
             {
-                card_values[card] = GetUseValue(card, self);
+                card_values[card] = GetUseValue(card, self, Place.PlaceUnknown, ignore_list);
                 //room.OutPut(card.Name + " use value is " + card_values[card].ToString());
             }
 
@@ -2029,12 +2036,13 @@ namespace SanguoshaServer.AI
             return points;
         }
 
-        public List<double> SortByUseValue(ref List<int> ids, bool descending = true)
+        public List<double> SortByUseValue(ref List<int> ids, bool descending = true, List<string> ignore_list = null)
         {
+            ignore_list = ignore_list ?? new List<string>();
             Dictionary<int, double> card_values = new Dictionary<int, double>();
             foreach (int id in ids)
             {
-                card_values[id] = GetUseValue(id, self);
+                card_values[id] = GetUseValue(id, self, Place.PlaceUnknown, ignore_list);
                 //room.OutPut(id.ToString() + " use value is " + card_values[id].ToString());
             }
 
@@ -2047,8 +2055,9 @@ namespace SanguoshaServer.AI
             return points;
         }
 
-        public List<double> SortByKeepValue(ref List<int> ids, bool descending = true)
+        public List<double> SortByKeepValue(ref List<int> ids, bool descending = true, List<string> ignore_list = null)
         {
+            ignore_list = ignore_list ?? new List<string>();
             Dictionary<WrappedCard, double> card_values = new Dictionary<WrappedCard, double>();
             Dictionary<int, double> card_values_ajust = new Dictionary<int, double>();
             Dictionary<int, List<WrappedCard>> int2cards = new Dictionary<int, List<WrappedCard>>();
@@ -2058,11 +2067,11 @@ namespace SanguoshaServer.AI
             foreach (int id in ids)
             {
                 Place place = room.GetCardPlace(id);
-                List<WrappedCard> cards = GetViewAsCards(self, id, place);
+                List<WrappedCard> cards = GetViewAsCards(self, id, place, ignore_list);
                 Debug.Assert(cards.Count != 0, room.GetCard(id).Name);
                 int2cards.Add(id, cards);
                 foreach (WrappedCard card in cards)
-                    card_values[card] = GetKeepValue(card, self, place);
+                    card_values[card] = GetKeepValue(card, self, place, false, true, ignore_list);
             }
 
             //对类似小鸡这类玩装备的技能重新评分，只计算一次价值最低的装备

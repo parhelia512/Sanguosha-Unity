@@ -8460,13 +8460,13 @@ namespace SanguoshaServer.AI
                 List<int> subs = new List<int>();
                 if (ids.Count > 0 && count > 0)
                 {
-                    List<double> values = ai.SortByKeepValue(ref ids, false);
+                    List<double> values = ai.SortByKeepValue(ref ids, false, new List<string> { Name });
                     if (values[0] < 0)
                     {
                         if (count > 0) subs.Add(ids[0]);
                         ids.RemoveAt(0);
                     }
-                    ai.SortByUseValue(ref ids, false);
+                    ai.SortByUseValue(ref ids, false, new List<string> { Name });
                     for (int i = 0; i < count - 1; i++)
                         subs.Add(ids[i]);
                 }
@@ -8515,7 +8515,7 @@ namespace SanguoshaServer.AI
                     List<int> subs = new List<int>();
                     if (ids.Count > 0 && count > 0)
                     {
-                        List<double> values = ai.SortByKeepValue(ref ids, false);
+                        List<double> values = ai.SortByKeepValue(ref ids, false, new List<string> { Name });
                         if (values[0] < 0)
                         {
                             if (count > 0) subs.Add(ids[0]);
