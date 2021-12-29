@@ -4361,7 +4361,7 @@ namespace SanguoshaServer.Package
             player.SetMark("zhuihuan", 0);
             if (player.ContainsTag("zhuihuan") && player.GetTag("zhuihuan") is List<string> targets_name)
             {
-                player.RemoveTag(Name);
+                player.RemoveTag("zhuihuan");
                 List<Player> targets = new List<Player>();
                 foreach (string target_name in targets_name)
                 {
