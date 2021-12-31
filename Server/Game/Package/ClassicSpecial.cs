@@ -1658,9 +1658,18 @@ namespace SanguoshaServer.Package
                     || (move.From_places.Contains(Place.PlaceHand) && move.To_place != Place.PlaceEquip)) && move.From.GetMark(Name) < 3)
                 {
                     int count = move.From.GetMark(Name);
-                    foreach (Place place in move.From_places)
-                        if (place == Place.PlaceEquip || place == Place.PlaceHand)
+                    for (int i = 0; i < move.Card_ids.Count; i++)
+                    {
+                        Place place = move.From_places[i];
+                        if (place == Place.PlaceEquip)
                             count++;
+                        else if (place == Place.PlaceHand)
+                        {
+                            WrappedCard card = room.GetCard(move.Card_ids[i]);
+                            FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                            if (fcard is EquipCard) count++;
+                        }
+                    }
 
                     count = Math.Min(3, count);
                     move.From.SetMark(Name, count);
