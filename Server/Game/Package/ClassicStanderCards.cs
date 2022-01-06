@@ -702,8 +702,12 @@ namespace SanguoshaServer.Package
         
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (base.Triggerable(player, room) && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && !player.HasFlag(Name) && use.To.Count == 1 && use.To[0].Alive && room.GetOtherPlayers(player).Count > 1)
-                return new TriggerStruct(Name, player);
+            if (base.Triggerable(player, room) && data is CardUseStruct use && !player.HasFlag(Name) && use.To.Count == 1 && use.To[0].Alive && room.GetOtherPlayers(player).Count > 1)
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                if (fcard is Slash || (fcard.IsNDTrick() && use.Card.Name != Collateral.ClassName && !use.Card.Name.Contains(Nullification.ClassName)))
+                    return new TriggerStruct(Name, player);
+            }
 
             return new TriggerStruct();
         }
@@ -714,9 +718,15 @@ namespace SanguoshaServer.Package
             {
                 List<Player> targets = room.GetOtherPlayers(player), victims = new List<Player>();
                 targets.Remove(use.To[0]);
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
                 foreach (Player p in targets)
                 {
-                    if (p.Hp == use.To[0].Hp || p.HandcardNum == use.To[0].HandcardNum)
+                    if ((fcard is IronChain && !p.Chained && !RoomLogic.CanBeChainedBy(room, player, p))
+                        || (fcard is FireAttack && p.IsKongcheng())
+                        || (fcard is Snatch && !Snatch.Instance.TargetFilter(room, new List<Player>(), p, player, use.Card))
+                        || (fcard is Dismantlement && (!RoomLogic.CanDiscard(room, player, p, "hej") || p.IsAllNude()))) continue;
+
+                    if ((p.Hp == use.To[0].Hp || p.HandcardNum == use.To[0].HandcardNum) && !use.To.Contains(p) && RoomLogic.IsProhibited(room, player, p, use.Card) == null)
                         victims.Add(p);
                 }
                 if (victims.Count > 0)
@@ -726,6 +736,7 @@ namespace SanguoshaServer.Package
                     room.RemoveTag("extra_target_skill");
                     if (target != null)
                     {
+                        player.SetFlags(Name);
                         room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
                         LogMessage log = new LogMessage
                         {
@@ -778,28 +789,38 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (base.Triggerable(player, room) && (player.Phase == Player.PlayerPhase.Judge || player.Phase == Player.PlayerPhase.Discard) && !player.IsNude())
+            if (base.Triggerable(player, room) && player.Phase == Player.PlayerPhase.Start && (!player.IsSkipped(Player.PlayerPhase.Judge) || !player.IsSkipped(Player.PlayerPhase.Discard)))
                 return new TriggerStruct(Name, player);
             return new TriggerStruct();
         }
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.AskForDiscard(player, Name, 1, 1, true, true, "@Comb2:::" + (player.Phase == Player.PlayerPhase.Judge ? "judge_phase" : "discard_phase"), true))
-                return info;
-            return new TriggerStruct();
+            string choice;
+            if (!player.IsSkipped(Player.PlayerPhase.Judge) && !player.IsSkipped(Player.PlayerPhase.Discard))
+            {
+                choice = room.AskForChoice(player, Name, "judge_phase+discard_phase+cancel", new List<string> { "@Comb2" });
+                if (choice == "cancel") return new TriggerStruct();
+            }
+            else
+            {
+                choice = !player.IsSkipped(Player.PlayerPhase.Judge) ? "judge_phase" : "discard_phase";
+                if (!room.AskForSkillInvoke(player, Name, "@Comb2-skip:::" + choice, info.SkillPosition))
+                    return new TriggerStruct();
+            }
+            player.SetTag(Name, choice);
+            return info;
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            LogMessage log = new LogMessage
+            if (player.GetTag(Name) is string choice)
             {
-                Type = "#Comb2",
-                From = player.Name,
-                Arg = player.Phase == Player.PlayerPhase.Judge ? "judge_phase" : "discard_phase"
-            };
-            room.SendLog(log);
-            return true;
+                player.RemoveTag(Name);
+                room.SkipPhase(player, choice == "judge_phase" ? Player.PlayerPhase.Judge : Player.PlayerPhase.Discard);
+            }
+
+            return false;
         }
     }
 
@@ -815,7 +836,7 @@ namespace SanguoshaServer.Package
     {
         public Comb3Skill() : base("Comb3")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseEnd };
             frequency = Frequency.Compulsory;
         }
 
