@@ -2330,8 +2330,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && triggerEvent == TriggerEvent.EventPhaseStart
-                && player.Phase == PlayerPhase.Draw && player.HandcardNum < player.MaxHp)
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Draw)
                 return new TriggerStruct(Name, player);
             return new TriggerStruct();
         }
@@ -2348,7 +2347,8 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.DrawCards(player, Math.Min(5, player.MaxHp - player.HandcardNum), Name);
+            int count = Math.Min(5, player.MaxHp - player.HandcardNum);
+            if (count > 0) room.DrawCards(player, count, Name);
             if (player.Alive && !player.IsKongcheng())
             {
                 if (room.AskForUseCard(player, RespondType.Skill, "@@lilu!", "@lilu", null, -1, HandlingMethod.MethodNone, true, info.SkillPosition) == null)
@@ -8754,7 +8754,7 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && player != null && player.Alive && damage.Card != null && player.Phase != PlayerPhase.NotActive
+            if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && player != null && player.Alive && damage.Card != null
                 && damage.Card.Name.Contains(Slash.ClassName) && damage.Card.HasFlag(Name) && player.GetMark("zhenge") > 0)
             {
                 foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))

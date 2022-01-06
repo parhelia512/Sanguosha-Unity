@@ -1652,29 +1652,28 @@ namespace SanguoshaServer.Package
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move)
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && ((move.From_places.Contains(Place.PlaceEquip) && move.To_place != Place.PlaceHand)
+                || (move.From_places.Contains(Place.PlaceHand) && move.To_place != Place.PlaceEquip)) && move.From.GetMark(Name) < 3)
             {
-                if (move.From != null && ((move.From_places.Contains(Place.PlaceEquip) && move.To_place != Place.PlaceHand)
-                    || (move.From_places.Contains(Place.PlaceHand) && move.To_place != Place.PlaceEquip)) && move.From.GetMark(Name) < 3)
+                int count = move.From.GetMark(Name);
+                for (int i = 0; i < move.Card_ids.Count; i++)
                 {
-                    int count = move.From.GetMark(Name);
-                    for (int i = 0; i < move.Card_ids.Count; i++)
+                    Place place = move.From_places[i];
+                    if (place == Place.PlaceEquip)
+                        count++;
+                    else if (place == Place.PlaceHand)
                     {
-                        Place place = move.From_places[i];
-                        if (place == Place.PlaceEquip)
-                            count++;
-                        else if (place == Place.PlaceHand)
-                        {
-                            WrappedCard card = room.GetCard(move.Card_ids[i]);
-                            FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                            if (fcard is EquipCard) count++;
-                        }
+                        WrappedCard card = room.GetCard(move.Card_ids[i]);
+                        FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                        if (fcard is EquipCard) count++;
                     }
+                }
 
-                    count = Math.Min(3, count);
+                count = Math.Min(3, count);
+                if (count > move.From.GetMark(Name))
+                {
                     move.From.SetMark(Name, count);
-                    if (base.Triggerable(move.From, room))
-                        room.SetPlayerStringMark(move.From, "shanjia_losed", count.ToString());
+                    if (base.Triggerable(move.From, room)) room.SetPlayerStringMark(move.From, "shanjia_losed", count.ToString());
                 }
             }
         }
@@ -10098,7 +10097,7 @@ namespace SanguoshaServer.Package
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
             if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.To_place == Place.DiscardPile
-                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
+                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && move.From != null && move.From.Alive)
             {
                 if (base.Triggerable(move.From, room) && !move.From.HasFlag(Name))
                     triggers.Add(new TriggerStruct(Name, move.From));
