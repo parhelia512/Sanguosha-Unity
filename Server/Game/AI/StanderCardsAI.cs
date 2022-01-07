@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using static CommonClass.Game.Player;
 using static CommonClass.Game.WrappedCard;
+using static SanguoshaServer.Package.FunctionCard;
 
 namespace SanguoshaServer.AI
 {
@@ -5253,16 +5254,55 @@ namespace SanguoshaServer.AI
             Room room = ai.Room;
             if (room.GetTag("extra_target_skill") is CardUseStruct use)
             {
-                List<ScoreStruct> scores = new List<ScoreStruct>();
-                foreach (Player p in targets)
+                if (use.Card.Name.Contains(Slash.ClassName))
                 {
-                    ScoreStruct score = ai.SlashIsEffective(use.Card, p);
-                    score.Players = new List<Player> { p };
-                    scores.Add(score);
+                    List<ScoreStruct> scores = new List<ScoreStruct>();
+                    foreach (Player p in targets)
+                    {
+                        ScoreStruct score = ai.SlashIsEffective(use.Card, p);
+                        score.Players = new List<Player> { p };
+                        scores.Add(score);
+                    }
+                    ai.CompareByScore(ref scores);
+                    if (scores[0].Score > 0)
+                        return scores[0].Players;
                 }
-                ai.CompareByScore(ref scores);
-                if (scores[0].Score > 0)
-                    return scores[0].Players;
+                else if (use.Card.Name == ExNihilo.ClassName)
+                {
+                    foreach (Player p in targets)
+                    {
+                        if (ai.IsFriend(p) && (!ai.HasSkill("zishu", p) || p.Phase != PlayerPhase.NotActive))
+                            return new List<Player> { p };
+                    }
+                }
+                else if (use.Card.Name == Snatch.ClassName)
+                {
+                    List<ScoreStruct> scores = new List<ScoreStruct>();
+                    foreach (Player p in targets)
+                        scores.Add(ai.FindCards2Discard(player, p, use.Card.Name, "hej", HandlingMethod.MethodGet));
+
+                    ai.CompareByScore(ref scores);
+                    if (scores[0].Score > 0)
+                        return scores[0].Players;
+                }
+                else if (use.Card.Name == Dismantlement.ClassName)
+                {
+                    List<ScoreStruct> scores = new List<ScoreStruct>();
+                    foreach (Player p in targets)
+                        scores.Add(ai.FindCards2Discard(player, p, use.Card.Name, "hej", HandlingMethod.MethodDiscard));
+
+                    ai.CompareByScore(ref scores);
+                    if (scores[0].Score > 0)
+                        return scores[0].Players;
+                }
+                else if (use.Card.Name == FireAttack.ClassName)
+                {
+                    foreach (Player p in targets)
+                    {
+                        if (ai.IsEnemy(p))
+                            return new List<Player> { p };
+                    }
+                }
             }
 
             return new List<Player>();
@@ -5272,38 +5312,20 @@ namespace SanguoshaServer.AI
     public class Comb2AI : SkillEvent
     {
         public Comb2AI() : base("Comb2") { }
-        public override List<int> OnDiscard(TrustedAI ai, Player player, List<int> ids, int min, int max, bool option)
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
         {
             Room room = ai.Room;
-            bool skip = false;
-            if (player.Phase == PlayerPhase.Judge)
+            if (RoomLogic.PlayerContainsTrick(room, player, SupplyShortage.ClassName) || RoomLogic.PlayerContainsTrick(room, player, Indulgence.ClassName))
+                return "judge_phase";
+            else if (RoomLogic.PlayerContainsTrick(room, player, Lightning.ClassName))
             {
-                if (RoomLogic.PlayerContainsTrick(room, player, SupplyShortage.ClassName) || RoomLogic.PlayerContainsTrick(room, player, Indulgence.ClassName))
-                    skip = true;
-                else if (RoomLogic.PlayerContainsTrick(room, player, Lightning.ClassName))
-                {
-                    Player who = ai.GetWizzardRaceWinner(Lightning.ClassName, player);
-                    if (who != null && ai.IsEnemy(who))
-                        skip = true;
-                }
-            }
-            else
-            {
-                if (ai.GetOverflow(player) > 0)
-                    skip = true;
+                Player who = ai.GetWizzardRaceWinner(Lightning.ClassName, player);
+                if (who != null && ai.IsEnemy(who))
+                    return "judge_phase";
             }
 
-            if (skip)
-            {
-                List<int> cards = player.GetCards("he");
-                List<double> values = ai.SortByKeepValue(ref cards, false);
-                if (values[0] > 0 && player.Phase == PlayerPhase.Judge)
-                    ai.SortByUseValue(ref cards, false);
-
-                return new List<int> { cards[0] };
-            }
-
-            return new List<int>();
+            return "discard_phase";
         }
     }
 }
