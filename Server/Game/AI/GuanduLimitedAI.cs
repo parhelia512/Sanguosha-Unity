@@ -171,10 +171,8 @@ namespace SanguoshaServer.AI
         public XueyiAI() : base("xueyi") { }
         public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
         {
-            if (!ai.WillSkipPlayPhase(player) && player.HandcardNum < 5)
-            {
+            if (player.HandcardNum < 6)
                 return true;
-            }
 
             return false;
         }

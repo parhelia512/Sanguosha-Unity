@@ -107,9 +107,53 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Jijiang : ZeroCardViewAsSkill
+    public class Jijiang : TriggerSkill
     {
-        public Jijiang() : base("jijiang") { lord_skill = true; }
+        public Jijiang() : base("jijiang")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardResponded, TriggerEvent.CardUsed };
+            lord_skill = true;
+            view_as_skill = new JijiangVS();
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (((triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Card != null && resp.Card.Name.Contains(Slash.ClassName))
+                || (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName))) && player.Alive && player.Kingdom == "shu" && player.Phase == PlayerPhase.NotActive)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                    if (!p.HasFlag(Name) && p != player)
+                        triggers.Add(new TriggerStruct(Name, player, p));
+            }
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            player.SetFlags("jijiang_from");
+            bool invoke = room.AskForSkillInvoke(ask_who, Name, player);
+            player.SetFlags("-jijiang_from");
+            if (invoke)
+            {
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.SetFlags(Name);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.DrawCards(player, new DrawCardStruct(1, ask_who, Name));
+            return false;
+        }
+    }
+
+    public class JijiangVS : ZeroCardViewAsSkill
+    {
+        public JijiangVS() : base("jijiang") {}
 
         public override bool IsEnabledAtPlay(Room room, Player player)
         {
@@ -902,16 +946,16 @@ namespace SanguoshaServer.Package
                 else
                 {
                     List<Player> targets = new List<Player>();
-                    foreach (Player p in room.GetAlivePlayers())
+                    foreach (Player p in room.GetOtherPlayers(player))
                     {
-                        if (!p.IsAllNude() && (p == player || RoomLogic.InMyAttackRange(room, player, p)) && RoomLogic.CanDiscard(room, player, p, "hej"))
+                        if (!p.IsAllNude() && RoomLogic.InMyAttackRange(room, p, player) && RoomLogic.CanDiscard(room, player, p, "hej"))
                             targets.Add(p);
                     }
 
                     if (targets.Count > 0)
                     {
                         player.SetFlags(Name);
-                        Player target = room.AskForPlayerChosen(player, targets, Name, "@yajiao-disacard", false, false, info.SkillPosition);
+                        Player target = room.AskForPlayerChosen(player, targets, Name, "@yajiao-disacard", true, false, info.SkillPosition);
                         player.SetFlags("-yajiao");
                         if (target != null)
                         {
@@ -2263,37 +2307,34 @@ namespace SanguoshaServer.Package
     {
         public Jiuyuan() : base("jiuyuan")
         {
-            events = new List<TriggerEvent> { TriggerEvent.CardUsed };
+            events = new List<TriggerEvent> { TriggerEvent.PreHpRecover };
             skill_type = SkillType.Recover;
             lord_skill = true;
         }
 
-        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (data is CardUseStruct use && use.Card.Name == Peach.ClassName && player.Kingdom == "wu" && use.To.Contains(player))
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (player.Kingdom == "wu")
             {
-                List<Player> lords = RoomLogic.FindPlayersBySkillName(room, Name), tos = new List<Player>();
+                List<Player> lords = RoomLogic.FindPlayersBySkillName(room, Name);
                 foreach (Player p in lords)
-                    if (player.Hp > p.Hp)
-                        tos.Add(p);
-
-                if (tos.Count > 0)
-                    return new TriggerStruct(Name, player, tos);
+                    if (player.Hp >= p.Hp && player != p && p.IsWounded())
+                        triggers.Add(new TriggerStruct(Name, player, p));
             }
 
-            return new TriggerStruct();
+            return triggers;
         }
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player target, ref object data, Player player, TriggerStruct info)
         {
-            if (data is CardUseStruct use && player.Kingdom == "wu" && use.To.Contains(player) && player.Hp > target.Hp && target.Alive && room.AskForSkillInvoke(player, Name, target))
+            room.SetTag(Name, data);
+            bool invoke = room.AskForSkillInvoke(player, Name, target);
+            room.RemoveTag(Name);
+            if (invoke)
             {
-                ResultStruct result = player.Result;
-                result.Assist++;
-                player.Result = result;
-
-                room.BroadcastSkillInvoke(Name, target);
-                room.CancelTarget(ref use, player);
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
+                room.BroadcastSkillInvoke(Name, target, info.SkillPosition);
                 return info;
             }
 
@@ -2308,61 +2349,11 @@ namespace SanguoshaServer.Package
                 Recover = 1
             };
             room.Recover(target, recover);
-
             room.DrawCards(player, 1, Name);
-
-            return false;
+            return true;
         }
     }
-
-        /*
-        public class Jiuyuan : TriggerSkill
-        {
-            public Jiuyuan() : base("jiuyuan")
-            {
-                events = new List<TriggerEvent> { TriggerEvent.TargetConfirmed, TriggerEvent.PreHpRecover };
-                frequency = Frequency.Compulsory;
-                skill_type = SkillType.Recover;
-            }
-
-            public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
-            {
-                if (triggerEvent == TriggerEvent.TargetConfirmed && data is CardUseStruct use && base.Triggerable(player, room) && player.HasFlag("Global_Dying")
-                    && player != use.From && use.Card.Name == Peach.ClassName && use.From != null && use.From.Kingdom == "wu")
-                    use.Card.SetFlags(Name);
-            }
-
-            public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
-            {
-                if (triggerEvent == TriggerEvent.PreHpRecover && data is RecoverStruct recover && recover.Card != null && recover.Card.HasFlag(Name))
-                    return new TriggerStruct(Name, player);
-
-                return new TriggerStruct();
-            }
-
-            public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
-            {
-                if (data is RecoverStruct recover)
-                {
-                    room.SendCompulsoryTriggerLog(player, Name, true);
-                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
-
-                    LogMessage log = new LogMessage("#JiuyuanExtraRecover")
-                    {
-                        From = player.Name,
-                        To = new List<string> { recover.Who.Name },
-                        Arg = Name
-                    };
-                    room.SendLog(log);
-
-                    recover.Recover++;
-                    data = recover;
-                }
-
-                return false;
-            }
-        }
-        */
+    
     public class Fenwei : TriggerSkill
     {
         public Fenwei() : base("fenwei")

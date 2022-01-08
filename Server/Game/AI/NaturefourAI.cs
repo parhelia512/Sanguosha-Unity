@@ -1547,13 +1547,32 @@ namespace SanguoshaServer.AI
                 {
                     foreach (int id in player.GetCards("h"))
                     {
-                        if (room.GetCard(id).Name == Jink.ClassName)
+                        WrappedCard card = room.GetCard(id);
+                        if (card.Name == Jink.ClassName)
                         {
                             WrappedCard ht = new WrappedCard(HuangtianCard.ClassName);
                             ht.AddSubCard(id);
 
                             return new List<WrappedCard> { ht };
                         }
+                    }
+                }
+
+                List<int> ids = new List<int>();
+                foreach (int id in player.GetCards("h"))
+                {
+                    WrappedCard card = room.GetCard(id);
+                    if (card.Suit == WrappedCard.CardSuit.Spade)
+                        ids.Add(id);
+                }
+                if (ids.Count > 0)
+                {
+                    KeyValuePair<Player, int> keys = ai.GetCardNeedPlayer(ids, new List<Player> { lord });
+                    if (keys.Key != null && ids.Contains(keys.Value))
+                    {
+                        WrappedCard ht = new WrappedCard(HuangtianCard.ClassName);
+                        ht.AddSubCard(keys.Value);
+                        return new List<WrappedCard> { ht };
                     }
                 }
             }

@@ -1095,22 +1095,42 @@ namespace SanguoshaServer.AI
     {
         public JijiangAI() : base("jijiang")
         {
-            key = new List<string> { "cardResponded%jijiang" };
+            key = new List<string> { "cardResponded%jijiang", "skillInvoke:jijiang" };
         }
-
         public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
         {
             if (triggerEvent == TriggerEvent.ChoiceMade && data is string choice)
             {
                 Room room = ai.Room;
-                string[] choices = choice.Split('%');
-                if (choices[1] == Name && ai.GetPlayerTendency(player) == "unknown" && choices[4] != "_nil_")
+                if (choice.StartsWith("cardResponded%jijiang"))
                 {
-                    string prompt = choices[3];
-                    Player cc = room.FindPlayer(choices[3].Split(':')[1]);
-                    ai.UpdatePlayerRelation(player, cc, true);
+                    string[] choices = choice.Split('%');
+                    if (choices[1] == Name && ai.GetPlayerTendency(player) == "unknown" && choices[4] != "_nil_")
+                    {
+                        string prompt = choices[3];
+                        Player cc = room.FindPlayer(choices[3].Split(':')[1]);
+                        ai.UpdatePlayerRelation(player, cc, true);
+                    }
+                }
+                else if (choice.StartsWith("skillInvoke:jijiang"))
+                {
+                    List<string> choices = new List<string>(choice.Split(':'));
+                    if (choices[1] == Name)
+                    {
+                        bool friend = choices[2] == "yes";
+                        foreach (Player p in room.GetOtherPlayers(player))
+                            if (p.HasFlag("jijiang_from") && ai.GetPlayerTendency(p) != "unknown")
+                                ai.UpdatePlayerRelation(player, p, friend);
+                    }
                 }
             }
+        }
+        
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is Player target)
+                return ai.IsFriend(target);
+            return false;
         }
 
         public override double UsePriorityAdjust(TrustedAI ai, Player player, CardUseStruct use)
@@ -2139,23 +2159,13 @@ namespace SanguoshaServer.AI
         }
         public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
         {
-            Player lord = null;
             Room room = ai.Room;
-            foreach (Player p in room.GetOtherPlayers(player))
+            if (data is Player lord)
             {
-                if (p.GetRoleEnum() == Player.PlayerRole.Lord)
-                {
-                    if (ai.IsFriend(p))
-                        return true;
-                    else
-                    {
-                        lord = p;
-                    }
-                    break;
-                }
+                if (ai.IsFriend(lord) && ai.IsWeak(lord)) return true;
+                if (player.GetRoleEnum() == Player.PlayerRole.Renegade && !ai.IsEnemy(lord) && lord.Hp == 1 && ai is StupidAI _ai && _ai.GetRolePitts(Player.PlayerRole.Rebel) > 0)
+                    return true;
             }
-            if (player.GetRoleEnum() == Player.PlayerRole.Renegade && !ai.IsEnemy(lord) && lord.Hp == 1 && ai is StupidAI _ai && _ai.GetRolePitts(Player.PlayerRole.Rebel) > 0)
-                return true;
 
             return false;
         }

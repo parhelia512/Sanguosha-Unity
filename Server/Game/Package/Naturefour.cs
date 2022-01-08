@@ -235,7 +235,7 @@ namespace SanguoshaServer.Package
             {
                 return new TriggerStruct(Name, player);
             }
-            else if (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Start && base.Triggerable(player, room) && player.GetMark("@xueyi") > 0)
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Play && base.Triggerable(player, room) && player.GetMark("@xueyi") > 0)
             {
                 return new TriggerStruct(Name, player);
             }
@@ -276,38 +276,11 @@ namespace SanguoshaServer.Package
                 foreach (Player p in room.GetAlivePlayers())
                     if (p.Kingdom == "qun") count++;
 
-                room.AddPlayerMark(player, "@xueyi", count);
+                room.AddPlayerMark(player, "@xueyi", count * 2);
             }
             return false;
         }
     }
-    
-    /*
-    public class Xueyi : TriggerSkill
-    {
-        public Xueyi() : base("xueyi")
-        {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging };
-            frequency = Frequency.Compulsory;
-            lord_skill = true;
-        }
-
-        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
-        {
-            if (base.Triggerable(player, room) && triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change
-                && change.To == PlayerPhase.Discard && RoomLogic.GetMaxCards(room, player) > player.Hp && player.HandcardNum > player.Hp)
-                return new TriggerStruct(Name, player);
-
-            return new TriggerStruct();
-        }
-        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
-        {
-            room.NotifySkillInvoked(player, Name);
-            room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
-            return new TriggerStruct();
-        }
-    }
-    */
     public class XueyiMax : MaxCardsSkill
     {
         public XueyiMax() : base("#xueyi-max")
@@ -316,20 +289,10 @@ namespace SanguoshaServer.Package
 
         public override int GetExtra(Room room, Player target)
         {
-            int count = 0;
-            if (RoomLogic.PlayerHasShownSkill(room, target, "xueyi") && target.GetMark("@xueyi") > 0)
-            {
-                return 2 * target.GetMark("@xueyi");
-            }
-            /*
             if (RoomLogic.PlayerHasShownSkill(room, target, "xueyi"))
-            {
-                foreach (Player p in room.GetOtherPlayers(target))
-                    if (p.Kingdom == "qun")
-                        count += 2;
-            }
-            */
-            return count;
+                return target.GetMark("@xueyi");
+
+            return 0;
         }
     }
 
@@ -484,7 +447,7 @@ namespace SanguoshaServer.Package
 
         public override bool ViewFilter(Room room, WrappedCard to_select, Player player)
         {
-            return to_select.Name == Jink.ClassName || to_select.Name == Lightning.ClassName;
+            return to_select.Name == Jink.ClassName || (room.GetCardPlace(to_select.Id) == Place.PlaceHand && to_select.Suit == WrappedCard.CardSuit.Spade);
         }
 
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
@@ -4824,7 +4787,7 @@ namespace SanguoshaServer.Package
         {
             if (player.GetTag("dimeng_classic") is List<string> names)
             {
-                player.RemoveTag(Name);
+                player.RemoveTag("dimeng_classic");
                 Player a = room.FindPlayer(names[0]);
                 Player b = room.FindPlayer(names[1]);
                 if (a != null && b != null && a.HandcardNum != b.HandcardNum && !player.IsNude())

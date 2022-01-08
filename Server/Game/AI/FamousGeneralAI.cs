@@ -132,6 +132,7 @@ namespace SanguoshaServer.AI
                 new YanzhuAI(),
                 new XingxueAI(),
                 new ZhiyanAI(),
+                new ZhaofuAI(),
             };
 
             use_cards = new List<UseCard>
@@ -163,6 +164,7 @@ namespace SanguoshaServer.AI
                 new SanyaoJXCardAI(),
                 new QiaoshuiCardAI(),
                 new XuanhuoJXCardAI(),
+                new ZhaofuCardAI(),
             };
         }
     }
@@ -8808,5 +8810,43 @@ namespace SanguoshaServer.AI
 
             return new List<Player> { players[0] }
 ;        }
+    }
+
+    public class ZhaofuAI : SkillEvent
+    {
+        public ZhaofuAI() : base("zhaofu") { }
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            if (player.GetMark("@zhaofu") > 0)
+                return new List<WrappedCard> { new WrappedCard(ZhaofuCard.ClassName) { Skill = Name } };
+            return new List<WrappedCard>();
+        }
+    }
+
+    public class ZhaofuCardAI : UseCard
+    {
+        public ZhaofuCardAI() : base(ZhaofuCard.ClassName) { }
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            List<Player> enemies = ai.GetEnemies(player);
+            bool invoke = enemies.Count >= 2;
+            if (enemies.Count == 1)
+            {
+                foreach (Player p in ai.Room.GetOtherPlayers(player))
+                    if (ai.GetPlayerTendency(p) == "unknown")
+                        return;
+
+                invoke = true;
+            }
+            if (invoke)
+            {
+                use.Card = card;
+                ai.SortByDefense(ref enemies, false);
+                for (int i = 0; i < Math.Min(2, enemies.Count); i++)
+                    use.To.Add(enemies[i]);
+            }
+        }
+
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 1;
     }
 }
