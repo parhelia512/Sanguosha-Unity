@@ -913,7 +913,34 @@ namespace SanguoshaServer.AI
 
     public class JianyuAI : SkillEvent
     {
-        public JianyuAI() : base("jianyu") { }
+        public JianyuAI() : base("jianyu")
+        {
+            key = new List<string> { "skillInvoke:jianyu" };
+        }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str)
+            {
+                List<string> strs = new List<string>(str.Split(':'));
+                if (strs[1] == Name && strs[2] == "yes")
+                {
+                    Room room = ai.Room;
+                    Player target = null;
+                    foreach (Player p in room.GetAlivePlayers())
+                    {
+                        if (p.HasFlag(Name))
+                        {
+                            target = p;
+                            break;
+                        }
+                    }
+
+                    if (player != target && ai.GetPlayerTendency(target) != "unknown")
+                        ai.UpdatePlayerRelation(player, target, true);
+                }
+            }
+        }
         public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
         {
             if (player.GetMark(Name) == 0)
@@ -921,6 +948,12 @@ namespace SanguoshaServer.AI
                 return new List<WrappedCard> { new WrappedCard(JianyuCard.ClassName) { Skill = Name } };
             }
             return null;
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is Player target) return ai.IsFriend(target);
+            return false;
         }
     }
 
