@@ -658,7 +658,9 @@ namespace SanguoshaServer.Package
                 }
 
                 int count = discard.Count * 2;
-                room.ThrowCard(ref discard, new CardMoveReason(MoveReason.S_REASON_THROW, ask_who.Name, Name, string.Empty), ask_who);
+                room.ThrowCard(ref discard,
+                    new CardMoveReason(MoveReason.S_REASON_THROW, ask_who.Name, Name, string.Empty) { General = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition) },
+                    ask_who);
                 if (ask_who.Alive)
                     room.DrawCards(ask_who, count, Name);
             }

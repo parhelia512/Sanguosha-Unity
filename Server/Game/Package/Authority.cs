@@ -1679,7 +1679,10 @@ namespace SanguoshaServer.Package
             room.BroadcastSkillInvoke("xuanhuo", "male", -1, gsk.General, gsk.SkinId);
 
             List<int> ids = new List<int>(card_use.Card.SubCards);
-            room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_THROW, card_use.From.Name, "xuanhuo", string.Empty), card_use.From);
+            room.ThrowCard(ref ids,
+                new CardMoveReason(MoveReason.S_REASON_THROW, card_use.From.Name, "xuanhuo", string.Empty)
+                { General = RoomLogic.GetGeneralSkin(room, card_use.From, "xuanhuo", card_use.Card.SkillPosition) },
+                card_use.From);
 
             List<string> skills = new List<string> { "wusheng_fz", "paoxiao_fz", "tieqi_fz", "longdan_fz", "liegong_fz", "kuanggu_fz" };
             foreach (Player p in room.GetAlivePlayers())

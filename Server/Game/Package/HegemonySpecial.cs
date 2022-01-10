@@ -785,8 +785,10 @@ namespace SanguoshaServer.Package
         {
             if (data is CardUseStruct use)
             {
-                List<int> ids = new List<int> { room.AskForCardChosen(player, use.From, "he", Name, false, FunctionCard.HandlingMethod.MethodDiscard) };
-                room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, use.From.Name, Name, string.Empty), use.From, player);
+                List<int> ids = new List<int> { room.AskForCardChosen(player, use.From, "he", Name, false, HandlingMethod.MethodDiscard) };
+                room.ThrowCard(ref ids,
+                    new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, use.From.Name, Name, string.Empty) { General = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition) }
+                    , use.From, player);
                 if (player.Alive && !player.IsNude() && RoomLogic.CanDiscard(room, player, player, "he"))
                     room.AskForDiscard(player, Name, 1, 1, false, true, "@qiao", false, info.SkillPosition);
             }
@@ -1554,7 +1556,9 @@ namespace SanguoshaServer.Package
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
 
                 List<int> ids = room.ForceToDiscard(player, player.GetCards("h"), player.GetCardCount(false), true);
-                room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_THROW, player.Name, Name, string.Empty), player, null, Name);
+                room.ThrowCard(ref ids,
+                    new CardMoveReason(MoveReason.S_REASON_THROW, player.Name, Name, string.Empty) { General = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition) },
+                    player, null, Name);
                 return info;
             }
 
@@ -1931,7 +1935,9 @@ namespace SanguoshaServer.Package
                 {
                     Shuffle.shuffle(ref ids);
                     List<int> discard = new List<int> { ids[0] };
-                    room.ThrowCard(ref discard, new CardMoveReason(MoveReason.S_REASON_THROW, ask_who.Name, Name, string.Empty), ask_who, ask_who);
+                    room.ThrowCard(ref discard,
+                        new CardMoveReason(MoveReason.S_REASON_THROW, ask_who.Name, Name, string.Empty) { General = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition) },
+                        ask_who, ask_who);
                 }
             }
             else if (triggerEvent == TriggerEvent.Damage)

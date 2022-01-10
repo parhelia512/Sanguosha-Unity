@@ -8824,7 +8824,9 @@ namespace SanguoshaServer.Package
                             player.SetMark("neifa_draw", 0);
                         }
 
-                        room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_THROW, player.Name, Name, string.Empty), player);
+                        room.ThrowCard(ref ids,
+                            new CardMoveReason(MoveReason.S_REASON_THROW, player.Name, Name, string.Empty) { General = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition) },
+                            player);
                     }
                 }
             }
@@ -9209,7 +9211,9 @@ namespace SanguoshaServer.Package
                 foreach (int id in discard)
                     number_count += room.GetCard(id).Number;
                 room.SetTag("mubing_count", number_count);
-                room.ThrowCard(ref discard, new CardMoveReason(MoveReason.S_REASON_THROW, player.Name, Name, string.Empty), player);
+                room.ThrowCard(ref discard,
+                    new CardMoveReason(MoveReason.S_REASON_THROW, player.Name, Name, string.Empty) { General = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition) },
+                    player);
                 AskForMoveCardsStruct move = room.AskForMoveCards(player, card_ids, new List<int>(), false, Name, 1, card_ids.Count, true, false, new List<int>(), info.SkillPosition);
                 room.RemoveTag("mubing_count");
                 if (move.Success && move.Bottom.Count > 0)
@@ -9801,7 +9805,9 @@ namespace SanguoshaServer.Package
                 {
                     room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                     room.NotifySkillInvoked(player, Name);
-                    room.ThrowCard(ref discard, new CardMoveReason(MoveReason.S_REASON_THROW, player.Name, Name, string.Empty), player, null, Name);
+                    room.ThrowCard(ref discard,
+                        new CardMoveReason(MoveReason.S_REASON_THROW, player.Name, Name, string.Empty) { General = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition) },
+                        player, null, Name);
                     player.SetFlags(Name);
                     return info;
                 }
@@ -13349,7 +13355,10 @@ namespace SanguoshaServer.Package
 
                         List<int> ids = room.AskForCardsChosen(player, target, method, Name);
                         if (ids.Count > 0)
-                            room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, target.Name, Name, string.Empty), target, player);
+                            room.ThrowCard(ref ids,
+                                new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, target.Name, Name, string.Empty)
+                                { General = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition) },
+                                target, player);
                     }
                 }
                 else
