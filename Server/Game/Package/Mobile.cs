@@ -6486,7 +6486,7 @@ namespace SanguoshaServer.Package
                     List<string> patterns = new List<string>();
                     foreach (WrappedCard.CardSuit suit in suits)
                         patterns.Add(string.Format(".|{0}|.|hand", WrappedCard.GetSuitString(suit)));
-                    List<int> result = room.AskForExchange(player, Name, 1, 1, "@mingxuan:::" + ids.Count.ToString(), string.Empty, string.Join("#", patterns), info.SkillPosition);
+                    List<int> result = room.AskForExchange(player, Name, 1, 1, "@mingxuan:::" + (ids.Count + 1).ToString(), string.Empty, string.Join("#", patterns), info.SkillPosition);
                     suits.Remove(room.GetCard(result[0]).Suit);
                     ids.AddRange(result);
                 }
@@ -6521,7 +6521,7 @@ namespace SanguoshaServer.Package
             foreach (Player p in players)
             {
                 bool slash = false;
-                if (p.Alive && player.Alive && RoomLogic.CanSlash(room, p, player))
+                if (p.Alive && player.Alive)
                     slash = room.AskForUseSlashTo(p, player, "@mingxuan-slash:" + player.Name, null) != null;
 
                 if (slash)
@@ -6547,14 +6547,17 @@ namespace SanguoshaServer.Package
     {
         public Xianchou() : base("xianchou")
         {
-            events = new List<TriggerEvent> { TriggerEvent.Damaged, TriggerEvent.DamageDone };
+            events = new List<TriggerEvent> { TriggerEvent.Damaged, TriggerEvent.DamageComplete, TriggerEvent.CardFinished };
             skill_type = SkillType.Wizzard;
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.DamageDone && data is DamageStruct damage && damage.Card != null && damage.Card.Name.Contains(Slash.ClassName)
-                && damage.Card.GetSkillName() == Name)
-                damage.Card.SetFlags(Name);
+            if (triggerEvent == TriggerEvent.DamageComplete && data is DamageStruct damage && damage.Card != null && damage.Card.Name.Contains(Slash.ClassName) && damage.Card.GetSkillName() == Name)
+            {
+                int index = (int)room.GetTag("xianchou_count");
+                string mark = "xianchou_" + index.ToString();
+                room.SetTag(mark, true);
+            }
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
@@ -6574,7 +6577,9 @@ namespace SanguoshaServer.Package
 
                 if (targets.Count > 0)
                 {
+                    damage.From.SetFlags(Name);
                     Player target = room.AskForPlayerChosen(player, targets, Name, "@xianchou:" + damage.From.Name, true, true, info.SkillPosition);
+                    damage.From.SetFlags("-xianchou");
                     if (target != null)
                     {
                         room.SetTag(Name, target);
@@ -6591,15 +6596,22 @@ namespace SanguoshaServer.Package
             if (data is DamageStruct damage && room.GetTag(Name) is Player target)
             {
                 room.RemoveTag(Name);
-                if (room.AskForDiscard(target, Name, 1, 1, true, true, string.Format("@xianchou-slash:{0}:{1}", player.Name, damage.From.Name)))
+                bool invoke = room.AskForDiscard(target, Name, 1, 1, true, true, string.Format("@xianchou-slash:{0}:{1}", player.Name, damage.From.Name));
+                if (invoke)
                 {
                     if (target.Alive && damage.From.Alive)
                     {
                         WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_xianchou", DistanceLimited = false };
                         if (RoomLogic.IsProhibited(room, target, damage.From, slash) == null)
                         {
+                            int index = room.ContainsTag("xianchou_count") ? (int)room.GetTag("xianchou_count") : 0;
+                            index++;
+                            room.SetTag("xianchou_count", index);
                             room.UseCard(new CardUseStruct(slash, target, damage.From));
-                            if (slash.HasFlag(Name) && player.Alive && player.IsWounded())
+                            string mark = "xianchou_" + index.ToString();
+                            bool succe = room.ContainsTag(mark);
+                            room.RemoveTag(mark);
+                            if (succe && player.Alive && player.IsWounded())
                                 room.Recover(player);
                         }
                     }

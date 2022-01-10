@@ -47,6 +47,8 @@ namespace SanguoshaServer.AI
                 new ShamengAI(),
                 new ShengxiClassicAI(),
                 new JianyuAI(),
+                new MingxuanAI(),
+                new XianchouAI(),
 
                 new FenyinAI(),
                 new FubiAI(),
@@ -981,6 +983,214 @@ namespace SanguoshaServer.AI
         }
 
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 8;
+    }
+
+    public class MingxuanAI : SkillEvent
+    {
+        public MingxuanAI() : base("mingxuan") { }
+        public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
+        {
+            Room room = ai.Room;
+            List<int> ids = new List<int>();
+            foreach (int id in player.GetCards("h"))
+                if (Engine.MatchExpPattern(room, pattern, player, room.GetCard(id)))
+                    ids.Add(id);
+
+            if (ids.Count == 1)
+                return ids;
+            else
+            {
+                ai.SortByUseValue(ref ids, false);
+                return new List<int> { ids[0] };
+            }
+        }
+
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            CardUseStruct use = new CardUseStruct(null, player, new List<Player>());
+            string target_name = prompt.Split(':')[1];
+            Room room = ai.Room;
+            Player target = room.FindPlayer(target_name);
+            if (target != null && RoomLogic.CanSlash(room, player, target))
+            {
+                if (ai.IsFriend(target)) return use;
+
+                List<ScoreStruct> scores = ai.CaculateSlashIncome(player, null, new List<Player> { target });
+                if (scores.Count > 0 && scores[0].Score > -2 && scores[0].Card != null)
+                {
+                    use.Card = scores[0].Card;
+                    use.To.Add(target);
+                }
+            }
+
+            return use;
+        }
+    }
+
+    public class XianchouAI : SkillEvent
+    {
+        public XianchouAI() : base("xianchou")
+        {
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            Room room = ai.Room;
+            Player enemy = null;
+            foreach (Player p in room.GetOtherPlayers(player))
+            {
+                if (p.HasFlag(Name))
+                {
+                    enemy = p;
+                    break;
+                }
+            }
+            WrappedCard slash = new WrappedCard(Slash.ClassName);
+            if (ai.GetDamageScore(new DamageStruct(slash, player, enemy)).Score > 0)
+            {
+                List<ScoreStruct> scores = new List<ScoreStruct>();
+                foreach (Player p in targets)
+                {
+                    if (ai.IsFriend(p) && (ai.HasSkill("liegong_jx|tieqi_jx|wushuang|jianchu|moukui|fuqi") || (ai.HasSkill("jiedao", p) && p.IsWounded())))
+                    {
+                        if (RoomLogic.IsProhibited(room, p, enemy, slash) == null)
+                        {
+                            ScoreStruct score = new ScoreStruct
+                            {
+                                Players = new List<Player> { p },
+                                Card = slash,
+                            };
+
+                            DamageStruct damage = new DamageStruct(slash, p, enemy);
+                            if (ai.HasArmorEffect(enemy, Vine.ClassName) && slash.Name == Slash.ClassName && p.HasWeapon(Fan.ClassName))
+                            {
+                                WrappedCard fan = new WrappedCard(FireSlash.ClassName);
+                                fan.AddSubCard(slash);
+                                fan = RoomLogic.ParseUseCard(room, fan);
+                                damage.Card = fan;
+                            }
+
+                            if (damage.Card.Name == FireSlash.ClassName)
+                                damage.Nature = DamageStruct.DamageNature.Fire;
+                            else if (damage.Card.Name == ThunderSlash.ClassName)
+                                damage.Nature = DamageStruct.DamageNature.Thunder;
+
+                            ScoreStruct damage_score = ai.GetDamageScore(damage);
+                            if (damage_score.Score > 0)
+                            {
+                                ScoreStruct effect = ai.SlashIsEffective(damage.Card, p, enemy);
+                                if (effect.Score > 0)
+                                {
+                                    score.Score = effect.Score;
+                                    if (effect.Rate > 0)
+                                    {
+                                        score.Score += Math.Min(1, effect.Rate) * damage_score.Score;
+                                        scores.Add(score);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (scores.Count > 0)
+                {
+                    scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+                    return scores[0].Players;
+                }
+
+                scores.Clear();
+                foreach (Player p in targets)
+                {
+                    if (ai.IsFriend(p))
+                    {
+                            if (RoomLogic.IsProhibited(room, p, enemy, slash) == null)
+                            {
+                                ScoreStruct score = new ScoreStruct
+                                {
+                                    Players = new List<Player> { p },
+                                    Card = slash,
+                                };
+
+                                DamageStruct damage = new DamageStruct(slash, p, enemy);
+                                if (ai.HasArmorEffect(enemy, Vine.ClassName) && slash.Name == Slash.ClassName && p.HasWeapon(Fan.ClassName))
+                                {
+                                    WrappedCard fan = new WrappedCard(FireSlash.ClassName);
+                                    fan.AddSubCard(slash);
+                                    fan = RoomLogic.ParseUseCard(room, fan);
+                                    damage.Card = fan;
+                                }
+
+                                if (damage.Card.Name == FireSlash.ClassName)
+                                    damage.Nature = DamageStruct.DamageNature.Fire;
+                                else if (damage.Card.Name == ThunderSlash.ClassName)
+                                    damage.Nature = DamageStruct.DamageNature.Thunder;
+
+                                ScoreStruct damage_score = ai.GetDamageScore(damage);
+                                if (damage_score.Score > 0)
+                                {
+                                    ScoreStruct effect = ai.SlashIsEffective(damage.Card, p, enemy);
+                                    if (effect.Score > 0)
+                                    {
+                                        score.Score = effect.Score;
+                                        if (effect.Rate > 0)
+                                        {
+                                            score.Score += Math.Min(1, effect.Rate) * damage_score.Score;
+                                            scores.Add(score);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                }
+
+                if (scores.Count > 0)
+                {
+                    scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+                    return scores[0].Players;
+                }
+            }
+
+            return new List<Player>();
+        }
+
+        public override List<int> OnDiscard(TrustedAI ai, Player player, List<int> ids, int min, int max, bool option)
+        {
+            Room room = ai.Room;
+            DamageStruct damage = (DamageStruct)room.GetTag("CurrentDamageStruct");
+            Player target = damage.From;
+
+            WrappedCard slash = new WrappedCard(Slash.ClassName);
+
+            List<int> discard = new List<int>();
+            foreach (int id in player.GetCards("he"))
+                if (RoomLogic.CanDiscard(room, player, player, id)) discard.Add(id);
+
+            if (discard.Count > 0)
+            {
+                ScoreStruct score = ai.GetDamageScore(new DamageStruct(slash, player, target));
+                List<double> values = ai.SortByKeepValue(ref ids, false);
+                if (score.Score > 0 && RoomLogic.IsProhibited(room, player, target, slash) == null)
+                {
+                    if (ai.IsCardEffect(slash, target, player) && !ai.IsCancelTarget(slash, target, player))
+                    {
+                        if (values[0] / 2 < score.Score) return new List<int> { ids[0] };
+                    }
+                    else if (ai.HasArmorEffect(target, Vine.ClassName) && player.HasWeapon(Fan.ClassName))
+                    {
+                        slash = new WrappedCard(FireSlash.ClassName);
+                        if (ai.IsCardEffect(slash, target, player) && !ai.IsCancelTarget(slash, target, player) && values[0] / 2 < score.Score)
+                            return new List<int> { ids[0] };
+                    }
+                }
+                else if (!ai.IsCardEffect(slash, target, player) || ai.IsCancelTarget(slash, target, player) || RoomLogic.IsProhibited(room, player, target, slash) != null)
+                {
+                    if (values[0] < 0) return new List<int> { ids[0] };
+                }
+            }
+
+            return new List<int>();
+        }
     }
 
     public class RangjieAI : SkillEvent

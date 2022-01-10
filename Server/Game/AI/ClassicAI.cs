@@ -3017,6 +3017,7 @@ namespace SanguoshaServer.AI
             { "@zhongyong-slash", "zhongyong" },
             { "@zhuhai-slash", "zhuhai" },
             { "@sheque-slash", "sheque" },
+            { "@mingxuan-slash", "mingxuan" },
         };
 
         public override CardUseStruct AskForUseCard(string pattern, string prompt, FunctionCard.HandlingMethod method)
