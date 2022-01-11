@@ -2315,7 +2315,7 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            if (player.Kingdom == "wu")
+            if (player.Kingdom == "wu" && player.Phase != PlayerPhase.NotActive)
             {
                 List<Player> lords = RoomLogic.FindPlayersBySkillName(room, Name);
                 foreach (Player p in lords)
