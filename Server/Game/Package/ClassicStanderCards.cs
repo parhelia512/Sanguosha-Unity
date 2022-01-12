@@ -702,12 +702,8 @@ namespace SanguoshaServer.Package
         
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (base.Triggerable(player, room) && data is CardUseStruct use && !player.HasFlag(Name) && use.To.Count == 1 && use.To[0].Alive && room.GetOtherPlayers(player).Count > 1)
-            {
-                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                if (fcard is Slash || (fcard.IsNDTrick() && use.Card.Name != Collateral.ClassName && !use.Card.Name.Contains(Nullification.ClassName)))
-                    return new TriggerStruct(Name, player);
-            }
+            if (base.Triggerable(player, room) && data is CardUseStruct use && !player.HasFlag(Name) && use.To.Count == 1 && use.To[0].Alive && room.GetOtherPlayers(player).Count > 1 && use.Card.Name.Contains(Slash.ClassName))
+                return new TriggerStruct(Name, player);
 
             return new TriggerStruct();
         }
@@ -721,12 +717,7 @@ namespace SanguoshaServer.Package
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
                 foreach (Player p in targets)
                 {
-                    if ((fcard is IronChain && !p.Chained && !RoomLogic.CanBeChainedBy(room, player, p))
-                        || (fcard is FireAttack && p.IsKongcheng())
-                        || (fcard is Snatch && !Snatch.Instance.TargetFilter(room, new List<Player>(), p, player, use.Card))
-                        || (fcard is Dismantlement && (!RoomLogic.CanDiscard(room, player, p, "hej") || p.IsAllNude()))) continue;
-
-                    if ((p.Hp == use.To[0].Hp || p.HandcardNum == use.To[0].HandcardNum) && !use.To.Contains(p) && RoomLogic.IsProhibited(room, player, p, use.Card) == null)
+                    if ((p.Hp == use.To[0].Hp || p.HandcardNum == use.To[0].HandcardNum) && RoomLogic.IsProhibited(room, player, p, use.Card) == null)
                         victims.Add(p);
                 }
                 if (victims.Count > 0)
