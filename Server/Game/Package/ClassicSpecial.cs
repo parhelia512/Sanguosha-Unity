@@ -181,6 +181,8 @@ namespace SanguoshaServer.Package
                 new Zhuangshu(),
                 new Chuiti(),
                 new ChuitiClear(),
+                new ZhouxuanZH(),
+                new ZhouxuanZhEffect(),
 
                 new Shenxian(),
                 new Qiangwu(),
@@ -372,6 +374,7 @@ namespace SanguoshaServer.Package
                 { "wangong", new List<string>{ "#wangong" } },
                 { "juanxia", new List<string>{ "#juanxia" } },
                 { "chuiti", new List<string>{ "#chuiti" } },
+                { "zhouxuan_zh", new List<string>{ "#zhouxuan_zh" } },
             };
         }
     }
@@ -10220,6 +10223,116 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             return new TriggerStruct();
+        }
+    }
+
+    public class ZhouxuanZH : TriggerSkill
+    {
+        public ZhouxuanZH() : base("zhouxuan_zh")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.EventLoseSkill, TriggerEvent.EventPhaseEnd };
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseEnd && player.Phase == PlayerPhase.Play && player.GetPile(Name).Count > 0)
+                room.ClearOnePrivatePile(player, Name);
+            else if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == Name && player.GetPile(Name).Count > 0)
+                room.ClearOnePrivatePile(player, Name);
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Discard && !player.IsKongcheng() && base.Triggerable(player, room))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<int> ids = room.AskForExchange(player, Name, Math.Min(5, player.HandcardNum), 0, "@zhouxuan_zh", string.Empty, ".", info.SkillPosition);
+            if (ids.Count > 0)
+            {
+                room.NotifySkillInvoked(player, Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                room.AddToPile(player, Name, ids, false);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info) => false;
+    }
+
+    public class ZhouxuanZhEffect : TriggerSkill
+    {
+        public ZhouxuanZhEffect() : base("#zhouxuan_zh")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.CardResponded };
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.CardUsed && player.Alive && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name) && player.GetPile("zhouxuan_zh").Count > 0)
+                return new TriggerStruct(Name, player);
+            else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Use && player.Alive && player.GetPile("zhouxuan_zh").Count > 0)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(player, "zhouxuan_zh");
+
+            List<int> maps = player.GetPile("zhouxuan_zh");
+            if (maps.Count > 0)
+            {
+                int card_id;
+                if (maps.Count == 1)
+                    card_id = maps[0];
+                else
+                {
+                    room.FillAG("zhouxuan_zh", maps, player);
+                    card_id = room.AskForAG(player, maps, false, "zhouxuan_zh");
+                    room.ClearAG(player);
+                }
+
+                LogMessage log = new LogMessage
+                {
+                    Type = "$RemoveFromPile",
+                    From = player.Name,
+                    Arg = "zhouxuan_zh",
+                    Card_str = card_id.ToString()
+                };
+                room.SendLog(log);
+
+                CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_REMOVE_FROM_PILE, null, "zhouxuan_zh", null);
+                List<int> ids = new List<int> { card_id };
+                room.ThrowCard(ref ids, reason, null);
+                room.ClearAG(player);
+            }
+            if (player.Alive)
+            {
+                int draw = 1;
+                int count = player.GetPile("zhouxuan_zh").Count;
+                if (count > 1)
+                {
+                    bool only = true;
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (p.HandcardNum >= player.HandcardNum)
+                        {
+                            only = false;
+                            break;
+                        }
+                    }
+
+                    if (!only) draw = count;
+                }
+                room.DrawCards(player, draw, "zhouxuan_zh");
+            }
+
+            return false;
         }
     }
 

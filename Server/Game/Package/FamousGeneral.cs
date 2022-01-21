@@ -241,6 +241,7 @@ namespace SanguoshaServer.Package
                 new QiaoshuiCard(),
                 new XuanhuoJXCard(),
                 new ZhaofuCard(),
+                new ZongxuanCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -11998,6 +11999,7 @@ namespace SanguoshaServer.Package
         public Zongxuan() : base("zongxuan")
         {
             events.Add(TriggerEvent.CardsMoveOneTime);
+            view_as_skill = new ZongxuanVS();
         }
         public override bool CanPreShow() => true;
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
@@ -12035,13 +12037,31 @@ namespace SanguoshaServer.Package
         {
             CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
             List<int> cards = new List<int>();
+            List<int> tricks = new List<int>();
             for (int i = 0; i < move.Card_ids.Count; i++)
             {
                 int card_id = move.Card_ids[i];
-                if (room.GetCardPlace(card_id) == Place.DiscardPile && room.GetCard(card_id).HasFlag(Name))
+                WrappedCard card = room.GetCard(card_id);
+                if (room.GetCardPlace(card_id) == Place.DiscardPile && card.HasFlag(Name))
+                {
                     cards.Add(card_id);
+                    FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                    if (fcard is TrickCard)
+                        tricks.Add(card_id);
+                }
             }
-
+            
+            if (tricks.Count > 0)
+            {
+                player.PileChange("#" + Name, cards);
+                WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@zongxuan", "@zongxuan-give", null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
+                player.PileChange("#" + Name, cards, false);
+                if (card != null)
+                {
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    return info;
+                }
+            }
             if (cards.Count > 0 && room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
             {
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
@@ -12052,44 +12072,102 @@ namespace SanguoshaServer.Package
         }
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player p, ref object data, Player player, TriggerStruct info)
         {
-            CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
-            List<int> cards = new List<int>();
-            for (int i = 0; i < move.Card_ids.Count; i++)
+            if (room.ContainsTag(Name) && room.GetTag(Name) is KeyValuePair<Player, int> keys)
             {
-                int card_id = move.Card_ids[i];
-                if (room.GetCardPlace(card_id) == Place.DiscardPile && room.GetCard(card_id).HasFlag(Name))
-                    cards.Add(card_id);
+                room.SetCardFlag(keys.Value, "-zongxuan");
+                room.RemoveTag(Name);
+                room.ObtainCard(keys.Key, room.GetCard(keys.Value), new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, keys.Key.Name, Name, string.Empty));
             }
 
-            if (cards.Count > 0)
+            if (player.Alive)
             {
-                AskForMoveCardsStruct result = room.AskForMoveCards(player, cards, new List<int>(), true, Name, 0,  cards.Count, false, true, new List<int>(), info.SkillPosition);
-                List<int> top_cards = result.Top, bottom_cards = result.Bottom;
-
-                if (bottom_cards.Count > 0)
+                CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
+                List<int> cards = new List<int>();
+                for (int i = 0; i < move.Card_ids.Count; i++)
                 {
-                    LogMessage log = new LogMessage
-                    {
-                        Type = "#ZongxuanResult",
-                        From = player.Name,
-                        Arg = bottom_cards.Count.ToString()
-                    };
-                    room.SendLog(log);
-
-                    LogMessage log1 = new LogMessage
-                    {
-                        Type = "$GuanxingTop",
-                        From = player.Name,
-                        Card_str = string.Join("+", JsonUntity.IntList2StringList(bottom_cards))
-                    };
-                    room.SendLog(log1, player);
-
-                    room.ReturnToDrawPile(bottom_cards, false, player);
+                    int card_id = move.Card_ids[i];
+                    if (room.GetCardPlace(card_id) == Place.DiscardPile && room.GetCard(card_id).HasFlag(Name))
+                        cards.Add(card_id);
                 }
 
+                if (cards.Count > 0)
+                {
+                    AskForMoveCardsStruct result = room.AskForMoveCards(player, cards, new List<int>(), true, Name, 0, cards.Count, false, true, new List<int>(), info.SkillPosition);
+                    List<int> top_cards = result.Top, bottom_cards = result.Bottom;
+
+                    if (bottom_cards.Count > 0)
+                    {
+                        LogMessage log = new LogMessage
+                        {
+                            Type = "#ZongxuanResult",
+                            From = player.Name,
+                            Arg = bottom_cards.Count.ToString()
+                        };
+                        room.SendLog(log);
+
+                        LogMessage log1 = new LogMessage
+                        {
+                            Type = "$GuanxingTop",
+                            From = player.Name,
+                            Card_str = string.Join("+", JsonUntity.IntList2StringList(bottom_cards))
+                        };
+                        room.SendLog(log1, player);
+
+                        room.ReturnToDrawPile(bottom_cards, false, player);
+                    }
+
+                }
             }
 
             return false;
+        }
+    }
+
+    public class ZongxuanVS : OneCardViewAsSkill
+    {
+        public ZongxuanVS() : base("zongxuan")
+        {
+            response_pattern = "@@zongxuan";
+            expand_pile = "#zongxuan";
+        }
+
+        public override bool ViewFilter(Room room, WrappedCard to_select, Player player)
+        {
+            return player.GetPile("#lirang").Contains(to_select.Id);
+        }
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            WrappedCard zx = new WrappedCard(ZongxuanCard.ClassName);
+            zx.AddSubCard(card);
+            return zx;
+        }
+    }
+
+    public class ZongxuanCard : SkillCard
+    {
+        public static string ClassName = "ZongxuanCard";
+        public ZongxuanCard() : base(ClassName)
+        {
+            will_throw = false;
+        }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self;
+
+        public override void OnUse(Room room, CardUseStruct card_use)
+        {
+            LogMessage l = new LogMessage
+            {
+                Type = "#ChoosePlayerWithSkill",
+                From = card_use.From.Name,
+                To = new List<string>()
+            };
+            ;
+            l.Arg = "zongxuan";
+            l.AddTo(card_use.To[0]);
+            room.SendLog(l);
+
+            KeyValuePair<Player, int> keys = new KeyValuePair<Player, int>(card_use.To[0], card_use.Card.GetEffectiveId());
+            room.SetTag("zongxuan", keys);
         }
     }
 
@@ -12168,6 +12246,8 @@ namespace SanguoshaServer.Package
                             room.Recover(target, recover, true);
                         }
                     }
+                    else if (player.Alive && fcard is BasicCard)
+                        room.DrawCards(player, 1, Name);
                 }
             }
 

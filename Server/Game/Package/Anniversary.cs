@@ -158,6 +158,9 @@ namespace SanguoshaServer.Package
                 new Xinghan(),
                 new Tianze(),
                 new Difa(),
+                new Xuezhao(),
+                new XuezhaoEffect(),
+                new XuezhaoTar(),
 
                 new Guolun(),
                 new Songsang(),
@@ -227,6 +230,7 @@ namespace SanguoshaServer.Package
                 new ShunshiCard(),
                 new BazhanCard(),
                 new ZhukouCard(),
+                new XuezhaoCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -269,6 +273,7 @@ namespace SanguoshaServer.Package
                 { "guowu", new List<string>{ "#guowu" } },
                 { "shenwei", new List<string>{ "#shenwei" } },
                 { "zhenge", new List<string>{ "#zhenge" } },
+                { "xuezhao", new List<string>{ "#xuezhao", "#xuezhao-effect" } },
             };
         }
     }
@@ -8142,17 +8147,26 @@ namespace SanguoshaServer.Package
         {
             if (data is DamageStruct damage)
             {
-                int id = room.AskForCardChosen(player, damage.To, "h", Name);
-                room.ShowCard(damage.To, id, Name);
-
-                WrappedCard card = room.GetCard(id);
-                bool red = WrappedCard.IsRed(card.Suit);
-                if (card.Name.Contains(Slash.ClassName) || card.Name == Duel.ClassName || card.Name == FireAttack.ClassName
-                    || card.Name == SavageAssault.ClassName || card.Name == ArcheryAttack.ClassName)
+                List<string> patterns = new List<string>();
+                for (int i = 0; i < Math.Max(1, Math.Min(damage.To.GetLostHp(), damage.To.HandcardNum)); i++)
+                    patterns.Add("h^false^none");
+                List<int> ids = room.AskForCardsChosen(player, damage.To, patterns, Name);
+                room.ShowCards(damage.To, ids, Name);
+                bool red = false;
+                List<int> gets = new List<int>();
+                foreach (int id in ids)
                 {
-                    if (RoomLogic.CanGetCard(room, player, damage.To, id))
-                        room.ObtainCard(player, card, new CardMoveReason(MoveReason.S_REASON_EXTRACTION, player.Name, damage.To.Name, Name, string.Empty));
+                    WrappedCard card = room.GetCard(id);
+                    if (!red && WrappedCard.IsRed(card.Suit)) red = true;
+                    if (card.Name.Contains(Slash.ClassName) || card.Name == Duel.ClassName || card.Name == FireAttack.ClassName
+                        || card.Name == SavageAssault.ClassName || card.Name == ArcheryAttack.ClassName)
+                    {
+                        if (RoomLogic.CanGetCard(room, player, damage.To, id))
+                            gets.Add(id);
+                    }
                 }
+                if (gets.Count > 0)
+                    room.ObtainCard(player, ref gets, new CardMoveReason(MoveReason.S_REASON_EXTRACTION, player.Name, damage.To.Name, Name, string.Empty));
                 if (red && player.Alive)
                 {
                     if (player.IsWounded())
@@ -8952,6 +8966,151 @@ namespace SanguoshaServer.Package
                     room.ObtainCard(ask_who, ref ids, new CardMoveReason(MoveReason.S_REASON_GOTCARD, ask_who.Name, Name, string.Empty), true);
             }
             return false;
+        }
+    }
+
+    public class XuezhaoEffect : TriggerSkill
+    {
+        public XuezhaoEffect() : base("#xuezhao-effect")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.EventPhaseChanging, TriggerEvent.TrickCardCanceling };
+            frequency = Frequency.Compulsory;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.GetMark("xuezhao") > 0)
+                player.SetMark("xuezhao", 0);
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use && player.Alive)
+            {
+                if (use.Card.Name.Contains(Slash.ClassName) || use.Card.Name == Duel.ClassName || use.Card.Name == Collateral.ClassName
+                    || use.Card.Name == ArcheryAttack.ClassName || use.Card.Name == SavageAssault.ClassName)
+                {
+                    foreach (Player p in use.To)
+                    {
+                        string mark = string.Format("xuezhao_{0}", p.Name);
+                        if (p != player && player.HasFlag(Name)) return new TriggerStruct(Name, player);
+                    }
+                }
+            }
+            else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && player != effect.From && effect.From.Alive)
+            {
+                string mark = string.Format("xuezhao_{0}", player.Name);
+                if (effect.From.HasFlag(Name)) return new TriggerStruct(Name, effect.From);
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use)
+            {
+                List<Player> targets = new List<Player>();
+                if (use.Card.Name.Contains(Slash.ClassName) || use.Card.Name == Duel.ClassName || use.Card.Name == Collateral.ClassName
+                    || use.Card.Name == ArcheryAttack.ClassName || use.Card.Name == SavageAssault.ClassName)
+                {
+                    for (int i = 0; i < use.EffectCount.Count; i++)
+                    {
+                        CardBasicEffect effect = use.EffectCount[i];
+                        string mark = string.Format("xuezhao_{0}", effect.To.Name);
+                        if (player.HasFlag(Name))
+                        {
+                            effect.Effect2 = 0;
+                            if (!targets.Contains(effect.To))
+                                targets.Add(effect.To);
+                        }
+                    }
+                }
+
+                if (targets.Count > 0)
+                {
+                    room.SortByActionOrder(ref targets);
+                    foreach (Player p in targets)
+                    {
+                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
+                    }
+                }
+            }
+            else if (triggerEvent == TriggerEvent.TrickCardCanceling)
+                return true;
+
+            return false;
+        }
+    }
+
+    public class XuezhaoTar : TargetModSkill
+    {
+        public XuezhaoTar() : base("xuezhao", false) { }
+        public override int GetResidueNum(Room room, Player from, WrappedCard card)
+        {
+            return from.GetMark("xuezhao");
+        }
+    }
+
+    public class Xuezhao : OneCardViewAsSkill
+    {
+        public Xuezhao() : base("xuezhao")
+        {
+            filter_pattern = ".!";
+            skill_type = SkillType.Wizzard;
+        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(XuezhaoCard.ClassName);
+
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            WrappedCard xz = new WrappedCard(XuezhaoCard.ClassName) { Skill = Name };
+            xz.AddSubCard(card);
+            return xz;
+        }
+    }
+
+    public class XuezhaoCard : SkillCard
+    {
+        public static string ClassName = "XuezhaoCard";
+        public XuezhaoCard() : base(ClassName)
+        {
+            will_throw = true;
+        }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            return targets.Count < Self.MaxHp && to_select != Self;
+        }
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From;
+            foreach (Player p in card_use.To)
+            {
+                if (player.Alive && p.Alive)
+                {
+                    bool draw = false;
+                    if (!p.IsNude())
+                    {
+                        List<int> ids = room.AskForExchange(p, "xuezhao", 1, 0, "@xuezhao:" + player.Name, string.Empty, "..", null);
+                        if (ids.Count > 0)
+                        {
+                            draw = true;
+                            room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, p.Name, player.Name, "xuezhao", string.Empty), false);
+                        }
+                    }
+                    if (draw)
+                    {
+                        if (p.Alive) room.DrawCards(p, 1, "xuezhao");
+                        player.AddMark("xuezhao");
+                    }
+                    else
+                    {
+                        string mark = string.Format("xuezhao_{0}", p.Name);
+                        player.SetFlags(mark);
+                    }
+                }
+            }
         }
     }
 
