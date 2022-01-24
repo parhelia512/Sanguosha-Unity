@@ -267,6 +267,12 @@ namespace SanguoshaServer.Scenario
             if (generals.Count < max_choice * room.Players.Count)
                 max_choice = generals.Count / room.Players.Count;
 
+            //禁将列表，禁将后选将数不能少于最低选将数
+            List<string> new_list = new List<string>(generals);
+            new_list.RemoveAll(t => room.Setting.BanList.Contains(t));
+            if (max_choice * room.Players.Count <= new_list.Count)
+                generals = new_list;
+
             for (int i = 0; i < room.Clients.Count; i++)
             {
                 Client client = room.Clients[i];

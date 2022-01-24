@@ -590,6 +590,14 @@ namespace SanguoshaServer
                                     if (!mode.CardPackage.Contains(card))
                                         return;
 
+                                if (setting.BanList == null) setting.BanList = new List<string>();
+                                if (setting.BanList.Count > 20)
+                                {
+                                    List<string> banlist = new List<string>();
+                                    for (int i = 0; i < 20; i++)
+                                        banlist.Add(setting.BanList[i]);
+                                    setting.BanList = banlist;
+                                }
                                 room.ChangeSetting(setting);
                             }
                         }
@@ -637,6 +645,14 @@ namespace SanguoshaServer
                     int room_id = Interlocked.Increment(ref room_serial);
                     if (!RId2Room.TryGetValue(room_id, out _))
                     {
+                        if (setting.BanList == null) setting.BanList = new List<string>();
+                        if (setting.BanList.Count > 20)
+                        {
+                            List<string> banlist = new List<string>();
+                            for (int i = 0; i < 20; i++)
+                                banlist.Add(setting.BanList[i]);
+                            setting.BanList = banlist;
+                        }
                         Room room = new Room(this, room_id, client, setting);
                         RId2Room.TryAdd(room_id, room);
                         break;
@@ -809,7 +825,8 @@ namespace SanguoshaServer
                     CardPackage = mode.CardPackage,
                     GeneralPackage = mode.GeneralPackage,
                     GeneralCount = 7,
-                    LordConvert = true
+                    LordConvert = true,
+                    BanList = new List<string>()
                 };
 
                 Room room = new Room(this, room_id, setting);
@@ -831,6 +848,7 @@ namespace SanguoshaServer
                     CardPackage = mode.CardPackage,
                     GeneralPackage = mode.GeneralPackage,
                     GeneralCount = 5,
+                    BanList = new List<string>()
                 };
 
                 Room room = new Room(this, room_id, setting);
@@ -853,6 +871,7 @@ namespace SanguoshaServer
                     CardPackage = mode.CardPackage,
                     GeneralPackage = mode.GeneralPackage,
                     GeneralCount = 0,
+                    BanList = new List<string>()
                 };
 
                 Room room = new Room(this, room_id, setting);

@@ -312,6 +312,12 @@ namespace SanguoshaServer.Scenario
             }
             List<string> generals = new List<string>(room.Generals);
 
+            //禁将列表，禁将后选将数不能少于最低选将数
+            List<string> new_list = new List<string>(generals);
+            new_list.RemoveAll(t => room.Setting.BanList.Contains(t));
+            if (17 <= new_list.Count)
+                generals = new_list;
+
             foreach (Player player in room.Players)
             {
                 int max = max_choice;
