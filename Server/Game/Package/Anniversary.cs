@@ -9045,7 +9045,7 @@ namespace SanguoshaServer.Package
 
     public class XuezhaoTar : TargetModSkill
     {
-        public XuezhaoTar() : base("xuezhao", false) { }
+        public XuezhaoTar() : base("#xuezhao", false) { }
         public override int GetResidueNum(Room room, Player from, WrappedCard card)
         {
             return from.GetMark("xuezhao");
