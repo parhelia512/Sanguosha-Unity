@@ -49,6 +49,10 @@ namespace SanguoshaServer.Package
                 new KuangcaiHegemonyTar(),
                 new ShejianHegemony(),
                 new Xishe(),
+                new GuowuHegemony(),
+                new GuowuHegemonyTar(),
+                new ZhuangrongHegemony(),
+                new ZhuangrongMax(),
 
                 new Dujin(),
                 new Zhente(),
@@ -82,6 +86,8 @@ namespace SanguoshaServer.Package
                 { "juejue", new List<string> { "#juejue" } },
                 { "fangyuan", new List<string> { "#fangyuan" } },
                 { "fengyang", new List<string> { "#fengyang" } },
+                { "guowu_hegemony", new List<string> { "#guowu_hegemony" } },
+                { "zhuangrong_hegemony", new List<string> { "#zhuangrong_hegemony" } },
             };
         }
     }
@@ -1701,6 +1707,195 @@ namespace SanguoshaServer.Package
         }
     }
 
+    //lvlingqi
+    public class GuowuHegemony : TriggerSkill
+    {
+        public GuowuHegemony() : base("guowu_hegemony")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.EventPhaseStart, TriggerEvent.CardTargetAnnounced };
+            skill_type = SkillType.Attack;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.Play)
+            {
+                player.SetFlags("-guowu_distance");
+                player.SetFlags("-guowu_tar");
+            }
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Play && base.Triggerable(player, room) && !player.IsKongcheng())
+                return new TriggerStruct(Name, player);
+            else if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct _use && player.HasFlag("guowu_tar")
+                && (_use.Card.Name.Contains(Slash.ClassName) ||( Engine.GetFunctionCard(_use.Card.Name).IsNDTrick() && _use.Card.Name != Collateral.ClassName)))
+            {
+                return new TriggerStruct(Name, player);
+            }
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                room.ShowAllCards(player, null, Name, info.SkillPosition);
+                return info;
+            }
+            else if (data is CardUseStruct use)
+            {
+                List<Player> targets = new List<Player>();
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    if (!use.To.Contains(p) && RoomLogic.IsProhibited(room, use.From, p, use.Card) == null)
+                    {
+                        if ((fcard is Slash && p == use.From) || (fcard is Peach && !p.IsWounded())
+                            || (fcard is IronChain && !p.Chained && !RoomLogic.CanBeChainedBy(room, player, p))
+                            || (fcard is FireAttack && p.IsKongcheng())
+                            || (fcard is Snatch && !Snatch.Instance.TargetFilter(room, new List<Player>(), p, player, use.Card))
+                            || (fcard is Dismantlement && (!RoomLogic.CanDiscard(room, player, p, "hej") || p == use.From || p.IsAllNude()))
+                            || (fcard is Duel && p == use.From)
+                            || ((fcard is ArcheryAttack || fcard is SavageAssault) && p == use.From)) continue;
+                        targets.Add(p);
+                    }
+                }
+
+                if (targets.Count > 0)
+                {
+                    player.SetFlags("-guowu_tar");
+                    room.SetTag(Name, data);
+                    List<Player> victims = room.AskForPlayersChosen(player, targets, Name, 0, 2, string.Format("@guowu_hegemony:::{0}", use.Card.Name), true, info.SkillPosition);
+                    room.RemoveTag(Name);
+                    if (victims.Count > 0)
+                    {
+                        room.SetTag(Name, victims);
+                        return info;
+                    }
+                }
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            {
+                List<Player> targets = (List<Player>)room.GetTag(Name);
+                room.RemoveTag(Name);
+                use.To.AddRange(targets);
+                LogMessage log = new LogMessage
+                {
+                    Type = "$extra_target",
+                    From = player.Name,
+                    Card_str = RoomLogic.CardToString(room, use.Card),
+                    Arg = Name
+                };
+                log.SetTos(targets);
+                room.SendLog(log);
+
+                room.SortByActionOrder(ref use);
+                data = use;
+            }
+            else
+            {
+                bool basic = false, equip = false, trick = false;
+                int count = 0;
+                foreach (int id in player.GetCards("h"))
+                {
+                    FunctionCard fcard = Engine.GetFunctionCard(room.GetCard(id).Name);
+                    if (!basic && fcard is BasicCard)
+                    {
+                        basic = true;
+                        count++;
+                    }
+                    else if (!equip && fcard is EquipCard)
+                    {
+                        equip = true;
+                        count++;
+                    }
+                    else if (!trick && fcard is TrickCard)
+                    {
+                        trick = true;
+                        count++;
+                    }
+                }
+                if (count > 0)
+                {
+                    int slash = -1;
+                    foreach (int id in room.DiscardPile)
+                    {
+                        if (room.GetCard(id).Name.Contains(Slash.ClassName))
+                        {
+                            slash = id;
+                            break;
+                        }
+                    }
+
+                    if (slash > -1)
+                        room.ObtainCard(player, room.GetCard(slash), new CardMoveReason(MoveReason.S_REASON_RECYCLE, player.Name, Name, string.Empty));
+                }
+
+                if (player.Alive && count > 1)
+                    player.SetFlags("guowu_distance");
+                if (player.Alive && count > 2)
+                    player.SetFlags("guowu_tar");
+            }
+
+            return false;
+        }
+    }
+
+    public class GuowuHegemonyTar : TargetModSkill
+    {
+        public GuowuHegemonyTar() : base("#guowu_hegemony", false)
+        {
+            pattern = "Slash#TrickCard";
+        }
+
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => from.HasFlag("guowu_distance");
+    }
+
+    public class ZhuangrongHegemony : DrawCardsSkill
+    {
+        public ZhuangrongHegemony() : base("zhuangrong_hegemony")
+        {
+            frequency = Frequency.Compulsory;
+            relate_to_place = "head";
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            bool invoke = false;
+            if (RoomLogic.PlayerHasShownSkill(room, player, Name))
+            {
+                room.SendCompulsoryTriggerLog(player, Name);
+                invoke = true;
+            }
+            else if (room.AskForSkillInvoke(player, Name, info.SkillPosition))
+            {
+                invoke = true;
+            }
+            if (invoke)
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            else
+                return new TriggerStruct();
+        }
+
+        public override int GetDrawNum(Room room, Player player, int n) => n + 2;
+    }
+
+    public class ZhuangrongMax : MaxCardsSkill
+    {
+        public ZhuangrongMax() : base("#zhuangrong_hegemony") { }
+        public override int GetExtra(Room room, Player target)
+        {
+            return RoomLogic.PlayerHasSkill(room, target, "zhuangrong_hegemony") ? 2 : 0;
+        }
+    }
     //lincao
     public class Dujin : DrawCardsSkill
     {
