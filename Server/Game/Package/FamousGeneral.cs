@@ -1998,7 +1998,7 @@ namespace SanguoshaServer.Package
             {
                 return new TriggerStruct(Name, player, chose_use.To);
             }
-            else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && room.Current == effect.From
+            else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && room.Current == effect.From && effect.From != null
                 && effect.From.Alive && effect.Card.HasFlag("benxi_nullified"))
             {
                 return new TriggerStruct(Name, effect.From);
@@ -12053,9 +12053,9 @@ namespace SanguoshaServer.Package
             
             if (tricks.Count > 0)
             {
-                player.PileChange("#" + Name, cards);
+                player.PileChange("#" + Name, tricks);
                 WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@zongxuan", "@zongxuan-give", null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
-                player.PileChange("#" + Name, cards, false);
+                player.PileChange("#" + Name, tricks, false);
                 if (card != null)
                 {
                     room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
@@ -12133,7 +12133,7 @@ namespace SanguoshaServer.Package
 
         public override bool ViewFilter(Room room, WrappedCard to_select, Player player)
         {
-            return player.GetPile("#lirang").Contains(to_select.Id);
+            return player.GetPile("#zongxuan").Contains(to_select.Id);
         }
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {

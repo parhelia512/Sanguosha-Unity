@@ -1776,7 +1776,7 @@ namespace SanguoshaServer.AI
             Room room = ai.Room;
             foreach (Player p in room.GetOtherPlayers(player))
             {
-                if (!RoomLogic.IsFriendWith(room, player, p) && p.HasShownOneGeneral() && ai.IsCardEffect(card, p, player))
+                if (!RoomLogic.IsFriendWith(room, player, p) && p.HasShownOneGeneral() && ai.IsCardEffect(card, p, player) && RoomLogic.IsProhibited(room, player, p, card) == null)
                 {
                     if (p.GetRoleEnum() == Player.PlayerRole.Careerist)
                         effect_kingdoms.Add(p.Name);
@@ -1838,33 +1838,36 @@ namespace SanguoshaServer.AI
                         {
                             draw++;
                             if (ai.HasSkill(TrustedAI.CardneedSkill, player)) self_value += 0.5;
-                            if (ai.IsFriend(p) && ai.IsCardEffect(card, p, player))
+                            if (RoomLogic.IsProhibited(room, player, p, card) == null)
                             {
-                                self_value++;
-                                //if (p.IsWounded())
-                                //{
-                                //    self_value += 1.8;
-                                //    if (ai.HasSkill(TrustedAI.MasochismSkill, p)) self_value++;
-                                //}
-                                //else
-                                //{
+                                if (ai.IsFriend(p) && ai.IsCardEffect(card, p, player))
+                                {
+                                    self_value++;
+                                    //if (p.IsWounded())
+                                    //{
+                                    //    self_value += 1.8;
+                                    //    if (ai.HasSkill(TrustedAI.MasochismSkill, p)) self_value++;
+                                    //}
+                                    //else
+                                    //{
                                     if (ai.HasSkill(TrustedAI.CardneedSkill, p)) self_value++;
                                     if (p.Chained) self_value++;
-                                //}
-                            }
-                            else if (ai.IsEnemy(p) && ai.IsCardEffect(card, p, player))
-                            {
-                                enemy_value++;
-                                //if (p.IsWounded())
-                                //{
-                                //    enemy_value += 1.8;
-                                 //   if (ai.HasSkill(TrustedAI.MasochismSkill, p)) enemy_value++;
-                                //}
-                                //else
-                                //{
+                                    //}
+                                }
+                                else if (ai.IsEnemy(p) && ai.IsCardEffect(card, p, player))
+                                {
+                                    enemy_value++;
+                                    //if (p.IsWounded())
+                                    //{
+                                    //    enemy_value += 1.8;
+                                    //   if (ai.HasSkill(TrustedAI.MasochismSkill, p)) enemy_value++;
+                                    //}
+                                    //else
+                                    //{
                                     if (ai.HasSkill(TrustedAI.CardneedSkill, p)) enemy_value++;
                                     if (p.Chained) enemy_value++;
-                                //}
+                                    //}
+                                }
                             }
                         }
                     }
@@ -1900,7 +1903,7 @@ namespace SanguoshaServer.AI
                 {
                     foreach (Player p in room.GetOtherPlayers(player))
                     {
-                        if (p.HasShownOneGeneral() && p.Role != "careerist" && p.Kingdom == winner && ai.IsCardEffect(card, p, player))
+                        if (p.HasShownOneGeneral() && p.Role != "careerist" && p.Kingdom == winner && ai.IsCardEffect(card, p, player) && RoomLogic.IsProhibited(room, player, p, card) == null)
                         {
                             target = p;
                             break;

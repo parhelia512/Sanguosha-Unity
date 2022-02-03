@@ -132,6 +132,7 @@ namespace SanguoshaServer.AI
                 new YanzhuAI(),
                 new XingxueAI(),
                 new ZhiyanAI(),
+                new ZongxuanAI(),
                 new ZhaofuAI(),
             };
 
@@ -8810,6 +8811,31 @@ namespace SanguoshaServer.AI
 
             return new List<Player> { players[0] }
 ;        }
+    }
+
+    public class ZongxuanAI : SkillEvent
+    {
+        public ZongxuanAI() : base("zongxuan") { }
+
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            CardUseStruct use = new CardUseStruct(null, player, new List<Player>());
+            List<int> cards = player.GetPile("#zongxuan");
+            List<Player> friends = ai.FriendNoSelf;
+            if (friends.Count > 0)
+            {
+                KeyValuePair<Player, int> key = ai.GetCardNeedPlayer(cards, friends);
+                if (key.Key != null && key.Value >= 0)
+                {
+                    WrappedCard zx = new WrappedCard(ZongxuanCard.ClassName);
+                    zx.AddSubCard(key.Value);
+                    use.Card = zx;
+                    use.To.Add(key.Key);
+                    return use;
+                }
+            }
+            return use;
+        }
     }
 
     public class ZhaofuAI : SkillEvent

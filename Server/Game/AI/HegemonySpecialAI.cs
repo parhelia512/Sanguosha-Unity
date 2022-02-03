@@ -5,6 +5,7 @@ using CommonClass.Game;
 using SanguoshaServer.Game;
 using SanguoshaServer.Package;
 using static CommonClass.Game.Player;
+using static SanguoshaServer.Package.FunctionCard;
 
 namespace SanguoshaServer.AI
 {
@@ -34,6 +35,7 @@ namespace SanguoshaServer.AI
                 new WukuHegemonyAI(),
                 new XisheAI(),
                 new ShejianHegemonyAI(),
+                new GuowuHegemonyAI(),
 
                 new DujinAI(),
                 new ZhiweiAI(),
@@ -735,6 +737,76 @@ namespace SanguoshaServer.AI
         }
     }
 
+    public class GuowuHegemonyAI :SkillEvent
+    {
+        public GuowuHegemonyAI() : base("guowu_hegemony") { }
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            Room room = ai.Room;
+            if (room.GetTag("extra_target_skill") is CardUseStruct use)
+            {
+                List<Player> result = new List<Player>();
+                if (use.Card.Name == Peach.ClassName)
+                {
+                    foreach (Player p in targets)
+                        if (ai.IsFriend(p) && p.IsWounded())
+                        {
+                            result.Add(p);
+                            if (result.Count >= 2) break;
+                        }
+                }
+                else if (use.Card.Name == ExNihilo.ClassName)
+                {
+                    foreach (Player p in targets)
+                        if (ai.IsFriend(p) && (!ai.HasSkill("zishu", p) || p.Phase != PlayerPhase.NotActive))
+                        {
+                            result.Add(p);
+                            if (result.Count >= 2) break;
+                        }
+                }
+                else if (use.Card.Name.Contains(Slash.ClassName))
+                {
+                    foreach (Player p in targets)
+                    {
+                        List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { use.Card }, new List<Player> { p }, false);
+                        if (scores.Count > 0 && scores[0].Score > 2)
+                        {
+                            result.Add(p);
+                            if (result.Count >= 2) break;
+                        }
+                    }
+                }
+                else if (use.Card.Name == Snatch.ClassName)
+                {
+                    foreach (Player p in targets)
+                    {
+                        if (ai.FindCards2Discard(player, p, use.Card.Name, "hej", HandlingMethod.MethodGet).Score > 0)
+                        {
+                            result.Add(p);
+                            if (result.Count >= 2) break;
+                        }
+                    }
+                }
+                else if (use.Card.Name == Dismantlement.ClassName)
+                {
+                    foreach (Player p in targets)
+                    {
+                        if (ai.FindCards2Discard(player, p, use.Card.Name, "hej", HandlingMethod.MethodDiscard).Score > 0)
+                        {
+                            result.Add(p);
+                            if (result.Count >= 2) break;
+                        }
+                    }
+                }
+
+                return result;
+            }
+
+            return new List<Player>();
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => ai.WillShowForAttack();
+    }
 
     public class DujinAI : SkillEvent
     {

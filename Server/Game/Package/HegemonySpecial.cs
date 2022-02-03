@@ -1719,31 +1719,33 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.Play)
             {
-                player.SetFlags("-guowu_distance");
-                player.SetFlags("-guowu_tar");
+                player.SetFlags("-guowu_hegemony_distance");
+                player.SetFlags("-guowu_hegemony_tar");
             }
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Play && base.Triggerable(player, room) && !player.IsKongcheng())
                 return new TriggerStruct(Name, player);
-            else if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct _use && player.HasFlag("guowu_tar")
-                && (_use.Card.Name.Contains(Slash.ClassName) ||( Engine.GetFunctionCard(_use.Card.Name).IsNDTrick() && _use.Card.Name != Collateral.ClassName)))
+            else if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct _use && player.HasFlag("guowu_hegemony_tar"))
             {
-                return new TriggerStruct(Name, player);
+                FunctionCard fcard = Engine.GetFunctionCard(_use.Card.Name);
+                if (fcard is Slash || (fcard.IsNDTrick() && !(fcard is AOE) && _use.Card.Name != Collateral.ClassName && _use.Card.Name != AwaitExhausted.ClassName
+                    && _use.Card.Name != BurningCamps.ClassName && _use.Card.Name != ThreatenEmperor.ClassName && _use.Card.Name != FightTogether.ClassName))
+                    return new TriggerStruct(Name, player);
             }
             return new TriggerStruct();
         }
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            if (triggerEvent == TriggerEvent.EventPhaseStart && room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
             {
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                 room.ShowAllCards(player, null, Name, info.SkillPosition);
                 return info;
             }
-            else if (data is CardUseStruct use)
+            else if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
             {
                 List<Player> targets = new List<Player>();
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
@@ -1754,22 +1756,24 @@ namespace SanguoshaServer.Package
                         if ((fcard is Slash && p == use.From) || (fcard is Peach && !p.IsWounded())
                             || (fcard is IronChain && !p.Chained && !RoomLogic.CanBeChainedBy(room, player, p))
                             || (fcard is FireAttack && p.IsKongcheng())
-                            || (fcard is Snatch && !Snatch.Instance.TargetFilter(room, new List<Player>(), p, player, use.Card))
+                            || (fcard is Snatch && (!RoomLogic.CanGetCard(room, player, p, "hej") || p == use.From || p.IsAllNude()))
                             || (fcard is Dismantlement && (!RoomLogic.CanDiscard(room, player, p, "hej") || p == use.From || p.IsAllNude()))
                             || (fcard is Duel && p == use.From)
-                            || ((fcard is ArcheryAttack || fcard is SavageAssault) && p == use.From)) continue;
+                            || ((fcard is ArcheryAttack || fcard is SavageAssault) && p == use.From)
+                            || (fcard is BefriendAttacking && (p == use.From || !p.HasShownOneGeneral() || RoomLogic.IsFriendWith(room, use.From, p)))
+                            || (fcard is AllianceFeast && (p == use.From || !p.HasShownOneGeneral() || RoomLogic.IsFriendWith(room, use.From, p)))) continue;
                         targets.Add(p);
                     }
                 }
 
                 if (targets.Count > 0)
                 {
-                    player.SetFlags("-guowu_tar");
-                    room.SetTag(Name, data);
+                    room.SetTag("extra_target_skill", data);
                     List<Player> victims = room.AskForPlayersChosen(player, targets, Name, 0, 2, string.Format("@guowu_hegemony:::{0}", use.Card.Name), true, info.SkillPosition);
-                    room.RemoveTag(Name);
+                    room.RemoveTag("extra_target_skill");
                     if (victims.Count > 0)
                     {
+                        player.SetFlags("-guowu_hegemony_tar");
                         room.SetTag(Name, victims);
                         return info;
                     }
@@ -1837,9 +1841,9 @@ namespace SanguoshaServer.Package
                 }
 
                 if (player.Alive && count > 1)
-                    player.SetFlags("guowu_distance");
+                    player.SetFlags("guowu_hegemony_distance");
                 if (player.Alive && count > 2)
-                    player.SetFlags("guowu_tar");
+                    player.SetFlags("guowu_hegemony_tar");
             }
 
             return false;
@@ -1853,7 +1857,7 @@ namespace SanguoshaServer.Package
             pattern = "Slash#TrickCard";
         }
 
-        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => from.HasFlag("guowu_distance");
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => from.HasFlag("guowu_hegemony_distance");
     }
 
     public class ZhuangrongHegemony : DrawCardsSkill
@@ -1872,7 +1876,7 @@ namespace SanguoshaServer.Package
                 room.SendCompulsoryTriggerLog(player, Name);
                 invoke = true;
             }
-            else if (room.AskForSkillInvoke(player, Name, info.SkillPosition))
+            else if (room.AskForSkillInvoke(player, Name, null, info.SkillPosition))
             {
                 invoke = true;
             }

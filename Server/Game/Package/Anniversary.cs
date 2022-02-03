@@ -68,6 +68,9 @@ namespace SanguoshaServer.Package
                 new ShunshiTar(),
                 new ShunshiDraw(),
                 new ShunshiMax(),
+                new Yuqi(),
+                new Shanshen(),
+                new Xianjing(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -3317,6 +3320,422 @@ namespace SanguoshaServer.Package
             room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, card_use.From.Name, card_use.To[0].Name);
             room.ObtainCard(card_use.To[0], ref ids,
                 new CardMoveReason(MoveReason.S_REASON_GIVE, card_use.From.Name, card_use.To[0].Name, "shunshi", string.Empty), false);
+        }
+    }
+
+    public class Yuqi : TriggerSkill
+    {
+        public Yuqi() : base("yuqi")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.Damaged, TriggerEvent.EventPhaseChanging };
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                foreach (Player p in room.GetAlivePlayers())
+                    p.SetMark(Name, 0);
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.Damaged && player.Alive)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                {
+                    if (p.GetMark(Name) < 2)
+                    {
+                        int count = RoomLogic.DistanceTo(room, p, player);
+                        if (count <= p.GetMark("yuqi_distance") && count >= 0)
+                            triggers.Add(new TriggerStruct(Name, p));
+                    }
+                }
+            }
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(ask_who, Name, player, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                ask_who.AddMark(Name);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int count = Math.Min(5, 3 + ask_who.GetMark("yuqi_view"));
+            List<int> yiji_cards = room.GetNCards(count);
+            List<int> origin_yiji = new List<int>(yiji_cards);
+            
+            int give_count = Math.Min(5, 1 + ask_who.GetMark("yuqi_give"));
+            List<int> ids = room.NotifyChooseCards(ask_who, yiji_cards, Name, give_count, 1, string.Format("@yuqi-give:{0}::{1}", player.Name, give_count), string.Empty, info.SkillPosition);
+            yiji_cards.RemoveAll(t => ids.Contains(t));
+
+            List<CardsMoveStruct> lirangs = new List<CardsMoveStruct>();
+            CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_PREVIEWGIVE, ask_who.Name, player.Name, Name, null);
+                CardsMoveStruct moves = new CardsMoveStruct(ids, player, Place.PlaceHand, reason);
+                lirangs.Add(moves);
+                        
+            if (yiji_cards.Count > 0)
+            {
+                int get_count = Math.Min(5, 1 + ask_who.GetMark("yuqi_get"));
+                get_count = Math.Min(get_count, yiji_cards.Count);
+
+                ask_who.SetFlags(Name);
+                List<int> gets = room.NotifyChooseCards(ask_who, yiji_cards, Name, get_count, 0, string.Format("@yuqi-get:::{0}", get_count), string.Empty, info.SkillPosition);
+                ask_who.SetFlags("-yuqi");
+
+                if (gets.Count > 0)
+                {
+                    yiji_cards.RemoveAll(t => gets.Contains(t));
+                    reason = new CardMoveReason(MoveReason.S_REASON_PREVIEWGIVE, ask_who.Name, Name, null);
+                    CardsMoveStruct moves2 = new CardsMoveStruct(gets, ask_who, Place.PlaceHand, reason);
+                    lirangs.Add(moves2);
+                }
+            }
+
+            room.MoveCardsAtomic(lirangs, false);
+            if (yiji_cards.Count > 0) room.ReturnToDrawPile(yiji_cards, false);
+            return false;
+        }
+    }
+
+    public class Shanshen : TriggerSkill
+    {
+        public Shanshen() : base("shanshen")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.Death, TriggerEvent.EventLoseSkill, TriggerEvent.Damage };
+        }
+        
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == Name)
+            {
+                int distance = player.GetMark("shanshen_distance");
+                int view = player.GetMark("shanshen_view");
+                int give = player.GetMark("shanshen_give");
+                int get = player.GetMark("shanshen_get");
+
+                player.AddMark("yuqi_distance", -distance);
+                player.AddMark("yuqi_view", -view);
+                player.AddMark("yuqi_give", -give);
+                player.AddMark("yuqi_get", -get);
+
+                if (player.GetMark("yuqi_distance") > 0)
+                    room.SetPlayerStringMark(player, "yuqi_distance", "+" + player.GetMark("yuqi_distance").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "yuqi_distance");
+
+
+                if (player.GetMark("yuqi_distance") > 0)
+                    room.SetPlayerStringMark(player, "yuqi_distance", "+" + player.GetMark("yuqi_distance").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "yuqi_distance");
+
+                if (player.GetMark("yuqi_view") > 0)
+                    room.SetPlayerStringMark(player, "yuqi_view", "+" + player.GetMark("yuqi_view").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "yuqi_view");
+
+                if (player.GetMark("yuqi_give") > 0)
+                    room.SetPlayerStringMark(player, "yuqi_give", "+" + player.GetMark("yuqi_give").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "yuqi_give");
+
+                if (player.GetMark("yuqi_get") > 0)
+                    room.SetPlayerStringMark(player, "yuqi_get", "+" + player.GetMark("yuqi_get").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "yuqi_get");
+            }
+            else if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && player != damage.To)
+            {
+                player.AddMark("shanshen_" + damage.To.Name);
+            }
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.Death)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                {
+                    if (p != player)
+                        triggers.Add(new TriggerStruct(Name, p));
+                }
+            }
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int distance = Math.Max(0, 5 - ask_who.GetMark("yuqi_distance"));
+            int view = Math.Max(0, 2 - ask_who.GetMark("yuqi_view"));
+            int give = Math.Max(0, 4 - ask_who.GetMark("yuqi_give"));
+            int get = Math.Max(0, 5 - ask_who.GetMark("yuqi_get"));
+            List<string> choices = new List<string>();
+            List<string> descript = new List<string> { "@shanshen" };
+            if (distance > 0)
+            {
+                choices.Add("distance");
+                descript.Add("@shanshen-distance:::" + Math.Min(2, distance).ToString());
+            }
+            if (view > 0)
+            {
+                choices.Add("view");
+                descript.Add("@shanshen-view:::" + Math.Min(2, view).ToString());
+            }
+            if (give > 0)
+            {
+                choices.Add("give");
+                descript.Add("@shanshen-give:::" + Math.Min(2, give).ToString());
+            }
+            if (get > 0)
+            {
+                choices.Add("get");
+                descript.Add("@shanshen-get:::" + Math.Min(2, get).ToString());
+            }
+
+            if (choices.Count > 0)
+            {
+                choices.Add("cancel");
+                string choice = room.AskForChoice(ask_who, Name, string.Join("+", choices), descript);
+                if (choice != "cancel")
+                {
+                    room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                    switch (choice)
+                    {
+                        case "distance":
+                            ask_who.AddMark("yuqi_distance", Math.Min(2, distance));
+                            ask_who.AddMark("shanshen_distance", Math.Min(2, distance));
+                            room.SetPlayerStringMark(ask_who, "yuqi_distance", "+" + ask_who.GetMark("yuqi_distance").ToString());
+                            break;
+                        case "view":
+                            ask_who.AddMark("yuqi_view", Math.Min(2, view));
+                            ask_who.AddMark("shanshen_view", Math.Min(2, view));
+                            room.SetPlayerStringMark(ask_who, "yuqi_view", "+" + ask_who.GetMark("yuqi_view").ToString());
+                            break;
+                        case "give":
+                            ask_who.AddMark("yuqi_give", Math.Min(2, give));
+                            ask_who.AddMark("shanshen_give", Math.Min(2, give));
+                            room.SetPlayerStringMark(ask_who, "yuqi_give", "+" + ask_who.GetMark("yuqi_give").ToString());
+                            break;
+                        case "get":
+                            ask_who.AddMark("yuqi_get", Math.Min(2, get));
+                            ask_who.AddMark("shanshen_get", Math.Min(2, get));
+                            room.SetPlayerStringMark(ask_who, "yuqi_get", "+" + ask_who.GetMark("yuqi_get").ToString());
+                            break;
+                    }
+                    return info;
+                }
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (ask_who.GetMark("shanshen_" + player.Name) == 0 && ask_who.GetLostHp() > 0)
+                room.Recover(ask_who);
+
+            return false;
+        }
+    }
+
+    public class Xianjing : TriggerSkill
+    {
+        public Xianjing() : base("xianjing")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventLoseSkill, TriggerEvent.EventPhaseStart };
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == Name)
+            {
+                int distance = player.GetMark("xianjing_distance");
+                int view = player.GetMark("xianjing_view");
+                int give = player.GetMark("xianjing_give");
+                int get = player.GetMark("xianjing_get");
+
+                player.AddMark("yuqi_distance", -distance);
+                player.AddMark("yuqi_view", -view);
+                player.AddMark("yuqi_give", -give);
+                player.AddMark("yuqi_get", -get);
+
+                if (player.GetMark("yuqi_distance") > 0)
+                    room.SetPlayerStringMark(player, "yuqi_distance", "+" + player.GetMark("yuqi_distance").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "yuqi_distance");
+
+
+                if (player.GetMark("yuqi_distance") > 0)
+                    room.SetPlayerStringMark(player, "yuqi_distance", "+" + player.GetMark("yuqi_distance").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "yuqi_distance");
+
+                if (player.GetMark("yuqi_view") > 0)
+                    room.SetPlayerStringMark(player, "yuqi_view", "+" + player.GetMark("yuqi_view").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "yuqi_view");
+
+                if (player.GetMark("yuqi_give") > 0)
+                    room.SetPlayerStringMark(player, "yuqi_give", "+" + player.GetMark("yuqi_give").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "yuqi_give");
+
+                if (player.GetMark("yuqi_get") > 0)
+                    room.SetPlayerStringMark(player, "yuqi_get", "+" + player.GetMark("yuqi_get").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "yuqi_get");
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Start)
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int distance = Math.Max(0, 5 - player.GetMark("yuqi_distance"));
+            int view = Math.Max(0, 2 - player.GetMark("yuqi_view"));
+            int give = Math.Max(0, 4 - player.GetMark("yuqi_give"));
+            int get = Math.Max(0, 5 - player.GetMark("yuqi_get"));
+            List<string> choices = new List<string>();
+            List<string> descript = new List<string> { "@shanshen" };
+            if (distance > 0)
+            {
+                choices.Add("distance");
+                descript.Add("@xianjing-distance");
+            }
+            if (view > 0)
+            {
+                choices.Add("view");
+                descript.Add("@xianjing-view");
+            }
+            if (give > 0)
+            {
+                choices.Add("give");
+                descript.Add("@xianjing-give");
+            }
+            if (get > 0)
+            {
+                choices.Add("get");
+                descript.Add("@xianjing-get");
+            }
+
+            if (choices.Count > 0)
+            {
+                choices.Add("cancel");
+                string choice = room.AskForChoice(player, Name, string.Join("+", choices), descript);
+                if (choice != "cancel")
+                {
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    room.SetTag(Name, choice);
+                    switch (choice)
+                    {
+                        case "distance":
+                            player.AddMark("yuqi_distance", 1);
+                            player.AddMark("xianjing_distance", 1);
+                            room.SetPlayerStringMark(player, "yuqi_distance", "+" + player.GetMark("yuqi_distance").ToString());
+                            break;
+                        case "view":
+                            player.AddMark("yuqi_view", 1);
+                            player.AddMark("xianjing_view", 1);
+                            room.SetPlayerStringMark(player, "yuqi_view", "+" + player.GetMark("yuqi_view").ToString());
+                            break;
+                        case "give":
+                            player.AddMark("yuqi_give", 1);
+                            player.AddMark("xianjing_give", 1);
+                            room.SetPlayerStringMark(player, "yuqi_give", "+" + player.GetMark("yuqi_give").ToString());
+                            break;
+                        case "get":
+                            player.AddMark("yuqi_get", 1);
+                            player.AddMark("xianjing_get", 1);
+                            room.SetPlayerStringMark(player, "yuqi_get", "+" + player.GetMark("yuqi_get").ToString());
+                            break;
+                    }
+                    return info;
+                }
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.GetLostHp() == 0 && room.GetTag(Name) is string choiced)
+            {
+                int distance = Math.Max(0, 5 - player.GetMark("yuqi_distance"));
+                int view = Math.Max(0, 2 - player.GetMark("yuqi_view"));
+                int give = Math.Max(0, 4 - player.GetMark("yuqi_give"));
+                int get = Math.Max(0, 5 - player.GetMark("yuqi_get"));
+                List<string> choices = new List<string>();
+                List<string> descript = new List<string> { "@shanshen" };
+                if (distance > 0 && choiced != "distance")
+                {
+                    choices.Add("distance");
+                    descript.Add("@xianjing-distance");
+                }
+                if (view > 0 && choiced != "view")
+                {
+                    choices.Add("view");
+                    descript.Add("@xianjing-view");
+                }
+                if (give > 0 && choiced != "give")
+                {
+                    choices.Add("give");
+                    descript.Add("@xianjing-give");
+                }
+                if (get > 0 && choiced != "get")
+                {
+                    choices.Add("get");
+                    descript.Add("@xianjing-get");
+                }
+
+                if (choices.Count > 0)
+                {
+                    choices.Add("cancel");
+                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), descript);
+                    if (choice != "cancel")
+                    {
+                        switch (choice)
+                        {
+                            case "distance":
+                                player.AddMark("yuqi_distance", 1);
+                                player.AddMark("xianjing_distance", 1);
+                                room.SetPlayerStringMark(player, "yuqi_distance", "+" + player.GetMark("yuqi_distance").ToString());
+                                break;
+                            case "view":
+                                player.AddMark("yuqi_view", 1);
+                                player.AddMark("xianjing_view", 1);
+                                room.SetPlayerStringMark(player, "yuqi_view", "+" + player.GetMark("yuqi_view").ToString());
+                                break;
+                            case "give":
+                                player.AddMark("yuqi_give", 1);
+                                player.AddMark("xianjing_give", 1);
+                                room.SetPlayerStringMark(player, "yuqi_give", "+" + player.GetMark("yuqi_give").ToString());
+                                break;
+                            case "get":
+                                player.AddMark("yuqi_get", 1);
+                                player.AddMark("xianjing_get", 1);
+                                room.SetPlayerStringMark(player, "yuqi_get", "+" + player.GetMark("yuqi_get").ToString());
+                                break;
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
     }
 
@@ -8993,14 +9412,14 @@ namespace SanguoshaServer.Package
                     foreach (Player p in use.To)
                     {
                         string mark = string.Format("xuezhao_{0}", p.Name);
-                        if (p != player && player.HasFlag(Name)) return new TriggerStruct(Name, player);
+                        if (p != player && player.HasFlag(mark)) return new TriggerStruct(Name, player);
                     }
                 }
             }
-            else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && player != effect.From && effect.From.Alive)
+            else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && player != effect.From && effect.From != null && effect.From.Alive)
             {
                 string mark = string.Format("xuezhao_{0}", player.Name);
-                if (effect.From.HasFlag(Name)) return new TriggerStruct(Name, effect.From);
+                if (effect.From.HasFlag(mark)) return new TriggerStruct(Name, effect.From);
             }
 
             return new TriggerStruct();
@@ -9018,7 +9437,7 @@ namespace SanguoshaServer.Package
                     {
                         CardBasicEffect effect = use.EffectCount[i];
                         string mark = string.Format("xuezhao_{0}", effect.To.Name);
-                        if (player.HasFlag(Name))
+                        if (player.HasFlag(mark))
                         {
                             effect.Effect2 = 0;
                             if (!targets.Contains(effect.To))
