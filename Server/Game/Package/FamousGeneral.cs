@@ -65,6 +65,7 @@ namespace SanguoshaServer.Package
 
                 new Jianying(),
                 new JianyingRecord(),
+                new JianyingTar(),
                 new Shibei(),
                 new Jigong(),
                 new JigongMax(),
@@ -247,7 +248,7 @@ namespace SanguoshaServer.Package
             related_skills = new Dictionary<string, List<string>>
             {
                 { "zhiman_jx", new List<string> { "#zhiman_jx-second" } },
-                { "jianying", new List<string> { "#jianying-record" } },
+                { "jianying", new List<string> { "#jianying-record", "#jianying" } },
                 { "shenduan", new List<string>{ "#shenduan-clear" } },
                 { "mingjian", new List<string>{ "#mingjian-tar", "#mingjian-max" } },
                 { "quanji", new List<string>{ "#quanji-max" } },
@@ -3711,6 +3712,7 @@ namespace SanguoshaServer.Package
         {
             events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.CardResponded };
             skill_type = SkillType.Replenish;
+            view_as_skill = new JianyingVS();
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
@@ -3803,6 +3805,53 @@ namespace SanguoshaServer.Package
         {
             return new List<TriggerStruct>();
         }
+    }
+
+    public class JianyingVS : ViewAsSkill
+    {
+        public JianyingVS() : base("jianying")
+        {
+            response_or_use = true;
+        }
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
+        {
+            return selected.Count == 0 && !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse, room.GetCardPlace(to_select.Id) == Place.PlaceHand);
+        }
+        public override bool IsEnabledAtPlay(Room room, Player player)
+        {
+            return player.UsedTimes("ViewAsSkill_jianyingCard") < 1;
+        }
+
+        public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
+        {
+            List<WrappedCard> result = new List<WrappedCard>();
+            if (cards.Count == 1)
+            {
+                foreach (string card_name in GetGuhuoCards(room, "b"))
+                {
+                    if (card_name == Jink.ClassName) continue;
+                    WrappedCard wrapped = new WrappedCard(card_name) { Skill = Name, ShowSkill = Name };
+                    wrapped.AddSubCards(cards);
+                    RoomLogic.ParseUseCard(room, wrapped);
+                    result.Add(wrapped);
+                }
+            }
+            return result;
+        }
+
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count == 1 && cards[0].IsVirtualCard())
+                return cards[0];
+
+            return null;
+        }
+    }
+
+    public class JianyingTar : TargetModSkill
+    {
+        public JianyingTar() : base("#jianying", false) { pattern = "BasicCard"; }
+        public override bool CheckSpecificAssignee(Room room, Player from, Player to, WrappedCard card, string pattern) => card.GetSkillName() == "jianying";
     }
 
     public class Shibei : TriggerSkill

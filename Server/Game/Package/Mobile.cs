@@ -94,6 +94,11 @@ namespace SanguoshaServer.Package
                 new Wangjing(),
                 new Mouchuan(),
                 new Binghuo(),
+                new Shidi(),
+                new ShidiDistance(),
+                new Yishi(),
+                new Qishe(),
+                new QisheMax(),
 
                 new Renshi(),
                 new Wuyuan(),
@@ -197,6 +202,8 @@ namespace SanguoshaServer.Package
                 { "fangzong", new List<string> { "#fangzong" } },
                 { "yajun", new List<string> { "#yajun" } },
                 { "jianyi", new List<string> { "#jianyi" } },
+                { "shidi", new List<string> { "#shidi" } },
+                { "qishe", new List<string> { "#qishe" } },
             };
         }
     }
@@ -5069,6 +5076,171 @@ namespace SanguoshaServer.Package
 
             return false;
         }
+    }
+
+    public class Shidi : TriggerSkill
+    {
+        public Shidi() : base("shidi")
+        {
+            frequency = Frequency.Compulsory;
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.TargetConfirmed };
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            CardUseStruct use = (CardUseStruct)data;
+            if (triggerEvent == TriggerEvent.TargetChosen && use.Card != null && use.From.Phase != PlayerPhase.NotActive
+                && use.Card.Name.Contains(Slash.ClassName) && WrappedCard.IsBlack(use.Card.Suit) && base.Triggerable(player, room))
+            {
+                return new TriggerStruct(Name, player, use.To);
+            }
+            else if (triggerEvent == TriggerEvent.TargetConfirmed && use.Card != null && use.Card.Name.Contains(Slash.ClassName) && WrappedCard.IsRed(use.Card.Suit)
+                && player.Phase == PlayerPhase.NotActive && base.Triggerable(player, room))
+            {
+                return new TriggerStruct(Name, player, new List<Player> { use.From });
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player target, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(ask_who, Name);
+            CardUseStruct use = (CardUseStruct)data;
+            FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+            if (triggerEvent == TriggerEvent.TargetChosen)
+            {
+                int index = 0;
+                for (int i = 0; i < use.EffectCount.Count; i++)
+                {
+                    CardBasicEffect effect = use.EffectCount[i];
+                    if (effect.To == target)
+                    {
+                        index++;
+                        if (index == info.Times)
+                        {
+                            effect.Effect2 = 0;
+                            break;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                for (int i = 0; i < use.EffectCount.Count; i++)
+                {
+                    CardBasicEffect effect = use.EffectCount[i];
+                    if (effect.To == ask_who && !effect.Triggered)
+                    {
+                        effect.Effect2 = 0;
+                        break;
+                    }
+                }
+            }
+
+            data = use;
+
+            return false;
+        }
+    }
+
+    public class ShidiDistance : DistanceSkill
+    {
+        public ShidiDistance() : base("#shidi") { }
+        public override int GetCorrect(Room room, Player from, Player to, WrappedCard card = null)
+        {
+            int count = 0;
+            if (from.Phase != PlayerPhase.NotActive && RoomLogic.PlayerHasSkill(room, from, "shidi")) count--;
+            if (to.Phase == PlayerPhase.NotActive && RoomLogic.PlayerHasSkill(room, to, "shidi")) count++;
+            return count;
+        }
+    }
+
+    public class Yishi : TriggerSkill
+    {
+        public Yishi() : base("yishi")
+        {
+            events.Add(TriggerEvent.DamageCaused);
+            skill_type = SkillType.Wizzard;
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && data is DamageStruct damage && damage.To != null && player != damage.To)
+            {
+                return new TriggerStruct(Name, player);
+            }
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            DamageStruct damage = (DamageStruct)data;
+            room.SetTag("zhiman_data", data);  // for AI
+            bool invoke = room.AskForSkillInvoke(player, Name, damage.To, info.SkillPosition);
+            room.RemoveTag("zhiman_data");
+            if (invoke)
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is DamageStruct damage)
+            {
+                Player to = damage.To;
+                if (to.HasEquip() && RoomLogic.CanGetCard(room, player, to, "e"))
+                {
+                    int card_id = room.AskForCardChosen(player, to, "e", Name, false, HandlingMethod.MethodGet);
+
+                    CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_EXTRACTION, player.Name, to.Name, Name, string.Empty);
+                    room.ObtainCard(player, room.GetCard(card_id), reason);
+                }
+
+                LogMessage log = new LogMessage
+                {
+                    Type = "#ReduceDamage",
+                    From = to.Name,
+                    Arg = Name,
+                    Arg2 = (--damage.Damage).ToString()
+                };
+                room.SendLog(log);
+
+                if (damage.Damage < 1)
+                    return true;
+
+                data = damage;
+            }
+            return false;
+        }
+    }
+
+    public class Qishe : OneCardViewAsSkill
+    {
+        public Qishe() : base("qishe")
+        {
+            response_or_use = true;
+        }
+        public override bool ViewFilter(Room room, WrappedCard to_select, Player player)
+        {
+            return Engine.GetFunctionCard(to_select.Name) is EquipCard && !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse);
+        }
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern) =>
+            MatchAnaleptic(respond) && room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE;
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            WrappedCard dismantlement = new WrappedCard(Analeptic.ClassName);
+            dismantlement.AddSubCard(card);
+            dismantlement.Skill = Name;
+            dismantlement.ShowSkill = Name;
+            dismantlement = RoomLogic.ParseUseCard(room, dismantlement);
+            return dismantlement;
+        }
+    }
+
+    public class QisheMax : MaxCardsSkill
+    {
+        public QisheMax() : base("#qishe") { }
+        public override int GetExtra(Room room, Player target) => RoomLogic.PlayerHasShownSkill(room, target, "qishe") ? target.GetEquips().Count : 0;
     }
 
     public class Wuyuan : OneCardViewAsSkill
