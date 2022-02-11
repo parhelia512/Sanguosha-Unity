@@ -145,6 +145,9 @@ namespace SanguoshaServer.Package
                 new Jianyi(),
                 new JianyiClear(),
                 new ShangyiClassic(),
+                new DiaoduClassic(),
+                new DiancaiClassic(),
+                new Yanji(),
             };
 
             skill_cards = new List<FunctionCard>
@@ -174,6 +177,7 @@ namespace SanguoshaServer.Package
                 new ZundiCard(),
                 new YanjiaoSPCard(),
                 new ShangyiCCard(),
+                new DiaoduCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -7765,6 +7769,347 @@ namespace SanguoshaServer.Package
             };
             c.AddSubCard(card);
             return c;
+        }
+    }
+    public class DiaoduClassic : TriggerSkill
+    {
+        public DiaoduClassic() : base("diaodu_classic")
+        {
+            view_as_skill = new DiaoduClassicVS();
+            events.Add(TriggerEvent.EventPhaseStart);
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            return base.Triggerable(player, room) && player.Phase == PlayerPhase.Start ? new TriggerStruct(Name, player) : new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.AskForUseCard(player, RespondType.Skill, "@@diaodu_classic", "@diaodu_classic", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+            return new TriggerStruct();
+        }
+    }
+    public class DiaoduClassicVS : ZeroCardViewAsSkill
+    {
+        public DiaoduClassicVS() : base("diaodu_classic")
+        {
+            response_pattern = "@@diaodu_classic";
+        }
+
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(DiaoduCard.ClassName) { Skill = Name };
+    }
+
+    public class DiaoduCard : SkillCard
+    {
+        public static string ClassName = "DiaoduCard";
+        public DiaoduCard() : base(ClassName) { }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            if (targets.Count == 0)
+            {
+                return to_select.HasEquip();
+            }
+            else if (targets.Count == 1 && to_select != Self && to_select != targets[0])
+            {
+                for (int i = 0; i < 5; i++)
+                    if (targets[0].HasEquip(i) && !to_select.HasEquip(i) && RoomLogic.CanPutEquip(to_select, room.GetCard(targets[0].GetEquip(i))))
+                        return true;
+            }
+            return false;
+        }
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card) => targets.Count == 2;
+
+        public override void OnUse(Room room, CardUseStruct card_use)
+        {
+            Player diaochan = card_use.From;
+            object data = card_use;
+            RoomThread thread = room.RoomThread;
+
+            thread.Trigger(TriggerEvent.PreCardUsed, room, diaochan, ref data);
+            room.BroadcastSkillInvoke("diaodu_classic", diaochan, card_use.Card.SkillPosition);
+
+            LogMessage log = new LogMessage
+            {
+                From = diaochan.Name,
+                To = new List<string>(),
+                Type = "#UseCard",
+                Card_str = RoomLogic.CardToString(room, card_use.Card)
+            };
+            foreach (Player p in card_use.To)
+                log.To.Add(p.Name);
+            room.SendLog(log);
+
+            thread.Trigger(TriggerEvent.CardUsedAnnounced, room, diaochan, ref data);
+            thread.Trigger(TriggerEvent.CardTargetAnnounced, room, diaochan, ref data);
+            thread.Trigger(TriggerEvent.CardUsed, room, diaochan, ref data);
+            thread.Trigger(TriggerEvent.CardFinished, room, diaochan, ref data);
+        }
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From;
+            Player from = card_use.To[0];
+            Player to = card_use.To[1];
+
+            room.DrawCards(from, new DrawCardStruct(1, player, "diaodu_classic"));
+
+            if (player.Alive && from.Alive && to.Alive)
+            {
+                List<int> disable = new List<int>(), ids = new List<int>();
+                for (int i = 0; i < 5; i++)
+                {
+                    if (from.HasEquip(i))
+                    {
+                        int id = from.GetEquip(i);
+                        WrappedCard card = room.GetCard(id);
+                        if (!to.HasEquip(i) && RoomLogic.CanPutEquip(to, card))
+                            ids.Add(id);
+                        else
+                            disable.Add(id);
+                    }
+                }
+
+                if (ids.Count > 0)
+                {
+                    int id = room.AskForCardChosen(player, from, "e", "diaodu_classic", false, HandlingMethod.MethodNone, disable);
+                    if (id > -1)
+                        room.MoveCardTo(room.GetCard(id), from, to, Place.PlaceEquip, new CardMoveReason(MoveReason.S_REASON_TRANSFER, from.Name, to.Name, "diaodu_classic", string.Empty), true);
+                }
+            }
+        }
+    }
+
+    public class DiancaiClassic : TriggerSkill
+    {
+        public DiancaiClassic() : base("diancai_classic")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime, TriggerEvent.EventPhaseStart, TriggerEvent.EventPhaseChanging };
+            skill_type = SkillType.Replenish;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                    p.SetMark(Name, 0);
+            }
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Phase == PlayerPhase.NotActive && move.From_places.Contains(Place.PlaceHand))
+                move.From.AddMark(Name, move.Card_ids.Count);
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Finish)
+            {
+                List<Player> players = RoomLogic.FindPlayersBySkillName(room, Name);
+                foreach (Player p in players)
+                    if (p != player && p.GetMark(Name) > 0) triggers.Add(new TriggerStruct(Name, p));
+            }
+            return triggers;
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<Player> targets = room.AskForPlayersChosen(ask_who, room.GetAlivePlayers(), Name, 0, ask_who.GetMark(Name), "@diancai_classic:::" + ask_who.GetMark(Name).ToString(),
+                true, info.SkillPosition);
+
+            if (targets.Count > 0)
+            {
+                room.SetTag(Name, targets);
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.GetTag(Name) is List<Player> targets)
+            {
+                room.RemoveTag(Name);
+                foreach (Player p in targets)
+                    if (p.Alive) room.DrawCards(p, new DrawCardStruct(1, ask_who, Name));
+            }
+
+            return false;
+        }
+    }
+
+    public class Yanji : TriggerSkill
+    {
+        public Yanji() : base("yanji")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.CardUsed, TriggerEvent.CardsMoveOneTime, TriggerEvent.EventPhaseChanging };
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardUsed && player != null && player.Alive && player.Phase == PlayerPhase.Play && !player.HasFlag(Name) && data is CardUseStruct use
+                && !Engine.IsSkillCard(use.Card.Name))
+            {
+                if (player.HasFlag("yanji_number"))
+                {
+                    int number = player.GetMark("yanji_number");
+                    int count = player.GetMark("yanji_count");
+                    if (use.Card.Number > number)
+                    {
+                        number = use.Card.Number;
+                        count++;
+                        if (count >= 3)
+                        {
+                            player.SetFlags(Name);
+                            LogMessage log = new LogMessage
+                            {
+                                Type = "#yanji_success",
+                                From = player.Name,
+                            };
+                            room.SendLog(log);
+                        }
+                        else
+                        {
+                            player.SetMark("yanji_number", number);
+                            player.SetMark("yanji_count", count);
+                        }
+                    }
+                    else
+                    {
+                        player.SetMark("yanji_number", 0);
+                        player.SetMark("yanji_count", 0);
+                    }
+                }
+                else if (player.HasFlag("yanji_suit"))
+                {
+                    int suit = player.GetMark("yanji_suit");
+                    int count = player.GetMark("yanji_count");
+                    if (count > 0)
+                    {
+                        if ((int)use.Card.Suit == suit)
+                        {
+                            player.SetFlags(Name);
+                            LogMessage log = new LogMessage
+                            {
+                                Type = "#yanji_success",
+                                From = player.Name,
+                            };
+                            room.SendLog(log);
+                        }
+                        else
+                            player.SetMark("yanji_suit", (int)use.Card.Suit);
+                    }
+                    else
+                    {
+                        player.SetMark("yanji_suit", (int)use.Card.Suit);
+                        player.SetMark("yanji_count", 1);
+                    }
+                }
+            }
+            else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.From.Phase == PlayerPhase.Discard
+                && move.From.HasFlag("yanji_discard") && move.From_places.Contains(Place.PlaceHand) && move.Reason.Reason == MoveReason.S_REASON_RULEDISCARD && !move.From.HasFlag(Name))
+            {
+                bool check = true;
+                List<WrappedCard.CardSuit> suits = new List<WrappedCard.CardSuit>();
+                for (int i = 0; i < move.Card_ids.Count; i++)
+                {
+                    if (move.From_places[i] == Place.PlaceHand)
+                    {
+                        WrappedCard card = room.GetCard(move.Card_ids[i]);
+                        if (!suits.Contains(card.Suit))
+                            suits.Add(card.Suit);
+                        else
+                        {
+                            check = false;
+                            break;
+                        }
+                    }
+                }
+                if (check && suits.Count < 2) check = false;
+                if (check)
+                {
+                    move.From.SetFlags(Name);
+                    LogMessage log = new LogMessage
+                    {
+                        Type = "#yanji_success",
+                        From = move.From.Name,
+                    };
+                    room.SendLog(log);
+                }
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play)
+                return new TriggerStruct(Name, player);
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.Discard && player.Alive && player.HasFlag(Name))
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging)
+                return info;
+            else if (triggerEvent == TriggerEvent.EventPhaseStart)
+            {
+                string choice = room.AskForChoice(player, Name, "number+suit+discard+cancel");
+                if (choice != "cancel")
+                {
+                    player.SetTag(Name, choice);
+                    room.NotifySkillInvoked(player, Name);
+                    GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
+                    room.BroadcastSkillInvoke(Name, "male", 1, gsk.General, gsk.SkinId);
+                    return info;
+                }
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging)
+            {
+                List<string> choices = new List<string> { "draw" };
+                if (player.IsWounded()) choices.Add("recover");
+                string choice = room.AskForChoice(player, Name, string.Join("+", choices));
+
+                room.NotifySkillInvoked(player, Name);
+                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
+                room.BroadcastSkillInvoke(Name, "male", 2, gsk.General, gsk.SkinId);
+
+                if (choice == "draw")
+                    room.DrawCards(player, 2, Name);
+                else
+                    room.Recover(player, 2);
+            }
+            else if (player.GetTag(Name) is string choice)
+            {
+                player.RemoveTag(Name);
+                LogMessage log = new LogMessage
+                {
+                    From = player.Name
+                };
+                switch (choice)
+                {
+                    case "number":
+                        log.Type = "#yanji_number";
+                        player.SetFlags("yanji_number");
+                        player.SetMark("yanji_number", 0);
+                        player.SetMark("yanji_count", 0);
+                        break;
+                    case "suit":
+                        log.Type = "#yanji_suit";
+                        player.SetFlags("yanji_suit");
+                        player.SetMark("yanji_count", 0);
+                        break;
+                    case "discard":
+                        log.Type = "#yanji_discard";
+                        player.SetFlags("yanji_discard");
+                        break;
+                }
+                room.SendLog(log);
+            }
+
+            return false;
         }
     }
 }
