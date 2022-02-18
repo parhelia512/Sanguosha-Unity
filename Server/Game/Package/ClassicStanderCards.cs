@@ -697,69 +697,40 @@ namespace SanguoshaServer.Package
     {
         public Comb1Skill() : base(Comb1.ClassName)
         {
-            events = new List<TriggerEvent> { TriggerEvent.TargetChoosing };
+            events = new List<TriggerEvent> { TriggerEvent.DamageInflicted };
+            skill_type = SkillType.Defense;
         }
-        
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (base.Triggerable(player, room) && data is CardUseStruct use && !player.HasFlag(Name) && use.To.Count == 1 && use.To[0].Alive && room.GetOtherPlayers(player).Count > 1 && use.Card.Name.Contains(Slash.ClassName))
+            if (base.Triggerable(player, room) && data is DamageStruct damage && player.GetCardCount(true) >= damage.Damage)
                 return new TriggerStruct(Name, player);
 
             return new TriggerStruct();
         }
-
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (data is CardUseStruct use)
+            if (data is DamageStruct damage)
             {
-                List<Player> targets = room.GetOtherPlayers(player), victims = new List<Player>();
-                targets.Remove(use.To[0]);
-                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                foreach (Player p in targets)
-                {
-                    if ((p.Hp == use.To[0].Hp || p.HandcardNum == use.To[0].HandcardNum) && RoomLogic.IsProhibited(room, player, p, use.Card) == null)
-                        victims.Add(p);
-                }
-                if (victims.Count > 0)
-                {
-                    room.SetTag("extra_target_skill", data);                   //for AI
-                    Player target = room.AskForPlayerChosen(player, victims, Name, string.Format("@comb1-extra:{0}::{1}", use.To[0].Name, use.Card.Name), true, true);
-                    room.RemoveTag("extra_target_skill");
-                    if (target != null)
-                    {
-                        player.SetFlags(Name);
-                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
-                        LogMessage log = new LogMessage
-                        {
-                            Type = "$comb1_target",
-                            From = player.Name,
-                            To = new List<string> { target.Name },
-                            Card_str = RoomLogic.CardToString(room, use.Card),
-                            Arg = Name
-                        };
-                        room.SendLog(log);
+                int id = player.Treasure.Key;
+                room.SetCardFlag(id, "using");
+                bool invoke = room.AskForDiscard(player, Name, damage.Damage, damage.Damage, true, true, "@comb1:::" + damage.Damage.ToString(), true, "head");
+                room.SetCardFlag(id, "-using");
 
-                        room.SetTag(Name, target);
-                        return info;
-                    }
-                }
+                if (invoke) return info;
             }
 
             return new TriggerStruct();
         }
-
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.GetTag(Name) is Player target && data is CardUseStruct use)
+            LogMessage log = new LogMessage
             {
-                room.RemoveTag(Name);
-                use.To.Add(target);
-                use.EffectCount.Add(new CardBasicEffect(target, 0, 0, 0));
-                room.SortByActionOrder(ref use);
-                data = use;
+                Type = "#damaged-prevent",
+                From = player.Name,
+                Arg = Name
             };
-
-            return false;
+            room.SendLog(log);
+            return true;
         }
     }
 

@@ -5249,63 +5249,30 @@ namespace SanguoshaServer.AI
     public class Comb1AI : SkillEvent
     {
         public Comb1AI() : base("Comb1") { }
-        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+
+        public override List<int> OnDiscard(TrustedAI ai, Player player, List<int> ids, int min, int max, bool option)
         {
             Room room = ai.Room;
-            if (room.GetTag("extra_target_skill") is CardUseStruct use)
+            List<int> result = new List<int>(), discards = new List<int>();
+            foreach (int id in player.GetCards("he"))
+                if (RoomLogic.CanDiscard(room, player, player, id))
+                    discards.Add(id);
+            
+            DamageStruct damage = (DamageStruct)room.GetTag("CurrentDamageStruct");
+            int count = ai.HasArmorEffect(player, SilverLion.ClassName) ? 1 : damage.Damage;
+            if (discards.Count >= count)
             {
-                if (use.Card.Name.Contains(Slash.ClassName))
+                List<double> values = ai.SortByKeepValue(ref discards, false);
+                double value = 0, damage_value = ai.GetDamageScore(damage, DamageStruct.DamageStep.Done).Score;
+                for (int i = 0; i < count; i++)
                 {
-                    List<ScoreStruct> scores = new List<ScoreStruct>();
-                    foreach (Player p in targets)
-                    {
-                        ScoreStruct score = ai.SlashIsEffective(use.Card, p);
-                        score.Players = new List<Player> { p };
-                        scores.Add(score);
-                    }
-                    ai.CompareByScore(ref scores);
-                    if (scores[0].Score > 0)
-                        return scores[0].Players;
+                    value += values[i];
+                    result.Add(discards[i]);
                 }
-                else if (use.Card.Name == ExNihilo.ClassName)
-                {
-                    foreach (Player p in targets)
-                    {
-                        if (ai.IsFriend(p) && (!ai.HasSkill("zishu", p) || p.Phase != PlayerPhase.NotActive))
-                            return new List<Player> { p };
-                    }
-                }
-                else if (use.Card.Name == Snatch.ClassName)
-                {
-                    List<ScoreStruct> scores = new List<ScoreStruct>();
-                    foreach (Player p in targets)
-                        scores.Add(ai.FindCards2Discard(player, p, use.Card.Name, "hej", HandlingMethod.MethodGet));
-
-                    ai.CompareByScore(ref scores);
-                    if (scores[0].Score > 0)
-                        return scores[0].Players;
-                }
-                else if (use.Card.Name == Dismantlement.ClassName)
-                {
-                    List<ScoreStruct> scores = new List<ScoreStruct>();
-                    foreach (Player p in targets)
-                        scores.Add(ai.FindCards2Discard(player, p, use.Card.Name, "hej", HandlingMethod.MethodDiscard));
-
-                    ai.CompareByScore(ref scores);
-                    if (scores[0].Score > 0)
-                        return scores[0].Players;
-                }
-                else if (use.Card.Name == FireAttack.ClassName)
-                {
-                    foreach (Player p in targets)
-                    {
-                        if (ai.IsEnemy(p))
-                            return new List<Player> { p };
-                    }
-                }
+                if (damage_value <= -value * 2 / 3) return result;
             }
 
-            return new List<Player>();
+            return new List<int>();
         }
     }
 

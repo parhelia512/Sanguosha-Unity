@@ -9637,7 +9637,7 @@ namespace SanguoshaServer.Package
             switch (reason)
             {
                 case CardUseReason.CARD_USE_REASON_PLAY:
-                    return !RoomLogic.PlayerHasSkill(room, invoker, Name) && !invoker.HasUsed(YingshuiCard.ClassName);
+                    return RoomLogic.PlayerHasSkill(room, invoker, Name) && !invoker.HasUsed(YingshuiCard.ClassName);
                 case CardUseReason.CARD_USE_REASON_RESPONSE:
                 case CardUseReason.CARD_USE_REASON_RESPONSE_USE:
                     return pattern == "@@yingshui";
@@ -9683,6 +9683,7 @@ namespace SanguoshaServer.Package
 
         public override void OnUse(Room room, CardUseStruct card_use)
         {
+            if (card_use.From.HasFlag("yingshui_target")) return;
             base.OnUse(room, card_use);
         }
 

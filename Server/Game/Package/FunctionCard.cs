@@ -40,7 +40,7 @@ namespace SanguoshaServer.Package
             Jink                  = 0x0000002,
             Analeptic             = 0x0000004,
             Peach                 = 0x0000008,
-            PeachAnaleptic        = 0x000000B,
+            PeachAnaleptic        = 0x000000C,
             Trick                 = 0x00000F0,
             NTTrick               = 0x0000010,
             NTTrickSlash          = 0x0000011,

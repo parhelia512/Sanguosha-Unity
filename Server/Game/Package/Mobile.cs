@@ -5230,6 +5230,8 @@ namespace SanguoshaServer.Package
         {
             return Engine.GetFunctionCard(to_select.Name) is EquipCard && !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse);
         }
+
+        public override bool IsEnabledAtPlay(Room room, Player player) => Analeptic.IsAnalepticAvailable(room, player);
         public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern) =>
             MatchAnaleptic(respond) && room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE;
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
@@ -5281,8 +5283,8 @@ namespace SanguoshaServer.Package
         {
             if (data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && base.Triggerable(player, room))
             {
-                if (triggerEvent == TriggerEvent.TargetChoosing || (player.Phase != PlayerPhase.NotActive && player.GetMark("zhui_mark") >= 2))
-                    return new TriggerStruct();
+                if (triggerEvent == TriggerEvent.TargetChosen || (player.Phase != PlayerPhase.NotActive && player.GetMark("zhui_mark") >= 2))
+                    return new TriggerStruct(Name, player);
             }
             return new TriggerStruct();
         }
@@ -5353,8 +5355,8 @@ namespace SanguoshaServer.Package
         {
             if (data is CardUseStruct use && Engine.GetFunctionCard(use.Card.Name) is TrickCard && base.Triggerable(player, room))
             {
-                if (triggerEvent == TriggerEvent.TargetChoosing || (player.Phase != PlayerPhase.NotActive && player.GetMark("zhui_mark") >= 2))
-                    return new TriggerStruct();
+                if (triggerEvent == TriggerEvent.TargetChosen || (player.Phase != PlayerPhase.NotActive && player.GetMark("zhui_mark") >= 2))
+                    return new TriggerStruct(Name, player);
             }
             return new TriggerStruct();
         }
