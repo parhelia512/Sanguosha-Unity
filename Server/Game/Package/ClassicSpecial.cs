@@ -10011,23 +10011,62 @@ namespace SanguoshaServer.Package
                 foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
                     if (!p.IsKongcheng()) triggers.Add(new TriggerStruct(Name, p));
             }
+            else if (triggerEvent == TriggerEvent.GameStart && base.Triggerable(player, room))
+                triggers.Add(new TriggerStruct(Name, player));
             return triggers;
         }
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.AskForDiscard(ask_who, Name, 1, 1, true, false, "@zhuangshu:" + player.Name, true, info.SkillPosition))
+            if (triggerEvent == TriggerEvent.GameStart)
             {
-                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
-                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                string choice = room.AskForChoice(player, Name, "Comb1+Comb2+Comb3");
+                foreach (int id in room.RoomCards)
+                {
+                    WrappedCard card = room.GetCard(id);
+                    if (card.Name == choice)
+                    {
+                        player.SetMark(Name, id);
+                        break;
+                    }
+                }
                 return info;
+            }
+            else
+            {
+                if (room.AskForDiscard(ask_who, Name, 1, 1, true, false, "@zhuangshu:" + player.Name, true, info.SkillPosition))
+                {
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    return info;
+                }
             }
             return new TriggerStruct();
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (ask_who.ContainsTag(Name) && ask_who.GetTag(Name) is CardType type)
+            if (triggerEvent == TriggerEvent.GameStart)
+            {
+                if (player.CanPutEquip(4))
+                {
+                    int card_id = player.GetMark(Name);
+                    List<CardsMoveStruct> exchangeMove = new List<CardsMoveStruct>();
+                    CardsMoveStruct move2 = new CardsMoveStruct(new List<int> { card_id }, room.GetCardOwner(card_id), player, room.GetCardPlace(card_id),
+                                          Place.PlaceEquip, new CardMoveReason(MoveReason.S_REASON_PUT, player.Name, Name, string.Empty));
+                    exchangeMove.Add(move2);
+                    room.MoveCardsAtomic(exchangeMove, true);
+
+                    LogMessage log = new LogMessage
+                    {
+                        From = player.Name,
+                        Type = "$Install",
+                        Card_str = card_id.ToString()
+                    };
+                    room.SendLog(log);
+                }
+            }
+            else if (ask_who.ContainsTag(Name) && ask_who.GetTag(Name) is CardType type)
             {
                 ask_who.RemoveTag(Name);
                 if (player.Alive && !player.GetTreasure() && player.CanPutEquip(4))
