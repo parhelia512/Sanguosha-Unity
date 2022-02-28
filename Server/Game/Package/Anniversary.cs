@@ -5132,7 +5132,7 @@ namespace SanguoshaServer.Package
         {
             List<string> choices = new List<string> { "spade", "heart", "club", "diamond", "cancel" };
             string choice = room.AskForChoice(ask_who, Name, string.Join("+", choices), new List<string> { "@huguan:" + player.Name }, player);
-            if (choice != "cance")
+            if (choice != "cancel")
             {
                 WrappedCard.CardSuit suit = WrappedCard.GetSuit(choice);
                 room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
@@ -5288,7 +5288,7 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            if (triggerEvent == TriggerEvent.EventPhaseStart && player != null && player.Alive && !player.IsKongcheng())
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player != null && player.Alive && !player.IsKongcheng() && player.Phase == PlayerPhase.Finish)
             {
                 bool check = false;
                 foreach (Player p in room.GetAlivePlayers())
@@ -10110,6 +10110,8 @@ namespace SanguoshaServer.Package
                     if (card_name != Jink.ClassName)
                     {
                         WrappedCard card = new WrappedCard(card_name) { Skill = "_heqia", DistanceLimited = false };
+                        card.AddSubCards(cards);
+                        card = RoomLogic.ParseUseCard(room, card);
                         result.Add(card);
                     }
                 }
