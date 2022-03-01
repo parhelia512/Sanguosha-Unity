@@ -10902,21 +10902,33 @@ namespace SanguoshaServer.Package
 
             if (lengtong.Alive && lengtong.Phase != PlayerPhase.NotActive)
             {
-                tos.RemoveAll(t => !t.Alive);
-                Player target = null;
-                lengtong.SetFlags(Name);
-                if (tos.Count == 1)
+                bool check = true;
+                foreach (Player p in room.GetAlivePlayers())
                 {
-                    if (room.AskForSkillInvoke(lengtong, Name, "@xuanfeng-single:" + tos[0].Name, info.SkillPosition))
-                        target = tos[0];
+                    if (p.HasFlag("Global_Dying"))
+                    {
+                        check = false;
+                        break;
+                    }
                 }
-                else if (tos.Count > 1)
+                if (check)
                 {
-                    target = room.AskForPlayerChosen(lengtong, tos, Name, "@xuanfeng-damage", true, false, info.SkillPosition);
-                }
-                lengtong.SetFlags("-xuanfeng");
+                    tos.RemoveAll(t => !t.Alive);
+                    Player target = null;
+                    lengtong.SetFlags(Name);
+                    if (tos.Count == 1)
+                    {
+                        if (room.AskForSkillInvoke(lengtong, Name, "@xuanfeng-single:" + tos[0].Name, info.SkillPosition))
+                            target = tos[0];
+                    }
+                    else if (tos.Count > 1)
+                    {
+                        target = room.AskForPlayerChosen(lengtong, tos, Name, "@xuanfeng-damage", true, false, info.SkillPosition);
+                    }
+                    lengtong.SetFlags("-xuanfeng");
 
-                if (target != null) room.Damage(new DamageStruct(Name, lengtong, target));
+                    if (target != null) room.Damage(new DamageStruct(Name, lengtong, target));
+                }
             }
 
             return false;
