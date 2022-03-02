@@ -11789,8 +11789,6 @@ namespace SanguoshaServer.Package
                     card_use.To.Add(p);
 
             base.OnUse(room, card_use);
-
-            card_use.From.RemoveTag("jiefan");
         }
 
         public override void OnEffect(Room room, CardEffectStruct effect)
@@ -11803,16 +11801,34 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Jiefan : ZeroCardViewAsSkill
+    public class Jiefan : TriggerSkill
     {
         public Jiefan() : base("jiefan")
         {
-            frequency = Frequency.Limited;
-            limit_mark = "@rescue";
+            view_as_skill = new JiefanVS();
+            events = new List<TriggerEvent> { TriggerEvent.Dying };
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            foreach (Player p in room.GetAlivePlayers())
+            {
+                if (p.ContainsTag(Name) && p.GetTag(Name) is string target_name && target_name == player.Name)
+                    p.RemoveTag(Name);
+            }
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+
+    public class JiefanVS : ZeroCardViewAsSkill
+    {
+        public JiefanVS() : base("jiefan")
+        {
         }
         public override bool IsEnabledAtPlay(Room room, Player player)
         {
-            return !player.HasUsed(JiefanCard.ClassName) && player.GetMark(limit_mark) >= 1;
+            return !player.HasUsed(JiefanCard.ClassName) && !player.ContainsTag(Name);
         }
         public override WrappedCard ViewAs(Room room, Player player)
         {
