@@ -335,7 +335,7 @@ namespace SanguoshaServer.Package
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.GetMark(Name) > 0)
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.Play && player.GetMark(Name) > 0)
                 player.SetMark(Name, 0);
         }
 
@@ -370,7 +370,8 @@ namespace SanguoshaServer.Package
         {
             Player target = room.FindPlayer((string)player.GetTag(Name));
             player.RemoveTag(Name);
-            room.DrawCards(target, new DrawCardStruct(2, player, Name));
+            int count = Math.Min(3, player.GetMark(Name));
+            room.DrawCards(target, new DrawCardStruct(count, player, Name));
             return false;
         }
     }
@@ -399,18 +400,31 @@ namespace SanguoshaServer.Package
         {
             if (player.Alive && ask_who.Alive && ask_who.HandcardNum == player.HandcardNum
                 && room.AskForSkillInvoke(ask_who, Name, player, info.SkillPosition))
-            {
-                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
-                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
                 return info;
-            }
 
             return new TriggerStruct();
         }
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.DrawCards(player, new DrawCardStruct(1, ask_who, Name));
-            room.DrawCards(ask_who, 1, Name);
+            while (true)
+            {
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+
+                List<int> ids1 = new List<int>(), ids2 = new List<int>();
+                    ids1 = room.DrawCards(player, new DrawCardStruct(1, ask_who, Name));
+                if (ask_who.Alive)
+                    ids2 = room.DrawCards(ask_who, 1, Name);
+
+                bool quit = true;
+                if (ids1.Count == 1 && player.Alive && room.GetCardOwner(ids1[0]) == player && room.GetCardPlace(ids1[0]) == Place.PlaceHand
+                    && ids2.Count == 1 && ask_who.Alive && room.GetCardOwner(ids2[0]) == ask_who && room.GetCardPlace(ids2[0]) == Place.PlaceHand
+                    && ask_who.HandcardNum == player.HandcardNum && room.GetCard(ids1[0]).Suit == room.GetCard(ids2[0]).Suit && room.AskForSkillInvoke(ask_who, Name, player, info.SkillPosition))
+                    quit = false;
+
+                if (quit) break;
+            }
+
             return false;
         }
     }
