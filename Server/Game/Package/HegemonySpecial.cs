@@ -1530,7 +1530,15 @@ namespace SanguoshaServer.Package
         public KuangcaiHegemonyMax() : base("#kuangcai_hegemony-max") { }
         public override int GetExtra(Room room, Player target)
         {
-            return RoomLogic.PlayerHasShownSkill(room, target, "kuangcai_hegemony") && !target.HasFlag("kuangcai_hegemony") && target.HasFlag("kuangcai_use") ? -1 : 0;
+            if (RoomLogic.PlayerHasShownSkill(room, target, "kuangcai_hegemony"))
+            {
+                if (!target.HasFlag("kuangcai_use"))
+                    return 1;
+                else if (!target.HasFlag("kuangcai_hegemony"))
+                    return -1;
+            }
+
+            return 0;
         }
     }
 
@@ -1565,6 +1573,7 @@ namespace SanguoshaServer.Package
                 room.ThrowCard(ref ids,
                     new CardMoveReason(MoveReason.S_REASON_THROW, player.Name, Name, string.Empty) { General = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition) },
                     player, null, Name);
+                player.SetMark(Name, ids.Count);
                 return info;
             }
 
@@ -1574,7 +1583,36 @@ namespace SanguoshaServer.Package
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             if (data is CardUseStruct use && use.From.Alive)
-                room.Damage(new DamageStruct(Name, player, use.From));
+            {
+                List<string> choices = new List<string>();
+                if (RoomLogic.CanDiscard(room, player, use.From, "he"))
+                    choices.Add("discard");
+
+                bool check = true;
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    if (p.HasFlag("Global_Dying"))
+                    {
+                        check = false;
+                        break;
+                    }
+                }
+                if (check) choices.Add("damage");
+                if (choices.Count > 0)
+                {
+                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + use.From.Name }, use.From);
+                    if (choice == "discard")
+                    {
+                        List<string> patterns = new List<string>();
+                        for (int i = 0; i < Math.Min(player.GetMark(Name) , use.From.GetCardCount(true)); i++)
+                            patterns.Add("he^false^none");
+                        List<int> ids = room.AskForCardsChosen(player, use.From, patterns, Name);
+                        room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, use.From.Name, Name, string.Empty), use.From, player);
+                    }
+                    else
+                        room.Damage(new DamageStruct(Name, player, use.From));
+                }
+            }
             return false;
         }
     }

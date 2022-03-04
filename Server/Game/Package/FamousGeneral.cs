@@ -7306,7 +7306,7 @@ namespace SanguoshaServer.Package
     public class Jiaozhao : TriggerSkill
     {
         public Jiaozhao() : base("jiaozhao") {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardsMoveOneTime };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardUsedAnnounced };
             view_as_skill = new JiaozhaoVS();
         }
 
@@ -7317,18 +7317,15 @@ namespace SanguoshaServer.Package
                 player.RemoveTag(Name);
                 room.RemovePlayerStringMark(player, Name);
             }
-            else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null
-                && move.From.ContainsTag(Name) && move.From_places.Contains(Place.PlaceHand) && move.From.GetTag(Name) is KeyValuePair<string, int> anncount)
+            else if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Card.GetSkillName() == Name)
             {
-                for (int i = 0; i < move.Card_ids.Count; i++)
-                {
-                    if (move.From_places[i] == Place.PlaceHand && anncount.Value == move.Card_ids[i])
-                    {
-                        move.From.RemoveTag(Name);
-                        room.RemovePlayerStringMark(move.From, Name);
-                        break;
-                    }
-                }
+                player.RemoveTag(Name);
+                room.RemovePlayerStringMark(player, Name);
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                if (fcard is BasicCard)
+                    player.SetFlags("jiaozhao_basic");
+                else
+                    player.SetFlags("jiaozhao_trick");
             }
         }
 
@@ -7343,22 +7340,29 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class JiaozhaoVS : OneCardViewAsSkill
+    public class JiaozhaoVS : ViewAsSkill
     {
         public JiaozhaoVS() : base("jiaozhao")
         {
         }
         public override bool IsEnabledAtPlay(Room room, Player player)
         {
-            if (player.IsKongcheng()) return false;
-            if (!player.HasUsed(JiaozhaoCard.ClassName)) return true;
-            if (player.ContainsTag(Name) && player.GetTag(Name) is KeyValuePair<string, int> anncount)
+            if (!player.IsKongcheng())
             {
-                WrappedCard card = new WrappedCard(anncount.Key);
-                card.AddSubCard(anncount.Value);
-                card = RoomLogic.ParseUseCard(room, card);
-                FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                return fcard.IsAvailable(room, player, card);
+                if (!player.HasUsed(JiaozhaoCard.ClassName))
+                    return true;
+                else if (player.GetMark("danxin") == 2 && (!player.HasFlag("jiaozhao_basic") || !player.HasFlag("jiaozhao_trick")))
+                    return true;
+                else if (player.GetMark("danxin") == 0 && player.ContainsTag(Name) && player.GetTag(Name) is KeyValuePair<string, int> anncount)
+                {
+                    WrappedCard card = new WrappedCard(anncount.Key);
+                    card.AddSubCard(anncount.Value);
+                    card = RoomLogic.ParseUseCard(room, card);
+                    FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                    return fcard.IsAvailable(room, player, card);
+                }
+                else if (player.GetMark("danxin") == 1 && !player.HasFlag("jiaozhao_basic") && !player.HasFlag("jiaozhao_trick"))
+                    return true;
             }
 
             return false;
@@ -7366,54 +7370,71 @@ namespace SanguoshaServer.Package
 
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
         {
-            if (!player.HasUsed(JiaozhaoCard.ClassName))
-                return room.GetCardPlace(to_select.Id) == Place.PlaceHand;
-            else if (player.ContainsTag(Name) && player.GetTag(Name) is KeyValuePair<string, int> anncount)
-                return anncount.Value == to_select.Id && !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse);
-
-            return false;
-        }
-
-        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
-        {
-            if (room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE && player.ContainsTag(Name)
-                && player.GetTag(Name) is KeyValuePair<string, int> anncount)
+            if (selected.Count == 0 && room.GetCardPlace(to_select.Id) == Place.PlaceHand)
             {
-                WrappedCard card = new WrappedCard(anncount.Key);
-                card.AddSubCard(anncount.Value);
-                card = RoomLogic.ParseUseCard(room, card);
-                return Engine.MatchExpPattern(room, pattern, player, card);
+                if (player.GetMark("danxin") == 0)
+                {
+                    if (!player.HasUsed(JiaozhaoCard.ClassName))
+                        return true;
+                    else if (player.GetMark("danxin") == 0 && player.ContainsTag(Name) && player.GetTag(Name) is KeyValuePair<string, int> anncount)
+                        return anncount.Value == to_select.Id && !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse);
+                }
+                else
+                    return !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse);
             }
 
             return false;
         }
 
-        public override bool IsEnabledAtNullification(Room room, Player player)
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
         {
-            if (player.IsKongcheng()) return false;
-            if (player.ContainsTag(Name) && player.GetTag(Name) is KeyValuePair<string, int> anncount && anncount.Key == Nullification.ClassName)
-                return true;
-
-            return false;
-        }
-
-        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
-        {
-            if (!player.HasUsed(JiaozhaoCard.ClassName))
+            if (cards.Count == 1)
             {
-                WrappedCard qz = new WrappedCard(JiaozhaoCard.ClassName) { Skill = Name, Mute = true };
-                qz.AddSubCard(card);
-                return qz;
+                if (player.GetMark("danxin") == 0)
+                {
+                    if (!player.HasUsed(JiaozhaoCard.ClassName))
+                    {
+                        WrappedCard qz = new WrappedCard(JiaozhaoCard.ClassName) { Skill = Name, Mute = true };
+                        qz.AddSubCards(cards);
+                        return qz;
+                    }
+                    else if (player.ContainsTag(Name) && player.GetTag(Name) is KeyValuePair<string, int> anncount)
+                    {
+                        WrappedCard vcard = new WrappedCard(anncount.Key) { Skill = Name };
+                        vcard.AddSubCard(anncount.Value);
+                        vcard = RoomLogic.ParseUseCard(room, vcard);
+                        return vcard;
+                    }
+                }
+                else if (cards[0].IsVirtualCard())
+                {
+                    return cards[0];
+                }
             }
-            else if (player.ContainsTag(Name) && player.GetTag(Name) is KeyValuePair<string, int> anncount)
-            {
-                WrappedCard vcard = new WrappedCard(anncount.Key) { Skill = Name };
-                vcard.AddSubCard(anncount.Value);
-                card = RoomLogic.ParseUseCard(room, card);
-                return vcard;
-            }
-
             return null;
+        }
+        public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
+        {
+            List<WrappedCard> result = new List<WrappedCard>();
+            if (cards.Count == 1 && player.GetMark(Name) > 0)
+            {
+                string flag = string.Empty;
+                if (!player.HasFlag("jiaozhao_basic"))
+                    flag += "b";
+                if (!player.HasFlag("jiaozhao_trick"))
+                    flag += "t";
+
+                List<string> card_names = GetGuhuoCards(room, flag);
+                foreach (string card_name in card_names)
+                {
+                    FunctionCard fcard = Engine.GetFunctionCard(card_name);
+                    WrappedCard vcard = new WrappedCard(card_name) { Skill = Name };
+                    vcard.AddSubCards(cards);
+                    vcard = RoomLogic.ParseUseCard(room, vcard);
+                    if (fcard.IsAvailable(room, player, vcard)) result.Add(vcard);
+                }
+            }
+            return result;
         }
     }
 
@@ -7423,7 +7444,7 @@ namespace SanguoshaServer.Package
 
         public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null)
         {
-            if (from != null && from == to && card.GetSkillName() == "jiaozhao") return true;
+            if (from != null && from == to && card.GetSkillName() == "jiaozhao" && from.GetMark("danxin") < 2) return true;
 
             return false;
         }
@@ -7445,33 +7466,28 @@ namespace SanguoshaServer.Package
             room.ShowCard(player, card_use.Card.GetEffectiveId(), "jiaozhao");
 
             Player target = null;
-            if (player.GetMark("danxin") > 1)
-                target = player;
-            else
+            List<Player> targets = new List<Player>();
+            int distance = 100;
+            foreach (Player p in room.GetOtherPlayers(player))
             {
-                List<Player> targets = new List<Player>();
-                int distance = 100;
-                foreach (Player p in room.GetOtherPlayers(player))
-                {
-                    int count = RoomLogic.DistanceTo(room, player, p);
-                    if (count > 0 && count < distance) distance = count;
-                }
-                foreach (Player p in room.GetOtherPlayers(player))
-                {
-                    int count = RoomLogic.DistanceTo(room, player, p);
-                    if (count == distance) targets.Add(p);
-                }
-
-                if (targets.Count > 0)
-                    target = room.AskForPlayerChosen(player, targets, "jiaozhao", "@jiaozhao", false, false, card_use.Card.SkillPosition);
+                int count = RoomLogic.DistanceTo(room, player, p);
+                if (count > 0 && count < distance) distance = count;
             }
+            foreach (Player p in room.GetOtherPlayers(player))
+            {
+                int count = RoomLogic.DistanceTo(room, player, p);
+                if (count == distance) targets.Add(p);
+            }
+
+            if (targets.Count > 0)
+                target = room.AskForPlayerChosen(player, targets, "jiaozhao", "@jiaozhao", false, false, card_use.Card.SkillPosition);
+
             if (target != null)
             {
                 List<string> choices = new List<string>();
-                if (player.GetMark("danxin") == 0)
-                    choices.AddRange(ViewAsSkill.GetGuhuoCards(room, "b"));
-                else
-                    choices.AddRange(ViewAsSkill.GetGuhuoCards(room, "bt"));
+                choices.AddRange(ViewAsSkill.GetGuhuoCards(room, "bt"));
+                choices.Remove(Jink.ClassName);
+                choices.Remove(Nullification.ClassName);
 
                 string choice = room.AskForChoice(target, "jiaozhao", string.Join("+", choices), new List<string> { "@jiaozhao-announce:" + player.Name }, player);
                 KeyValuePair<string, int> keys = new KeyValuePair<string, int>(choice, card_use.Card.GetEffectiveId());
@@ -7498,18 +7514,9 @@ namespace SanguoshaServer.Package
 
         public override void OnDamaged(Room room, Player target, DamageStruct damage, TriggerStruct info)
         {
-            bool draw = true;
-            if (target.GetMark(Name) < 2)
-            {
-                string choice = room.AskForChoice(target, Name, "draw+change");
-                if (choice != "draw")
-                    draw = false;
-            }
-
-            if (draw)
-                room.DrawCards(target, 1, Name);
-            else
-            {
+            room.DrawCards(target, 1, Name);
+            if (target.Alive && target.GetMark(Name) < 2)
+            { 
                 target.AddMark(Name);
                 room.SetPlayerStringMark(target, Name, target.GetMark(Name).ToString());
                 LogMessage log = new LogMessage
