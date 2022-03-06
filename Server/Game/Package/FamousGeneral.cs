@@ -7349,19 +7349,22 @@ namespace SanguoshaServer.Package
         {
             if (!player.IsKongcheng())
             {
-                if (!player.HasUsed(JiaozhaoCard.ClassName))
-                    return true;
-                else if (player.GetMark("danxin") == 2 && (!player.HasFlag("jiaozhao_basic") || !player.HasFlag("jiaozhao_trick")))
-                    return true;
-                else if (player.GetMark("danxin") == 0 && player.ContainsTag(Name) && player.GetTag(Name) is KeyValuePair<string, int> anncount)
+                if (player.GetMark("danxin") == 0)
                 {
-                    WrappedCard card = new WrappedCard(anncount.Key);
-                    card.AddSubCard(anncount.Value);
-                    card = RoomLogic.ParseUseCard(room, card);
-                    FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                    return fcard.IsAvailable(room, player, card);
+                    if (!player.HasUsed(JiaozhaoCard.ClassName))
+                        return true;
+                    else if (player.GetMark("danxin") == 0 && player.ContainsTag(Name) && player.GetTag(Name) is KeyValuePair<string, int> anncount)
+                    {
+                        WrappedCard card = new WrappedCard(anncount.Key);
+                        card.AddSubCard(anncount.Value);
+                        card = RoomLogic.ParseUseCard(room, card);
+                        FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                        return fcard.IsAvailable(room, player, card);
+                    }
                 }
                 else if (player.GetMark("danxin") == 1 && !player.HasFlag("jiaozhao_basic") && !player.HasFlag("jiaozhao_trick"))
+                    return true;
+                else if (player.GetMark("danxin") == 2 && (!player.HasFlag("jiaozhao_basic") || !player.HasFlag("jiaozhao_trick")))
                     return true;
             }
 
@@ -7416,7 +7419,7 @@ namespace SanguoshaServer.Package
         public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
         {
             List<WrappedCard> result = new List<WrappedCard>();
-            if (cards.Count == 1 && player.GetMark(Name) > 0)
+            if (cards.Count == 1 && player.GetMark("danxin") > 0)
             {
                 string flag = string.Empty;
                 if (!player.HasFlag("jiaozhao_basic"))
@@ -7526,7 +7529,7 @@ namespace SanguoshaServer.Package
                 };
                 room.SendLog(log);
 
-                room.SetPlayerMark(target, "danxin_description_index", target.GetMark(Name));
+                room.SetPlayerMark(target, "jiaozhao_description_index", target.GetMark(Name));
                 room.RefreshSkill(target);
             }
         }

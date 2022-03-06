@@ -1300,7 +1300,7 @@ namespace SanguoshaServer.AI
                 {
                     string choice = strs[2];
                     Player target = room.Current;
-                    bool enemy = choice == Analeptic.ClassName || choice == Jink.ClassName;
+                    bool enemy = choice == Analeptic.ClassName;
                     ai.UpdatePlayerRelation(player, target, !enemy);
                 }
             }
@@ -1358,11 +1358,6 @@ namespace SanguoshaServer.AI
         public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
         {
             return true;
-        }
-
-        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
-        {
-            return "change";
         }
     }
 
