@@ -2768,16 +2768,13 @@ namespace SanguoshaServer.Package
             {
                 ids.AddRange(target.GetEquips());
                 room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, target.Name, player.Name, "cuijian", string.Empty), false);
-                if (player.Alive && target.Alive)
+                if (player.Alive && target.Alive && player.GetMark("tongyuan_peach") == 0)
                 {
-                    if (player.GetMark("tongyuan_peach") > 0)
-                    {
-                        int count = ids.Count;
-                        List<int> give = room.AskForExchange(player, "cuijian", count, count,
-                            string.Format("@cuijian-give:{0}::{1}", target.Name, count), string.Empty, "..", card_use.Card.SkillPosition);
-                        if (give.Count > 0)
-                            room.ObtainCard(target, ref give, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, "cuijian", string.Empty), false);
-                    }
+                    int count = ids.Count;
+                    List<int> give = room.AskForExchange(player, "cuijian", count, count,
+                        string.Format("@cuijian-give:{0}::{1}", target.Name, count), string.Empty, "..", card_use.Card.SkillPosition);
+                    if (give.Count > 0)
+                        room.ObtainCard(target, ref give, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, "cuijian", string.Empty), false);
                 }
             }
             else if (player.GetMark("tongyuan_null") > 0)

@@ -2470,7 +2470,7 @@ namespace SanguoshaServer.Package
         {
             foreach (Player p in room.GetAlivePlayers())
             {
-                if (p.HasWeapon(SixSwords.ClassName) && RoomLogic.IsFriendWith(room, p, target) && p.GetMark("Equips_nullified_to_Yourself") == 0)
+                if (p.HasWeapon(SixSwords.ClassName) && p != target && RoomLogic.IsFriendWith(room, p, target) && p.GetMark("Equips_nullified_to_Yourself") == 0)
                     return 1;
             }
 

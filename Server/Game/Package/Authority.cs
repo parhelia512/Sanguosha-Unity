@@ -2704,16 +2704,24 @@ namespace SanguoshaServer.Package
 
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
         {
-            if (selected.Count > 1 || room.GetCardPlace(to_select.Id) != Place.PlaceHand) return false;
+            if (selected.Count == 0) return RoomLogic.CanDiscard(room, player, player, to_select.Id);
             if (selected.Count == 1)
-                return WrappedCard.IsBlack(selected[0].Suit) == WrappedCard.IsBlack(to_select.Suit);
+                return room.GetCardPlace(selected[0].Id) == Place.PlaceHand
+                    && WrappedCard.IsBlack(selected[0].Suit) == WrappedCard.IsBlack(to_select.Suit) && RoomLogic.CanDiscard(room, player, player, to_select.Id);
+            if (selected.Count > 1) return false;
 
             return true;
         }
 
         public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
         {
-            if (cards.Count == 2)
+            if (cards.Count == 1 && Engine.GetFunctionCard(cards[0].Name) is EquipCard)
+            {
+                WrappedCard card = new WrappedCard(KeshouCard.ClassName);
+                card.AddSubCards(cards);
+                return card;
+            }
+            else if (cards.Count == 2)
             {
                 WrappedCard card = new WrappedCard(KeshouCard.ClassName);
                 card.AddSubCards(cards);

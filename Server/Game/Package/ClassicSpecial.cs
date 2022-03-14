@@ -9685,12 +9685,6 @@ namespace SanguoshaServer.Package
                     };
                     room.SendLog(log);
 
-                    if (use.AddHistory)
-                    {
-                        use.AddHistory = false;
-                        player.AddHistory(use.Card.Name, -1);
-                    }
-
                     use.ExDamage += 1;
                     data = use;
 
@@ -9738,10 +9732,9 @@ namespace SanguoshaServer.Package
     public class WangongTar : TargetModSkill
     {
         public WangongTar() : base("#wangong", false) { }
-
-        public override bool IgnoreCount(Room room, Player from, WrappedCard card) => from.GetMark("wangong") > 0;
-
+        
         public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => from.GetMark("wangong") > 0;
+        public override bool CheckSpecificAssignee(Room room, Player from, Player to, WrappedCard card, string pattern) => from.GetMark("wangong") > 0;
     }
 
     public class Fengzi : TriggerSkill
@@ -13503,12 +13496,11 @@ namespace SanguoshaServer.Package
                         player.RemoveTag(Name);
                         List<string> method = new List<string>();
                         for (int i = 0; i < count; i++)
-                            method.Add("he^true^discard");
+                            method.Add("he^false^discard");
 
                         List<int> ids = room.AskForCardsChosen(player, target, method, Name);
                         if (ids.Count > 0)
-                            room.ThrowCard(ref ids,
-                                new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, target.Name, Name, string.Empty)
+                            room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, target.Name, Name, string.Empty)
                                 { General = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition) },
                                 target, player);
                     }

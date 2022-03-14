@@ -2534,7 +2534,7 @@ namespace SanguoshaServer.Package
             if (result != -1)
             {
                 string choice = room.AskForChoice(player, "gongxin", "discard+piletop", null, result);
-                if (choice == "disacard")
+                if (choice == "discard")
                     room.ThrowCard(result, target, player);
                 else
                     room.MoveCardTo(room.GetCard(result), null, Place.DrawPile, true);

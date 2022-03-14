@@ -1792,6 +1792,7 @@ namespace SanguoshaServer.Package
                 room.SetPlayerMark(player, limit_mark, 0);
                 room.DoSuperLightbox(player, info.SkillPosition, Name);
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
             }
             return new TriggerStruct();
         }
@@ -3362,7 +3363,7 @@ namespace SanguoshaServer.Package
             if (data is DamageStruct damage)
             {
                 room.SetTag(Name, data);
-                List<int> ids = room.AskForExchange(player, Name, player.HandcardNum, 0, "@huisheng:" + damage.From.Name, string.Empty, ".", info.SkillPosition);
+                List<int> ids = room.AskForExchange(player, Name, player.GetCardCount(true), 0, "@huisheng:" + damage.From.Name, string.Empty, "..", info.SkillPosition);
                 room.RemoveTag(Name);
                 if (ids.Count > 0)
                 {

@@ -3703,7 +3703,7 @@ namespace SanguoshaServer.Package
                     if (effect.To == target)
                     {
                         index++;
-                        if (index == info.Times)
+                        if (index == info.Times && effect.Effect2 > 0)
                         {
                             effect.Effect2 = 2;
                             break;
@@ -5712,14 +5712,17 @@ namespace SanguoshaServer.Package
             {
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
                 int suit = (int)RoomLogic.GetCardSuit(room, use.Card);
-                int type = (int)fcard.TypeID;
                 List<int> suits = player.ContainsTag(Name + "Suit") ? (List<int>)player.GetTag(Name + "Suit") : new List<int>();
                 List<int> types = player.ContainsTag(Name + "Type") ? (List<int>)player.GetTag(Name + "Type") : new List<int>();
                 if (suit < 4 && !suits.Contains(suit))
                     suits.Add(suit);
-                if (type > 0 && !types.Contains(type))
-                    types.Add(type);
-                
+                if (fcard is BasicCard && !types.Contains((int)CardType.TypeBasic))
+                    types.Add((int)CardType.TypeBasic);
+                else if (fcard is EquipCard && !types.Contains((int)CardType.TypeEquip))
+                    types.Add((int)CardType.TypeEquip);
+                if (fcard is TrickCard && !types.Contains((int)CardType.TypeTrick))
+                    types.Add((int)CardType.TypeTrick);
+
                 player.SetTag(Name + "Suit", suits);
                 player.SetTag(Name + "Type", types);
             }
