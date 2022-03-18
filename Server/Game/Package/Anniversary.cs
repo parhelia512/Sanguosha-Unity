@@ -5321,7 +5321,7 @@ namespace SanguoshaServer.Package
         {
             if (ask_who.Alive && player.Alive && player.HandcardNum > 0)
             {
-                int count = Math.Min(5, player.HandcardNum);
+                int count = Math.Min(5 - ask_who.HandcardNum, player.HandcardNum);
                 room.DrawCards(ask_who, count, Name);
             }
 
