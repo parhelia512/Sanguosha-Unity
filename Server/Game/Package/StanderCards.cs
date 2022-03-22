@@ -1120,7 +1120,8 @@ namespace SanguoshaServer.Package
     public class Duel : SingleTargetTrick
     {
         public static string ClassName = "Duel";
-        public Duel() : base(ClassName) { }
+        public static FunctionCard Instance;
+        public Duel() : base(ClassName) { Instance = this; }
         public override CardBasicEffect FillCardBasicEffct(Room room, Player to)
         {
             return new CardBasicEffect(to, 0, 1, 1);        //第一个数字为针对此目标的伤害增加；第二个数字为目标需要出杀的数量；第三个数字为使用者需要出杀的数量
