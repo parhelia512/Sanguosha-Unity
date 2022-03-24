@@ -645,38 +645,48 @@ namespace SanguoshaServer.Package
     {
         public LandLord() : base("landlord")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.TurnStart };
             frequency = Frequency.Compulsory;
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (room.Setting.GameMode == "Doudizhu" && player.Alive && player.GetRoleEnum() == PlayerRole.Lord
-                && (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Start && player.JudgingArea.Count > 0 && player.GetCardCount(true) > 1
-                || player.Phase == PlayerPhase.RoundStart))
+            if (triggerEvent == TriggerEvent.EventPhaseStart && room.Setting.GameMode == "Doudizhu" && player.Alive && player.GetRoleEnum() == PlayerRole.Lord
+                && (player.Phase == PlayerPhase.Start && player.JudgingArea.Count > 0 && player.GetCardCount(true) > 1 || player.Phase == PlayerPhase.RoundStart))
                     return new TriggerStruct(Name, player);
+            else if (triggerEvent == TriggerEvent.TurnStart && room.Setting.GameMode == "Doudizhu" && player.Alive && player.GetRoleEnum() == PlayerRole.Lord
+                && player.GetMark(Name) < 3 && player.GetLostHp() >= room.Round)
+                return new TriggerStruct(Name, player);
 
             return new TriggerStruct();
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (player.Phase == PlayerPhase.RoundStart)
+            if (triggerEvent == TriggerEvent.TurnStart)
             {
-                room.SendCompulsoryTriggerLog(player, Name, true);
-                room.DrawCards(player, 1, Name);
+                player.AddMark(Name);
+                room.Recover(player);
             }
             else
             {
-                if (room.AskForDiscard(player, Name, 2, 2, true, true, "@landlord", true))
+                if (player.Phase == PlayerPhase.RoundStart)
                 {
-                    int id = -1;
-                    if (player.JudgingArea.Count == 1)
-                        id = player.JudgingArea[0];
-                    else
-                        id = room.AskForCardChosen(player, player, "j", Name, false, FunctionCard.HandlingMethod.MethodDiscard);
+                    room.SendCompulsoryTriggerLog(player, Name, true);
+                    room.DrawCards(player, 1, Name);
+                }
+                else
+                {
+                    if (room.AskForDiscard(player, Name, 2, 2, true, true, "@landlord", true))
+                    {
+                        int id = -1;
+                        if (player.JudgingArea.Count == 1)
+                            id = player.JudgingArea[0];
+                        else
+                            id = room.AskForCardChosen(player, player, "j", Name, false, FunctionCard.HandlingMethod.MethodDiscard);
 
-                    room.ThrowCard(id, player);
+                        room.ThrowCard(id, player);
+                    }
                 }
             }
             return false;

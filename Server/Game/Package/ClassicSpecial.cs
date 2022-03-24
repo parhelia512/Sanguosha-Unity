@@ -74,6 +74,7 @@ namespace SanguoshaServer.Package
                 new XingzhaoVH(),
                 new Tuogu(),
                 new Shanzhuan(),
+                new JixianZL(),
 
                 new Mizhao(),
                 new Tianming(),
@@ -3747,6 +3748,79 @@ namespace SanguoshaServer.Package
                     Card = card
                 };
                 room.MoveCardTo(card, null, target, Place.PlaceDelayedTrick, reason, true);
+            }
+
+            return false;
+        }
+    }
+
+    public class JixianZL : TriggerSkill
+    {
+        public JixianZL() : base("jixian_zl")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseEnd, TriggerEvent.DamageDone };
+            skill_type = SkillType.Attack;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.DamageDone && data is DamageStruct damage && damage.Card != null && damage.Card.GetSkillName() == Name)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                    if (p.HasFlag(Name)) p.SetFlags("-jixian_zl");
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseEnd && base.Triggerable(player, room) && player.Phase == PlayerPhase.Draw)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<Player> targets = new List<Player>();
+            WrappedCard slash = new WrappedCard(Slash.ClassName) { DistanceLimited = false };
+            int count = Engine.GetGeneral(player.General1, room.Setting.GameMode).Skills.Count;
+            foreach (Player p in room.GetOtherPlayers(player))
+            {
+                if (RoomLogic.IsProhibited(room, player, p, slash) == null && (p.GetArmor()
+                    || p.GetLostHp() == 0 || Engine.GetGeneral(p.General1, room.Setting.GameMode).Skills.Count > count))
+                    targets.Add(p);
+            }
+
+            if (targets.Count > 0)
+            {
+                Player target = room.AskForPlayerChosen(player, targets, Name, "@jixian_zl", true, true, info.SkillPosition);
+                if (target != null)
+                {
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    room.SetTag(Name, target);
+                    return info;
+                }
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.GetTag(Name) is Player target)
+            {
+                room.RemoveTag(Name);
+
+                WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_jixian_zl", DistanceLimited = false };
+                int count = Engine.GetGeneral(player.General1, room.Setting.GameMode).Skills.Count;
+
+                int draw = 0;
+                if (target.HasEquip()) draw++;
+                if (target.GetLostHp() == 0) draw++;
+                if (Engine.GetGeneral(target.General1, room.Setting.GameMode).Skills.Count > count) draw++;
+
+                player.SetFlags(Name);
+                room.UseCard(new CardUseStruct(slash, player, target));
+
+                if (player.Alive) room.DrawCards(player, draw, Name);
+                if (player.Alive && player.HasFlag(Name)) room.LoseHp(player);
             }
 
             return false;
@@ -11151,14 +11225,17 @@ namespace SanguoshaServer.Package
     {
         public Xushen() : base("xushen")
         {
-            events = new List<TriggerEvent> { TriggerEvent.Dying, TriggerEvent.QuitDying };
+            events = new List<TriggerEvent> { TriggerEvent.Dying, TriggerEvent.QuitDying, TriggerEvent.GameStart };
             frequency = Frequency.Limited;
             limit_mark = "@xu";
         }
-
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.QuitDying && player.GetMark(Name) == 1 && player.Alive)
+            if (triggerEvent == TriggerEvent.GameStart)
+            {
+                room.HandleUsedGeneral("guansuo");
+            }
+            else if (triggerEvent == TriggerEvent.QuitDying && player.GetMark(Name) == 1 && player.Alive)
             {
                 player.AddMark(Name);
                 Player guansuo = null;
@@ -11190,7 +11267,7 @@ namespace SanguoshaServer.Package
                                 room.HandleUsedGeneral("-" + from_general);
                             }
 
-                            room.HandleUsedGeneral("guansuo");
+                            //room.HandleUsedGeneral("guansuo");
                             target.ActualGeneral1 = target.General1 = "guansuo";
                             target.HeadSkinId = 0;
                             target.Kingdom = "shu";
