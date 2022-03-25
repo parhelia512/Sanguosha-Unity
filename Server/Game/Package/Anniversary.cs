@@ -7922,10 +7922,10 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (base.Triggerable(player, room) && player.IsKongcheng() && data is CardUseStruct use && use.To.Count == 1 && player.Phase == PlayerPhase.NotActive)
+            if (base.Triggerable(player, room) && player.IsKongcheng() && data is CardUseStruct use && player.Phase == PlayerPhase.NotActive)
             {
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                if (fcard is Slash || (fcard.IsNDTrick() && (fcard is FireAttack || fcard is Duel || fcard is SavageAssault || fcard is ArcheryAttack)))
+                if (fcard is Slash || fcard.IsNDTrick())
                     return new TriggerStruct(Name, player);
             }
             return new TriggerStruct();

@@ -145,7 +145,7 @@ namespace SanguoshaServer.AI
     {
         public HujiaAI() : base("hujia")
         {
-            key = new List<string> { "cardResponded%hujia", "skillInvoke:EightDiagram" };
+            key = new List<string> { "cardResponded%hujia", "skillInvoke:EightDiagram", "skillInvoke:hujia" };
         }
 
         public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
@@ -174,12 +174,25 @@ namespace SanguoshaServer.AI
                         Player cc = room.FindPlayer(caocao_name);
                         ai.UpdatePlayerRelation(player, cc, true);
                     }
+                    else if (choices[1] == Name)
+                    {
+                        bool friend = choices[2] == "yes";
+                        foreach (Player p in room.GetOtherPlayers(player))
+                            if (p.HasFlag("hujia_from") && ai.GetPlayerTendency(p) != "unknown")
+                                ai.UpdatePlayerRelation(player, p, friend);
+                    }
                 }
             }
         }
         public override double GetSkillAdjustValue(TrustedAI ai, Player player)
         {
             return 5;
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is Player target) return ai.IsFriend(target);
+            return false;
         }
 
         public override List<WrappedCard> GetViewAsCards(TrustedAI ai, string pattern, Player player)

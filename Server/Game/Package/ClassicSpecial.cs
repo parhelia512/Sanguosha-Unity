@@ -10397,49 +10397,46 @@ namespace SanguoshaServer.Package
             List<int> maps = player.GetPile("zhouxuan_zh");
             if (maps.Count > 0)
             {
-                int card_id;
-                if (maps.Count == 1)
-                    card_id = maps[0];
-                else
+                int draw = 1;
+                bool only = true;
+                foreach (Player p in room.GetOtherPlayers(player))
                 {
-                    room.FillAG("zhouxuan_zh", maps, player);
-                    card_id = room.AskForAG(player, maps, false, "zhouxuan_zh");
-                    room.ClearAG(player);
+                    if (p.HandcardNum >= player.HandcardNum)
+                    {
+                        only = false;
+                        break;
+                    }
                 }
 
-                LogMessage log = new LogMessage
-                {
-                    Type = "$RemoveFromPile",
-                    From = player.Name,
-                    Arg = "zhouxuan_zh",
-                    Card_str = card_id.ToString()
-                };
-                room.SendLog(log);
+                if (!only) draw = maps.Count;
+                room.DrawCards(player, draw, "zhouxuan_zh");
 
-                CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_REMOVE_FROM_PILE, null, "zhouxuan_zh", null);
-                List<int> ids = new List<int> { card_id };
-                room.ThrowCard(ref ids, reason, null);
-                room.ClearAG(player);
-            }
-            if (player.Alive)
-            {
-                int draw = 1;
-                int count = player.GetPile("zhouxuan_zh").Count;
-                if (count > 1)
+                if (player.Alive)
                 {
-                    bool only = true;
-                    foreach (Player p in room.GetOtherPlayers(player))
+                    int card_id;
+                    if (maps.Count == 1)
+                        card_id = maps[0];
+                    else
                     {
-                        if (p.HandcardNum >= player.HandcardNum)
-                        {
-                            only = false;
-                            break;
-                        }
+                        room.FillAG("zhouxuan_zh", maps, player);
+                        card_id = room.AskForAG(player, maps, false, "zhouxuan_zh");
+                        room.ClearAG(player);
                     }
 
-                    if (!only) draw = count;
+                    LogMessage log = new LogMessage
+                    {
+                        Type = "$RemoveFromPile",
+                        From = player.Name,
+                        Arg = "zhouxuan_zh",
+                        Card_str = card_id.ToString()
+                    };
+                    room.SendLog(log);
+
+                    CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_REMOVE_FROM_PILE, null, "zhouxuan_zh", null);
+                    List<int> ids = new List<int> { card_id };
+                    room.ThrowCard(ref ids, reason, null);
+                    room.ClearAG(player);
                 }
-                room.DrawCards(player, draw, "zhouxuan_zh");
             }
 
             return false;

@@ -1570,9 +1570,53 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Hujia : ZeroCardViewAsSkill
+    public class Hujia : TriggerSkill
     {
-        public Hujia() : base("hujia") { skill_type = SkillType.Defense; lord_skill = true; }
+        public Hujia() : base("hujia")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardResponded };
+            skill_type = SkillType.Defense;
+            lord_skill = true;
+            view_as_skill = new HujiaVS();
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Card != null && resp.Card.Name == Jink.ClassName
+                && player.Alive && player.Kingdom == "wei" && player.Phase == PlayerPhase.NotActive)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                    if (!p.HasFlag(Name) && p != player)
+                        triggers.Add(new TriggerStruct(Name, player, p));
+            }
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            player.SetFlags("hujia_from");
+            bool invoke = room.AskForSkillInvoke(player, Name, room.FindPlayer(info.SkillOwner));
+            player.SetFlags("-hujia_from");
+            if (invoke)
+            {
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, info.SkillOwner);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.SetFlags(Name);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.DrawCards(player, new DrawCardStruct(1, ask_who, Name));
+            return false;
+        }
+    }
+    public class HujiaVS : ZeroCardViewAsSkill
+    {
+        public HujiaVS() : base("hujia") {}
         public override bool IsEnabledAtPlay(Room room, Player player) => false;
         public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
         {
