@@ -186,6 +186,8 @@ namespace SanguoshaServer.Package
                 new ZhouxuanZhEffect(),
                 new Juguan(),
                 new JuguanDraw(),
+                new FengjiSP(),
+                new FengjiTar(),
 
                 new Shenxian(),
                 new Qiangwu(),
@@ -380,6 +382,7 @@ namespace SanguoshaServer.Package
                 { "chuiti", new List<string>{ "#chuiti" } },
                 { "zhouxuan_zh", new List<string>{ "#zhouxuan_zh" } },
                 { "juguan", new List<string>{ "#juguan" } },
+                { "fengji_sp", new List<string>{ "#fengji_sp" } },
             };
         }
     }
@@ -10563,6 +10566,95 @@ namespace SanguoshaServer.Package
         }
     }
 
+    public class FengjiSP : TriggerSkill
+    {
+        public FengjiSP() : base("fengji_sp")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.EventPhaseProceeding, TriggerEvent.EventPhaseChanging };
+            frequency = Frequency.Compulsory;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                room.RemovePlayerStringMark(player, "fengji_slash");
+                player.SetMark(Name, 0);
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Draw)
+                return new TriggerStruct(Name, player);
+            else if (triggerEvent == TriggerEvent.EventPhaseProceeding && player != null && player.Alive && player.GetMark("fengji_draw") > 0)
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart)
+            {
+                List<string> result = new List<string>(), choices = new List<string> { "draw", "slash", "cancel" };
+                string choice = room.AskForChoice(player, Name, string.Join("+", choices));
+                if (choice != "cancel")
+                {
+                    result.Add(choice);
+                    choices.Remove(choice);
+                    choice = room.AskForChoice(player, Name, string.Join("+", choices));
+                    if (choice != "cancel") result.Add(choice);
+                }
+                room.SendCompulsoryTriggerLog(player, Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                if (!result.Contains("draw"))
+                {
+                    player.AddMark("fengji_draw");
+                    room.SetPlayerStringMark(player, "fengji_draw", player.GetMark("fengji_draw").ToString());
+                }
+                else
+                {
+                    Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@fengji_sp-draw", false, true, info.SkillPosition);
+                    if (target != null)
+                    {
+                        target.AddMark("fengji_draw", 2);
+                        room.SetPlayerStringMark(target, "fengji_draw", target.GetMark("fengji_draw").ToString());
+                    }
+                }
+                if (!result.Contains("slash"))
+                {
+                    Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@fengji_sp-slash", false, true, info.SkillPosition);
+                    if (target != null)
+                    {
+                        target.AddMark(Name, 2);
+                        room.SetPlayerStringMark(target, "fengji_slash", target.GetMark(Name).ToString());
+                    }
+                }
+                else
+                {
+                    player.AddMark(Name);
+                    room.SetPlayerStringMark(player, "fengji_slash", player.GetMark(Name).ToString());
+                }
+            }
+            else if (data is int count)
+            {
+                int add = player.GetMark("fengji_draw");
+                count+= add;
+                data = count;
+                player.SetMark("fengji_draw", 0);
+                room.RemovePlayerStringMark(player, "fengji_draw");
+            }
+
+            return false;
+        }
+    }
+
+    public class FengjiTar : TargetModSkill
+    {
+        public FengjiTar() : base("#fengji_sp", false) { }
+
+        public override int GetResidueNum(Room room, Player from, WrappedCard card) => from.GetMark("fengji_sp");
+    }
     public class Qiangwu : TriggerSkill
     {
         public Qiangwu() : base("qiangwu")
