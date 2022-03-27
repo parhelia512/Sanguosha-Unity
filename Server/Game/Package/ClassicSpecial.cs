@@ -10614,15 +10614,28 @@ namespace SanguoshaServer.Package
                 }
                 else
                 {
+                    player.AddMark("fengji_draw", -1);
+                    room.SetPlayerStringMark(player, "fengji_draw", player.GetMark("fengji_draw").ToString());
+
                     Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@fengji_sp-draw", false, true, info.SkillPosition);
                     if (target != null)
                     {
+
                         target.AddMark("fengji_draw", 2);
                         room.SetPlayerStringMark(target, "fengji_draw", target.GetMark("fengji_draw").ToString());
                     }
                 }
                 if (!result.Contains("slash"))
                 {
+                    player.AddMark(Name);
+                    room.SetPlayerStringMark(player, "fengji_slash", player.GetMark(Name).ToString());
+
+                }
+                else
+                {
+                    player.AddMark(Name, -1);
+                    room.SetPlayerStringMark(player, "fengji_slash", player.GetMark(Name).ToString());
+
                     Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@fengji_sp-slash", false, true, info.SkillPosition);
                     if (target != null)
                     {
@@ -10630,16 +10643,11 @@ namespace SanguoshaServer.Package
                         room.SetPlayerStringMark(target, "fengji_slash", target.GetMark(Name).ToString());
                     }
                 }
-                else
-                {
-                    player.AddMark(Name);
-                    room.SetPlayerStringMark(player, "fengji_slash", player.GetMark(Name).ToString());
-                }
             }
             else if (data is int count)
             {
                 int add = player.GetMark("fengji_draw");
-                count+= add;
+                count += add;
                 data = count;
                 player.SetMark("fengji_draw", 0);
                 room.RemovePlayerStringMark(player, "fengji_draw");
