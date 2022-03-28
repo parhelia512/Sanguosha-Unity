@@ -34,6 +34,7 @@ namespace SanguoshaServer.AI
                 new JushouJXAI(),
                 new JieweiAI(),
                 new DuanliangJXAI(),
+                new JiezhiAI(),
                 new ShefuAI(),
                 new BenyuAI(),
                 new JiemingJXAI(),
@@ -1662,6 +1663,33 @@ namespace SanguoshaServer.AI
             }
 
             return null;
+        }
+    }
+
+    public class JiezhiAI : SkillEvent
+    {
+        public JiezhiAI() : base("jiezhi")
+        {
+            key = new List<string> { "playerChosen:jiezhi" };
+        }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (data is string choice)
+            {
+                string[] choices = choice.Split(':');
+                if (choices[1] == Name)
+                {
+                    Room room = ai.Room;
+                    Player target = room.FindPlayer(choices[2], true);
+                    if (ai.GetPlayerTendency(target) != "unknown")
+                        ai.UpdatePlayerRelation(player, target, true);
+                }
+            }
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            return new List<Player> { player };
         }
     }
 
