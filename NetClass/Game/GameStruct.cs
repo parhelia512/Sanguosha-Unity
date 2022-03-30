@@ -554,6 +554,28 @@ namespace CommonClass.Game
             Origin_to_pile_name = null;
         }
 
+        public CardsMoveStruct(List<int> ids, Player to, Place to_place, CardMoveReason reason, string to_pile_name)
+        {
+            Card_ids = ids;
+            From_place = Place.PlaceUnknown;
+            To_place = to_place;
+            From = string.Empty;
+            To = to != null ? to.Name : string.Empty;
+            Reason = reason;
+            Is_last_handcard = false;
+
+            Open = false;
+
+            From_pile_name = null;
+            To_pile_name = to_pile_name;
+            Origin_from_place = Place.PlaceUnknown;
+            Origin_to_place = Place.PlaceUnknown;
+            Origin_from = null;
+            Origin_to = null;
+            Origin_from_pile_name = null;
+            Origin_to_pile_name = null;
+        }
+
         public CardsMoveStruct(int id, Player from, Player to, Place from_place, Place to_place, CardMoveReason reason)
         {
             Card_ids = new List<int> { id };

@@ -72,6 +72,8 @@ namespace SanguoshaServer.Package
                 new Yuqi(),
                 new Shanshen(),
                 new Xianjing(),
+                new Xingzuo(),
+                new Miaoxian(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -3747,6 +3749,178 @@ namespace SanguoshaServer.Package
             }
 
             return false;
+        }
+    }
+
+    public class Xingzuo : TriggerSkill
+    {
+        public Xingzuo() : base("xingzuo")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart };
+            skill_type = SkillType.Wizzard;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && player.Phase == PlayerPhase.Play)
+                return new TriggerStruct(Name, player);
+            else if (player != null && player.Alive && player.Phase == PlayerPhase.Finish && player.HasFlag(Name))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.Phase == PlayerPhase.Play && room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.SetFlags(Name);
+                return info;
+            }
+            else if (player.Phase == PlayerPhase.Finish)
+            {
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.Phase == PlayerPhase.Play)
+            {
+                List<int> ids = room.GetNCardsFromBottom(3, true);
+
+                LogMessage log = new LogMessage
+                {
+                    Type = "#GuanxingResult",
+                    From = player.Name,
+                    Arg = "0",
+                    Arg2 = "3"
+                };
+                room.SendLog(log, new List<Player> { player });
+
+                LogMessage log1 = new LogMessage
+                {
+                    Type = "$GuanxingBottom",
+                    From = player.Name,
+                    Card_str = string.Join("+", JsonUntity.IntList2StringList(ids))
+                };
+                room.SendLog(log, player);
+
+                List<int> hands = player.GetCards("h");
+
+                AskForMoveCardsStruct move = room.AskForMoveCards(player, hands, ids, false, Name, 3, 3, true, true, new List<int>(), info.SkillPosition);
+                if (move.Success && move.Bottom.Count == 3)
+                {
+                    List<int> to_hand = move.Top.FindAll(t => !hands.Contains(t));
+                    List<int> to_table = move.Bottom.FindAll(t => !ids.Contains(t));                   
+
+                    CardsMoveStruct move1 = new CardsMoveStruct(to_hand, player, Place.PlaceHand, new CardMoveReason(MoveReason.S_REASON_GOTCARD, player.Name, Name, string.Empty));
+                    CardsMoveStruct move2 = new CardsMoveStruct(to_table, player, Place.PlaceSpecial,
+                        new CardMoveReason(MoveReason.S_REASON_UNKNOWN, player.Name, Name, string.Empty), "#virtual_cards");
+                    List<CardsMoveStruct> exchangeMove = new List<CardsMoveStruct> { move1, move2 };
+                    room.MoveCards(exchangeMove, false);
+
+                    room.ReturnToDrawPile(move.Bottom, true, player);
+                }
+            }
+            else
+            {
+                List<Player> targets = new List<Player>();
+                foreach (Player p in room.GetAlivePlayers())
+                    if (!p.IsKongcheng()) targets.Add(p);
+
+                if (targets.Count > 0)
+                {
+                    Player target = room.AskForPlayerChosen(player, targets, Name, "@xingzuo-bottom", true, true, info.SkillPosition);
+                    if (target != null)
+                    {
+                        List<int> ids = room.GetNCardsFromBottom(3, true);
+                        List<int> hands = target.GetCards("h");
+
+                        CardsMoveStruct move1 = new CardsMoveStruct(ids, target, Place.PlaceHand, new CardMoveReason(MoveReason.S_REASON_GOTCARD, player.Name, target.Name, Name, string.Empty));
+                        CardsMoveStruct move2 = new CardsMoveStruct(hands, target, Place.PlaceSpecial,
+                            new CardMoveReason(MoveReason.S_REASON_UNKNOWN, player.Name, target.Name, Name, string.Empty), "#virtual_cards");
+                        List <CardsMoveStruct> exchangeMove = new List<CardsMoveStruct> { move1, move2 };
+                        room.MoveCards(exchangeMove, false);
+
+                        room.ReturnToDrawPile(hands, true);
+                    }
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class Miaoxian : TriggerSkill
+    {
+        public Miaoxian() : base("miaoxian")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime };
+            view_as_skill = new MiaoxianVS();
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardsMoveOneTimeStruct move && move.From_places.Contains(Place.PlaceHand) && (move.Reason.Reason == MoveReason.S_REASON_USE || move.Reason.Reason == MoveReason.S_REASON_LETUSE)
+                && move.Card_ids.Count == 1 && WrappedCard.IsRed(room.GetCard(move.Card_ids[0]).Suit) && move.Is_last_handcard && base.Triggerable(move.From, room))
+                return new TriggerStruct(Name, move.From);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(ask_who, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.DrawCards(ask_who, 1, Name);
+            return false;
+        }
+    }
+
+    public class MiaoxianVS : ViewAsSkill
+    {
+        public MiaoxianVS() : base("miaoxian") { }
+
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => false;
+        public override bool IsEnabledAtPlay(Room room, Player player)
+        {
+            if (player.HandcardNum == 1 && !player.HasUsed("ViewAsSkill_miaoxianCard"))
+            {
+                int id = player.GetCards("h")[0];
+                WrappedCard card = room.GetCard(id);
+                if (WrappedCard.IsBlack(card.Suit) && !RoomLogic.IsCardLimited(room, player, card, HandlingMethod.MethodUse))
+                    return true;
+            }
+            return false;
+        }
+
+        public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
+        {
+            List<WrappedCard> result = new List<WrappedCard>();
+            foreach (string card_name in ViewAsSkill.GetGuhuoCards(room, "t"))
+            {
+                WrappedCard card = new WrappedCard(card_name) { Skill = Name };
+                card.AddSubCards(player.GetCards("h"));
+                card = RoomLogic.ParseUseCard(room, card);
+                result.Add(card);
+            }
+            return result;
+        }
+
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count == 1 && cards[0].IsVirtualCard())
+                return cards[0];
+            return null;
         }
     }
 

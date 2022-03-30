@@ -232,6 +232,34 @@ namespace SanguoshaServer.Game
 
             return card_ids;
         }
+
+        public List<int> GetNCardsFromBottom(int n, bool update_pile_number = true)
+        {
+            List<int> card_ids = new List<int>();
+            int m = m_drawPile.Count;
+            while (n > m)
+            {
+                for (int i = 0; i < m; i++)
+                {
+                    card_ids.Add(m_drawPile[0]);
+                    m_drawPile.RemoveAt(0);
+                    //room_thread.Trigger(TriggerEvent.FetchDrawPileCard, this, null);
+                }
+                SwapPile();
+                ReturnToDrawPile(card_ids, false);
+                m = m_drawPile.Count;
+            }
+
+            card_ids.Clear();
+            for (int i = 0; i < n; i++)
+                card_ids.Add(m_drawPile[m_drawPile.Count - i - 1]);
+
+            if (update_pile_number)
+                RemoveFromDrawPile(card_ids);
+
+            return card_ids;
+        }
+
         public void ReturnToDrawPile(List<int> cards, bool isBottom, Player move_from = null, bool open = false)
         {
             if (cards.Count == 0) return;
@@ -9672,7 +9700,7 @@ namespace SanguoshaServer.Game
                 Arg = top_cards.Count.ToString(),
                 Arg2 = bottom_cards.Count.ToString()
             };
-            SendLog(log);
+            SendLog(log, new List<Player> { zhuge });
 
             if (top_cards.Count > 0)
             {
