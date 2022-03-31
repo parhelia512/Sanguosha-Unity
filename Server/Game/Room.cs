@@ -302,7 +302,7 @@ namespace SanguoshaServer.Game
         {
             RemoveFromDrawPile(new List<int> { id });
         }
-        public void RemoveFromDrawPile(List<int> ids)
+        public void RemoveFromDrawPile(List<int> ids, bool notify = true)
         {
             bool update = false;
             foreach (int id in ids)
@@ -311,12 +311,15 @@ namespace SanguoshaServer.Game
                 {
                     if (m_drawPile[0] != id)
                     {
-                        int index = m_drawPile.IndexOf(id);
-                        LogMessage log = new LogMessage("#RemoveFromDrawPile")
+                        if (notify)
                         {
-                            Arg = (index + 1).ToString(),
-                        };
-                        SendLog(log);
+                            int index = m_drawPile.IndexOf(id);
+                            LogMessage log = new LogMessage("#RemoveFromDrawPile")
+                            {
+                                Arg = (index + 1).ToString(),
+                            };
+                            SendLog(log);
+                        }
                     }
                     m_drawPile.Remove(id);
                     //room_thread.Trigger(TriggerEvent.FetchDrawPileCard, this, null);
@@ -324,7 +327,7 @@ namespace SanguoshaServer.Game
                 }
             }
 
-            if (update)
+            if (notify && update)
             {
                 object data = m_drawPile.Count;
                 List<string> arg = new List<string>

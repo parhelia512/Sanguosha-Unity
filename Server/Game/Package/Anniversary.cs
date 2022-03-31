@@ -3792,20 +3792,19 @@ namespace SanguoshaServer.Package
 
                 LogMessage log = new LogMessage
                 {
-                    Type = "#GuanxingResult",
+                    Type = "$ViewDrawPileBottom2",
                     From = player.Name,
-                    Arg = "0",
-                    Arg2 = "3"
+                    Arg = "3",
                 };
                 room.SendLog(log, new List<Player> { player });
 
                 LogMessage log1 = new LogMessage
                 {
-                    Type = "$GuanxingBottom",
+                    Type = "$ViewDrawPileBottom",
                     From = player.Name,
                     Card_str = string.Join("+", JsonUntity.IntList2StringList(ids))
                 };
-                room.SendLog(log, player);
+                room.SendLog(log1, player);
 
                 List<int> hands = player.GetCards("h");
 
@@ -3816,12 +3815,12 @@ namespace SanguoshaServer.Package
                     List<int> to_table = move.Bottom.FindAll(t => !ids.Contains(t));                   
 
                     CardsMoveStruct move1 = new CardsMoveStruct(to_hand, player, Place.PlaceHand, new CardMoveReason(MoveReason.S_REASON_GOTCARD, player.Name, Name, string.Empty));
-                    CardsMoveStruct move2 = new CardsMoveStruct(to_table, player, Place.PlaceSpecial,
-                        new CardMoveReason(MoveReason.S_REASON_UNKNOWN, player.Name, Name, string.Empty), "#virtual_cards");
+                    CardsMoveStruct move2 = new CardsMoveStruct(to_table, null, Place.DrawPileBottom,
+                        new CardMoveReason(MoveReason.S_REASON_PUT, player.Name, Name, string.Empty))
+                    { From = player.Name };
                     List<CardsMoveStruct> exchangeMove = new List<CardsMoveStruct> { move1, move2 };
-                    room.MoveCards(exchangeMove, false);
-
-                    room.ReturnToDrawPile(move.Bottom, true, player);
+                    room.MoveCardsAtomic(exchangeMove, false);
+                    room.ReturnToDrawPile(move.Bottom, true);
                 }
             }
             else
@@ -3839,12 +3838,13 @@ namespace SanguoshaServer.Package
                         List<int> hands = target.GetCards("h");
 
                         CardsMoveStruct move1 = new CardsMoveStruct(ids, target, Place.PlaceHand, new CardMoveReason(MoveReason.S_REASON_GOTCARD, player.Name, target.Name, Name, string.Empty));
-                        CardsMoveStruct move2 = new CardsMoveStruct(hands, target, Place.PlaceSpecial,
-                            new CardMoveReason(MoveReason.S_REASON_UNKNOWN, player.Name, target.Name, Name, string.Empty), "#virtual_cards");
+                        CardsMoveStruct move2 = new CardsMoveStruct(hands, null, Place.DrawPileBottom,
+                            new CardMoveReason(MoveReason.S_REASON_PUT, player.Name, target.Name, Name, string.Empty))
+                        { From = target.Name };
                         List <CardsMoveStruct> exchangeMove = new List<CardsMoveStruct> { move1, move2 };
-                        room.MoveCards(exchangeMove, false);
+                        room.MoveCardsAtomic(exchangeMove, false);
 
-                        room.ReturnToDrawPile(hands, true);
+                        //room.ReturnToDrawPile(hands, true);
 
                         if (player.Alive && hands.Count > 3)
                             room.LoseHp(player);
