@@ -3845,6 +3845,9 @@ namespace SanguoshaServer.Package
                         room.MoveCards(exchangeMove, false);
 
                         room.ReturnToDrawPile(hands, true);
+
+                        if (player.Alive && hands.Count > 3)
+                            room.LoseHp(player);
                     }
                 }
             }
