@@ -4772,7 +4772,7 @@ namespace SanguoshaServer.Package
             if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == Player.PlayerPhase.Start)
             {
                 foreach (Player p in room.GetAlivePlayers())
-                    if (p.HandcardNum > p.Hp && RoomLogic.CanDiscard(room, player, p, "he"))
+                    if (!p.IsNude() && RoomLogic.CanDiscard(room, player, p, "he"))
                         return new TriggerStruct(Name, player);
             }
 
@@ -4782,7 +4782,7 @@ namespace SanguoshaServer.Package
         {
             List<Player> targets = new List<Player>();
             foreach (Player p in room.GetAlivePlayers())
-                if (p.HandcardNum > p.Hp && RoomLogic.CanDiscard(room, player, p, "he"))
+                if (p.IsNude() && RoomLogic.CanDiscard(room, player, p, "he"))
                     targets.Add(p);
 
             if (targets.Count > 0)
@@ -4804,7 +4804,7 @@ namespace SanguoshaServer.Package
             player.RemoveTag("zhenjun_target");
             if (to != null)
             {
-                int count = to.HandcardNum - to.Hp;
+                int count = Math.Max(1, to.HandcardNum - to.Hp);
                 List<int> ids = new List<int>();
                 if (to == player)
                 {
@@ -4824,7 +4824,7 @@ namespace SanguoshaServer.Package
                 };
                 room.ThrowCard(ref ids, reason, to, to == player ? null : player);
 
-                if (ids.Count > 0 && player.Alive)
+                if (ids.Count > 0)
                 {
                     int discard_count = 0;
                     foreach (int id in ids)
@@ -4834,41 +4834,17 @@ namespace SanguoshaServer.Package
                             discard_count++;
                     }
 
-                    List<string> choices = new List<string>(), prompts = new List<string> { "@zhenjun-choose:" };
-                    if (to.Alive)
-                    {
-                        choices.Add("draw");
-                        prompts.Add(string.Format("@zhenjun-draw:{0}::{1}", to.Name, ids.Count));
-                    }
-
-                    bool can_discard = false;
                     if (discard_count > 0)
                     {
-                        int discard_self = 0;
-                        foreach (int id in player.GetCards("he"))
-                            if (!RoomLogic.IsJilei(room, player, room.GetCard(id))) discard_self++;
+                        bool discard = false;
+                        to.SetFlags(Name);
+                        if (player.Alive && room.AskForDiscard(player, Name, 1, 1, true, true, string.Format("@zhenjun-discard:{0}::{1}", to.Name, ids.Count), false, info.SkillPosition))
+                            discard = true;
+                        to.SetFlags("-zhenjun");
 
-                        if (discard_self >= discard_count) can_discard = true;
+                        if (!discard && to.Alive)
+                            room.DrawCards(to, new DrawCardStruct(ids.Count, player, Name));
                     }
-
-                    if (discard_count > 0)
-                    {
-                        if (can_discard)
-                        {
-                            choices.Add("discard");
-                            prompts.Add(string.Format("@zhenjun-discard:::{0}", discard_count));
-                        }
-                    }
-                    else
-                        choices.Add("cancel");
-
-                    room.SetTag("zhenjun_target", to);
-                    string result = room.AskForChoice(player, Name, string.Join("+", choices), prompts);
-                    room.RemoveTag("zhenjun_target");
-                    if (result == "draw" && to.Alive)
-                        room.DrawCards(to, new DrawCardStruct(ids.Count, player, Name));
-                    else if (result == "discard" && player.Alive)
-                        room.AskForDiscard(player, Name, discard_count, discard_count, false, true, string.Format("@zhenjun-discard:::{0}", discard_count), false, info.SkillPosition);
                 }
             }
 

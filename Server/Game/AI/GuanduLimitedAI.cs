@@ -2551,7 +2551,18 @@ namespace SanguoshaServer.AI
 
         public override List<int> OnDiscard(TrustedAI ai, Player player, List<int> ids, int min, int max, bool option)
         {
+            Player target = null;
+            foreach (Player p in ai.Room.GetAlivePlayers())
+            {
+                if (p.HasFlag(Name))
+                {
+                    target = p;
+                    break;
+                }
+            }
+
             List<int> cards = new List<int>(ids), result = new List<int>();
+            if (ai.IsFriend(target) || cards.Count == 0) return result;
             ai.SortByKeepValue(ref cards, false);
             for (int i = 0; i < Math.Min(min, cards.Count); i++)
             {
@@ -2566,18 +2577,6 @@ namespace SanguoshaServer.AI
                 result.Add(cards[i]);
 
             return result;
-        }
-
-        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
-        {
-            Room room = ai.Room;
-            if (room.GetTag("zhenjun_target") is Player target && ai.IsFriend(target))
-                return "draw";
-
-            if (choice.Contains("cancel"))
-                return "cancel";
-
-            return "disacard";
         }
     }
 
