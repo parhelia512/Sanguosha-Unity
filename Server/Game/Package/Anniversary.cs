@@ -209,6 +209,8 @@ namespace SanguoshaServer.Package
                 new Yuyun(),
                 new YuyunTar(),
                 new YuyunMax(),
+                new Jinghui(),
+                new Qingman(),
             };
 
             skill_cards = new List<FunctionCard>
@@ -12542,6 +12544,182 @@ namespace SanguoshaServer.Package
         public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern)
         {
             return from.HasFlag("yuyun_slash") && to.HasFlag("yuyun_victim");
+        }
+    }
+
+    public class Jinghui : ZeroCardViewAsSkill
+    {
+        public Jinghui() : base("jinghui")
+        {
+            skill_type = SkillType.Wizzard;
+        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(JinghuiCard.ClassName);
+
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(JinghuiCard.ClassName) { Skill = Name };
+    }
+
+    public class JinghuiCard : SkillCard
+    {
+        public static string ClassName = "JinghuiCard";
+        public JinghuiCard() : base(ClassName)
+        {
+            target_fixed = true;
+            will_throw = false;
+        }
+
+        private List<int> GetAvailable(Room room, List<int> ids, Player from, Player to)
+        {
+            List<int> available = new List<int>();
+            foreach (int id in ids)
+            {
+                WrappedCard card = room.GetCard(id);
+                FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                if (fcard is EquipCard || fcard is Analeptic || fcard is ExNihilo || (fcard is Peach && from.IsWounded()))
+                {
+                    if (RoomLogic.IsProhibited(room, from, from, card) == null)
+                        available.Add(id);
+                }
+                else if (fcard is Snatch && to.Alive && !to.IsAllNude() && RoomLogic.CanGetCard(room, from, to, "hej"))
+                {
+                    if (RoomLogic.IsProhibited(room, from, to, card) == null)
+                        available.Add(id);
+                }
+                else if (fcard is Dismantlement && to.Alive && !to.IsAllNude() && RoomLogic.CanGetCard(room, from, to, "hej"))
+                {
+                    if (RoomLogic.IsProhibited(room, from, to, card) == null)
+                        available.Add(id);
+                }
+                else if ((fcard is SupplyShortage || fcard is Indulgence) && to.Alive && to.JudgingAreaAvailable && !RoomLogic.PlayerContainsTrick(room, to, card.Name))
+                {
+                    if (RoomLogic.IsProhibited(room, from, to, card) == null)
+                        available.Add(id);
+                }
+            }
+            return available;
+        }
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            if (room.DrawPile.Count < 5) room.SwapPile();
+            Player player = card_use.From;
+            List<int> ids = new List<int>();
+            List<string> cards = new List<string>();
+            foreach (int id in room.DrawPile)
+            {
+                WrappedCard card = room.GetCard(id);
+                FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                if (cards.Contains(card.Name)) continue;
+                if (fcard is EquipCard || fcard is Peach || fcard is Analeptic || fcard is Snatch || fcard is Dismantlement || fcard is ExNihilo || fcard is SupplyShortage || fcard is Indulgence)
+                {
+                    ids.Add(id);
+                    cards.Add(card.Name);
+                }
+                if (ids.Count >= 3)
+                    break;
+            }
+
+            if (ids.Count > 0)
+            {
+                foreach (int id in ids)
+                    room.MoveCardTo(room.GetCard(id), player, Place.PlaceTable, new CardMoveReason(MoveReason.S_REASON_TURNOVER, player.Name, "jinghui", null), false);
+
+                if (player.Alive)
+                {
+                    Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), "jinghui", "@jinghui", false, false, card_use.Card.SkillPosition);
+                    List<int> can_use = GetAvailable(room, ids, target, player);
+                    if (can_use.Count > 0)
+                    {
+                        List<string> patterns = new List<string>();
+                        foreach (int id in can_use)
+                            patterns.Add(id.ToString());
+
+                        List<int> result = room.NotifyChooseCards(target, ids, "jinghui", 1, 1, "@jinghui-from:" + player.Name, string.Join("#", patterns), string.Empty);
+                        int to_use = result[0];
+                        ids.Remove(to_use);
+                        WrappedCard card = room.GetCard(to_use);
+                        FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                        if (fcard is EquipCard || fcard is Analeptic || fcard is ExNihilo || fcard is Peach)
+                            room.UseCard(new CardUseStruct(card, target, new List<Player>()), true, true);
+                        else
+                            room.UseCard(new CardUseStruct(card, target, player), true, true);
+                    }
+
+                    while (player.Alive && ids.Count > 0)
+                    {
+                        can_use = GetAvailable(room, ids, player, target);
+                        if (can_use.Count > 0)
+                        {
+                            List<string> patterns = new List<string>();
+                            foreach (int id in can_use)
+                                patterns.Add(id.ToString());
+
+                            List<int> result = room.NotifyChooseCards(player, ids, "jinghui", 1, 0, "@jinghui-to:" + target.Name, string.Join("#", patterns), card_use.Card.SkillPosition);
+                            if (result.Count == 1)
+                            {
+                                int to_use = result[0];
+                                ids.Remove(to_use);
+                                WrappedCard card = room.GetCard(to_use);
+                                FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                                if (fcard is EquipCard || fcard is Analeptic || fcard is ExNihilo || fcard is Peach)
+                                    room.UseCard(new CardUseStruct(card, player, new List<Player>()), true, true);
+                                else
+                                    room.UseCard(new CardUseStruct(card, player, target), true, true);
+                            }
+                            else
+                                break;
+                        }
+                        else
+                            break;
+                    }
+                }
+
+                if (ids.Count > 0)
+                {
+                    foreach (int id in ids)
+                        room.MoveCardTo(room.GetCard(id), null, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, player.Name, "jinghui", null), false);
+                }
+            }
+        }
+    }
+
+    public class Qingman : TriggerSkill
+    {
+        public Qingman() : base("qingman")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging };
+            skill_type = SkillType.Replenish;
+            frequency = Frequency.Compulsory;
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> result = new List<TriggerStruct>();
+            if (player != null && player.Alive && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                int count = 0;
+                for (int i = 0; i < 5; i++)
+                    if (!player.EquipIsBaned(i) && !player.HasEquip(i)) count++;
+
+                if (count > 0)
+                    foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                        if (p.HandcardNum < count)
+                            result.Add(new TriggerStruct(Name, p));
+            }
+
+            return result;
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(ask_who, Name, true);
+            room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+
+            int count = 0;
+            for (int i = 0; i < 5; i++)
+                if (!player.EquipIsBaned(i) && !player.HasEquip(i)) count++;
+
+            room.DrawCards(ask_who, count - ask_who.HandcardNum, Name);
+            return false;
         }
     }
 }
