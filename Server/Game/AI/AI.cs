@@ -2727,6 +2727,8 @@ namespace SanguoshaServer.AI
                     fire_slash.AddSubCard(slash);
                     fire_slash = RoomLogic.ParseUseCard(room, fire_slash);
 
+                    fire_slash.Skill = slash.Skill;
+
                     if (!string.IsNullOrEmpty(slash.UserString) && RoomLogic.ParseCard(room, slash.UserString) != null)
                         fire_slash.UserString = slash.UserString;
                     else
