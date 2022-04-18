@@ -2726,7 +2726,12 @@ namespace SanguoshaServer.AI
                     };
                     fire_slash.AddSubCard(slash);
                     fire_slash = RoomLogic.ParseUseCard(room, fire_slash);
-                    fire_slash.UserString = RoomLogic.CardToString(room, slash);
+
+                    if (!string.IsNullOrEmpty(slash.UserString) && RoomLogic.ParseCard(room, slash.UserString) != null)
+                        fire_slash.UserString = slash.UserString;
+                    else
+                        fire_slash.UserString = RoomLogic.CardToString(room, slash);
+
                     cards.Add(fire_slash);
                 }
             }
