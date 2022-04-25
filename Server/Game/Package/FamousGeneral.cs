@@ -156,6 +156,7 @@ namespace SanguoshaServer.Package
                 new Junxing(),
                 new Yuce(),
 
+                new GanluJx(),
                 new BuyiJX(),
                 new Anxu(),
                 new Zhuiyi(),
@@ -243,6 +244,7 @@ namespace SanguoshaServer.Package
                 new XuanhuoJXCard(),
                 new ZhaofuCard(),
                 new ZongxuanCard(),
+                new GanluJxCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -9933,6 +9935,93 @@ namespace SanguoshaServer.Package
             return false;
         }
     }
+
+    public class GanluJx : ZeroCardViewAsSkill
+    {
+        public GanluJx() : base("ganlu_jx") { }
+
+        public override bool IsEnabledAtPlay(Room room, Player player)
+        {
+            return !player.HasUsed(GanluJxCard.ClassName);
+        }
+
+        public override WrappedCard ViewAs(Room room, Player player)
+        {
+            WrappedCard card = new WrappedCard(GanluJxCard.ClassName)
+            {
+                Skill = Name,
+                ShowSkill = Name
+            };
+            return card;
+        }
+    }
+
+    public class GanluJxCard : SkillCard
+    {
+        public static string ClassName = "GanluJxCard";
+        public GanluJxCard() : base(ClassName) { }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            if (targets.Count == 0)
+                return true;
+
+            if (targets.Count == 1 && (to_select.HasEquip() || targets[0].HasEquip()))
+            {
+                for (int i = 0; i < 6; i++)
+                {
+                    if (targets[0].GetEquip(i) >= 0 && to_select.EquipIsBaned(i)) return false;
+                    if (to_select.GetEquip(i) >= 0 && targets[0].EquipIsBaned(i)) return false;
+                }
+
+                return true;
+            }
+
+            return false;
+        }
+
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card)
+        {
+            return targets.Count == 2;
+        }
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player source = card_use.From;
+            LogMessage log = new LogMessage
+            {
+                Type = "#GanluSwap",
+                From = source.Name
+            };
+            log.SetTos(card_use.To);
+            room.SendLog(log);
+
+            bool discard = Math.Abs(card_use.To[1].GetEquips().Count - card_use.To[0].GetEquips().Count) > source.GetLostHp();
+
+            Player first = card_use.To[0], second = card_use.To[1];
+            List<int> equips1 = first.GetEquips(), equips2 = second.GetEquips();
+
+            if (!card_use.To.Contains(source) || (first != source && equips2.Count > equips2.Count) || (first == source && equips2.Count < equips2.Count))
+            {
+                ResultStruct result = card_use.From.Result;
+                result.Assist += Math.Abs(equips1.Count - equips2.Count);
+                card_use.From.Result = result;
+            }
+
+            List<CardsMoveStruct> exchangeMove = new List<CardsMoveStruct>();
+            CardsMoveStruct move1 = new CardsMoveStruct(equips1, second, Place.PlaceEquip,
+                new CardMoveReason(MoveReason.S_REASON_SWAP, first.Name, second.Name, "ganlu_jx", string.Empty));
+            CardsMoveStruct move2 = new CardsMoveStruct(equips2, first, Place.PlaceEquip,
+                new CardMoveReason(MoveReason.S_REASON_SWAP, second.Name, first.Name, "ganlu_jx", string.Empty));
+            exchangeMove.Add(move2);
+            exchangeMove.Add(move1);
+            room.MoveCardsAtomic(exchangeMove, false);
+
+            if (source.Alive && discard && !source.IsKongcheng())
+                room.AskForDiscard(source, "ganlu_jx", 2, 2, false, false, "@ganlu_jx", false, card_use.Card.SkillPosition);
+        }
+    }
+
     public class BuyiJX : TriggerSkill
     {
         public BuyiJX() : base("buyi_jx")
@@ -9986,6 +10075,9 @@ namespace SanguoshaServer.Package
                     };
                     room.Recover(player, recover);
                 }
+
+                if (player.Alive && player.IsKongcheng())
+                    room.DrawCards(player, new DrawCardStruct(1, ask_who, Name));
             }
             return false;
         }
@@ -10572,10 +10664,10 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is CardUseStruct use && use.To.Count == 1 && use.Card.ExtraTarget && player.Phase == PlayerPhase.Play && base.Triggerable(player, room) && !player.HasFlag(Name))
+            if (data is CardUseStruct use && use.To.Count == 1 && use.Card.ExtraTarget && base.Triggerable(player, room) && !player.HasFlag(Name))
             {
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                if (fcard is Slash || (fcard is TrickCard && !(fcard is DelayedTrick) && !(fcard is Nullification) && WrappedCard.IsBlack(use.Card.Suit)))
+                if (fcard is Slash || (fcard is TrickCard && !(fcard is DelayedTrick) && !(fcard is Nullification)))
                 {
                     foreach (Player p in room.GetOtherPlayers(player))
                         if (!use.To.Contains(p) && RoomLogic.IsProhibited(room, player, p, use.Card, use.To) == null)
@@ -10712,7 +10804,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (base.Triggerable(player, room) && data is CardUseStruct use && use.From != null && use.From != player && use.From.IsMale() && !player.IsNude())
+            if (base.Triggerable(player, room) && !player.HasFlag(Name) && data is CardUseStruct use && use.From != null && use.From != player && !player.IsNude())
             {
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
                 if (fcard is Slash || (fcard is TrickCard && !(fcard is DelayedTrick)))
@@ -10796,6 +10888,9 @@ namespace SanguoshaServer.Package
                         room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_RECYCLE, player.Name, Name, string.Empty));
                     }
                 }
+
+                if (player.Alive && use.From.IsFemale())
+                    player.SetFlags(Name);
             }
 
             return false;

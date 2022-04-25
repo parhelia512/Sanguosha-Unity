@@ -114,7 +114,6 @@ namespace SanguoshaServer.AI
                 new FenyueCardAI(),
                 new MinsiCardAI(),
                 new CixiaoCardAI(),
-                new NiluanCardAI(),
                 new YujueCardAI(),
                 new ZunweiCardAI(),
                 new ShunshiCardAI(),
@@ -3325,7 +3324,7 @@ namespace SanguoshaServer.AI
                 {
                     if (ai.GetUseValue(id, player) <= Engine.GetCardUseValue(Slash.ClassName) + 1 && WrappedCard.IsBlack(room.GetCard(id).Suit))
                     {
-                        WrappedCard await = new WrappedCard(NiluanCard.ClassName);
+                        WrappedCard await = new WrappedCard(Slash.ClassName);
                         await.AddSubCard(id);
                         await.Skill = Name;
                         return new List<WrappedCard> { await };
@@ -3335,30 +3334,7 @@ namespace SanguoshaServer.AI
             return null;
         }
     }
-    public class NiluanCardAI : UseCard
-    {
-        public NiluanCardAI() : base(NiluanCard.ClassName) { }
-        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
-        {
-            Room room = ai.Room;
-            WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "niluan" };
-            slash.AddSubCard(card.GetEffectiveId());
-            slash = RoomLogic.ParseUseCard(room, slash);
-            List<WrappedCard> slashes = new List<WrappedCard> { slash };
-            List<Player> targets = new List<Player>();
-            foreach (Player p in room.GetOtherPlayers(player))
-                if (p.Hp > player.Hp) targets.Add(p);
 
-            List<ScoreStruct> scores = ai.CaculateSlashIncome(player, slashes, targets, true);
-            if (scores.Count > 0 && scores[0].Score > 0 && scores[0].Players != null && scores[0].Players.Count > 0)
-            {
-                use.Card = card;
-                use.To = scores[0].Players;
-            }
-        }
-
-        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 3.6;
-    }
     public class WeiwuAI : SkillEvent
     {
         public WeiwuAI() : base("weiwu") { }

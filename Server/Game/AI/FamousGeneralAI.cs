@@ -107,6 +107,7 @@ namespace SanguoshaServer.AI
                 new ZhuiyiAI(),
                 new BingyiAI(),
                 new ShenxingAI(),
+                new GanluJxAI(),
                 new BuyiJXAI(),
                 new AnguoAI(),
                 new WenguaAI(),
@@ -166,6 +167,7 @@ namespace SanguoshaServer.AI
                 new QiaoshuiCardAI(),
                 new XuanhuoJXCardAI(),
                 new ZhaofuCardAI(),
+                new GanluJxCardAI(),
             };
         }
     }
@@ -6959,6 +6961,153 @@ namespace SanguoshaServer.AI
                 result.Add(friends[i]);
 
             return result;
+        }
+    }
+
+    public class GanluJxAI : SkillEvent
+    {
+        public GanluJxAI() : base("ganlu_jx") { }
+
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            List<WrappedCard> result = new List<WrappedCard>();
+            if ((ai.WillShowForAttack() || ai.WillShowForDefence()) && !player.HasUsed(GanluJxCard.ClassName))
+            {
+                WrappedCard card = new WrappedCard(GanluJxCard.ClassName)
+                {
+                    Skill = Name,
+                    ShowSkill = Name
+                };
+                result.Add(card);
+            }
+
+
+            return result;
+        }
+    }
+
+    public class GanluJxCardAI : UseCard
+    {
+        public GanluJxCardAI() : base(GanluJxCard.ClassName) { }
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
+        {
+            return 7.5;
+        }
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            int count = player.IsKongcheng() || player.HandcardNum > 5 ? 10 : player.GetLostHp();
+            Room room = ai.Room;
+
+            if (count > 0)
+            {
+                double best = 0;
+                List<Player> targets = null;
+                foreach (Player friend in ai.GetFriends(player))
+                {
+                    int f_count = friend.GetEquips().Count;
+                    foreach (Player enemy in ai.GetEnemies(player))
+                    {
+                        int e_count = enemy.GetEquips().Count;
+                        int dif = f_count - e_count;
+                        if (dif > 0 && dif <= count)
+                        {
+                            double value = dif * 2;
+                            if (ai.HasSkill(TrustedAI.LoseEquipSkill, friend))
+                            {
+                                value++;
+                                if (f_count > 0) value += 0.5;
+                            }
+                            if (ai.HasSkill(TrustedAI.LoseEquipSkill, enemy))
+                            {
+                                value -= 0.5; ;
+                                if (f_count > 0) value--;
+                            }
+                            if (friend.GetTreasure())
+                                value--;
+                            if (enemy.GetTreasure())
+                                value++;
+                            foreach (int id in friend.GetEquips())
+                            {
+                                if (ai.GetKeepValue(id, friend) < 0)
+                                {
+                                    value++;
+                                    break;
+                                }
+                            }
+                            foreach (int id in enemy.GetEquips())
+                            {
+                                if (ai.GetKeepValue(id, friend) < 0)
+                                {
+                                    value--;
+                                    break;
+                                }
+                            }
+
+                            if (value > best)
+                            {
+                                best = value;
+                                targets = new List<Player> { friend, enemy };
+                            }
+                        }
+                    }
+                }
+                if (targets != null && targets.Count == 2)
+                {
+                    use.Card = card;
+                    use.To = targets;
+                    return;
+                }
+            }
+
+            double _best = 0;
+            List<Player> _targets = null;
+            foreach (Player friend in ai.GetFriends(player))
+            {
+                int f_count = friend.GetEquips().Count;
+                foreach (Player enemy in ai.GetFriends(player))
+                {
+                    if (enemy == friend) continue;
+                    int e_count = enemy.GetEquips().Count;
+                    int dif = f_count - e_count;
+                    if (Math.Abs(dif) <= count)
+                    {
+                        double value = 0;
+                        if (ai.HasSkill(TrustedAI.LoseEquipSkill, friend) && e_count > 0)
+                            value++;
+
+                        if (ai.HasSkill(TrustedAI.LoseEquipSkill, enemy) && f_count > 0)
+                            value++;
+
+                        foreach (int id in friend.GetEquips())
+                        {
+                            if (ai.GetKeepValue(id, friend) < 0)
+                            {
+                                value++;
+                                break;
+                            }
+                        }
+                        foreach (int id in enemy.GetEquips())
+                        {
+                            if (ai.GetKeepValue(id, friend) < 0)
+                            {
+                                value++;
+                                break;
+                            }
+                        }
+
+                        if (value > _best)
+                        {
+                            _best = value;
+                            _targets = new List<Player> { friend, enemy };
+                        }
+                    }
+                }
+            }
+            if (_targets != null && _targets.Count == 2)
+            {
+                use.Card = card;
+                use.To = _targets;
+            }
         }
     }
 

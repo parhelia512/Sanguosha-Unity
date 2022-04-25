@@ -236,7 +236,6 @@ namespace SanguoshaServer.Package
                 new LijiCard(),
                 new MouzhuCard(),
                 new YujueCard(),
-                new NiluanCard(),
                 new CixiaoCard(),
                 new MinsiCard(),
                 new JijingCard(),
@@ -6783,38 +6782,12 @@ namespace SanguoshaServer.Package
 
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {
-            WrappedCard nl = new WrappedCard(NiluanCard.ClassName) { Skill = Name };
-            nl.AddSubCard(card);
-            return nl;
+            WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "niluan" };
+            slash.AddSubCard(card);
+            return slash;
         }
     }
-
-    public class NiluanCard : SkillCard
-    {
-        public static string ClassName = "NiluanCard";
-        public NiluanCard() : base(ClassName)
-        {
-            will_throw = false;
-        }
-
-        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
-        {
-            WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "niluan" };
-            slash.AddSubCard(card.GetEffectiveId());
-            slash = RoomLogic.ParseUseCard(room, slash);
-            return Slash.Instance.TargetFilter(room, targets, to_select, Self, slash) && to_select.Hp > Self.Hp;
-        }
-
-        public override void OnUse(Room room, CardUseStruct card_use)
-        {
-            WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "niluan" };
-            slash.AddSubCard(card_use.Card.GetEffectiveId());
-            slash = RoomLogic.ParseUseCard(room, slash);
-            CardUseStruct use = new CardUseStruct(slash, card_use.From, card_use.To);
-            room.UseCard(use);
-        }
-    }
-
+    
     public class Weiwu : OneCardViewAsSkill
     {
         public Weiwu() : base("weiwu") { filter_pattern = ".|red"; response_or_use = true; }
@@ -6836,7 +6809,7 @@ namespace SanguoshaServer.Package
         public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null)
         {
             if (from != null && to != null && card != null && card.GetSkillName() == "weiwu")
-                return to.HandcardNum <= from.HandcardNum;
+                return to.HandcardNum < from.HandcardNum;
             return false;
         }
     }

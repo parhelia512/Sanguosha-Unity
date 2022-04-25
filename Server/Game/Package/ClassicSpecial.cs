@@ -226,7 +226,6 @@ namespace SanguoshaServer.Package
                 new Bingzheng(),
                 new Sheyan(),
                 new Baobian(),
-                new BaobianVH(),
                 new Dianhu(),
                 new Jianji(),
                 new Yuxu(),
@@ -12968,74 +12967,48 @@ namespace SanguoshaServer.Package
     {
         public Baobian() : base("baobian")
         {
-            events = new List<TriggerEvent> { TriggerEvent.HpChanged, TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill, TriggerEvent.EventLoseSkill };
+            events = new List<TriggerEvent> { TriggerEvent.Damaged, TriggerEvent.EventLoseSkill };
             frequency = Frequency.Compulsory;
             skill_type = SkillType.Masochism;
-            view_as_skill = new BaobianVS();
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.GameStart && base.Triggerable(player, room))
-                player.SetMark(Name, player.Hp);
-            else if (triggerEvent == TriggerEvent.EventAcquireSkill && data is InfoStruct info && info.Info == Name)
-                player.SetMark(Name, player.Hp);
-            else if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct _info && _info.Info == Name)
+            if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct _info && _info.Info == Name)
+            {
+                int count = player.GetMark(Name);
+                if (count >= 3) room.HandleAcquireDetachSkills(player, "-shensu_jx", true);
+                if (count >= 2) room.HandleAcquireDetachSkills(player, "-paoxiao_jx", true);
+                if (count >= 1) room.HandleAcquireDetachSkills(player, "-tiaoxin_jx", true);
+
                 player.SetMark(Name, 0);
+            }
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (base.Triggerable(player, room)) return new TriggerStruct(Name, player);
+            if (triggerEvent == TriggerEvent.Damaged && base.Triggerable(player, room) && player.GetMark(Name) < 3) return new TriggerStruct(Name, player);
 
             return new TriggerStruct();
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (player.Hp != player.GetMark(Name))
+            int count = player.GetMark(Name);
+            switch (count)
             {
-                if ((player.Hp < player.GetMark(Name) && player.Hp <= 3 && player.GetMark(Name) > 1) || (player.Hp > player.GetMark(Name) && player.GetMark(Name) <= 3))
-                room.SendCompulsoryTriggerLog(player, Name);
+                case 0:
+                    room.HandleAcquireDetachSkills(player, "shensu_jx", true);
+                    break;
+                case 1:
+                    room.HandleAcquireDetachSkills(player, "paoxiao_jx", true);
+                    break;
+                case 2:
+                    room.HandleAcquireDetachSkills(player, "tiaoxin_jx", true);
+                    break;
             }
-            player.SetMark(Name, player.Hp);
-            return false;
-        }
-    }
+            player.AddMark(Name);
 
-    public class BaobianVS : ZeroCardViewAsSkill
-    {
-        public BaobianVS() : base("baobian")
-        {
-        }
-        public override bool IsEnabledAtPlay(Room room, Player player)
-        {
-            return !player.HasUsed(TiaoxinJXCard.ClassName) && player.Hp <= 3;
-        }
-        public override WrappedCard ViewAs(Room room, Player player)
-        {
-            WrappedCard card = new WrappedCard(TiaoxinJXCard.ClassName)
-            {
-                Skill = "tiaoxin_jx",
-                ShowSkill = Name
-            };
-            return card;
-        }
-    }
-
-    public class BaobianVH : ViewHasSkill
-    {
-        public BaobianVH() : base("#baobian")
-        {
-            viewhas_skills = new List<string> { "shensu_jx", "paoxiao_jx" };
-        }
-        public override bool ViewHas(Room room, Player player, string skill_name)
-        {
-            if (player.Alive && RoomLogic.PlayerHasSkill(room, player, Name))
-            {
-                if (skill_name == "shensu_jx" && player.Hp == 1) return true;
-                if (skill_name == "paoxiao_jx" && player.Hp <= 2) return true;
-            }
             return false;
         }
     }
