@@ -6784,6 +6784,7 @@ namespace SanguoshaServer.Package
         {
             WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "niluan" };
             slash.AddSubCard(card);
+            slash = RoomLogic.ParseUseCard(room, slash);
             return slash;
         }
     }
@@ -6795,10 +6796,13 @@ namespace SanguoshaServer.Package
         public override bool IsEnabledAtPlay(Room room, Player player) => player.UsedTimes("ViewAsSkill_weiwuCard") == 0;
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {
-            WrappedCard await = new WrappedCard(Snatch.ClassName);
+            WrappedCard await = new WrappedCard(Snatch.ClassName)
+            {
+                Skill = Name,
+                ShowSkill = Name
+            };
             await.AddSubCard(card);
-            await.Skill = Name;
-            await.ShowSkill = Name;
+            await = RoomLogic.ParseUseCard(room, await);
             return await;
         }
     }
