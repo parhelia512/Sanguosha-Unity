@@ -176,6 +176,8 @@ namespace SanguoshaServer.Package
                 new Fuyuan(),
                 new Heqia(),
                 new Yinni(),
+                new Channi(),
+                new Nifu(),
 
                 new Guolun(),
                 new Songsang(),
@@ -253,6 +255,7 @@ namespace SanguoshaServer.Package
                 new YaopeiCard(),
                 new HeqiaCard(),
                 new JinghuiCard(),
+                new ChanniCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -10362,6 +10365,146 @@ namespace SanguoshaServer.Package
             room.SendLog(log);
 
             return true;
+        }
+    }
+
+    public class Channi : TriggerSkill
+    {
+        public Channi() : base("channi")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.Damage, TriggerEvent.Damaged };
+            skill_type = SkillType.Attack;
+            view_as_skill = new ChanniVS();
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is DamageStruct damage && damage.Card != null && damage.Card.GetSkillName() == Name && player.Alive && player.HasFlag(Name))
+                player.SetFlags(triggerEvent == TriggerEvent.Damage ? "channi_damage" : "channi_damaged");
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+
+    public class ChanniVS : ViewAsSkill
+    {
+        public ChanniVS() : base("channi")
+        {
+        }
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position = null)
+        {
+            switch (reason)
+            {
+                case CardUseReason.CARD_USE_REASON_RESPONSE_USE when pattern == "@@channi":
+                    return true;
+                case CardUseReason.CARD_USE_REASON_PLAY when !invoker.HasUsed(ChanniCard.ClassName) && RoomLogic.PlayerHasSkill(room, invoker, Name):
+                    return true;
+            }
+            return false;
+        }
+
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
+        {
+            if (player.GetMark(Name) > 0)
+                return selected.Count < player.GetMark(Name) && room.GetCardPlace(to_select.Id) == Place.PlaceHand && !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse, true);
+            else
+                return room.GetCardPlace(to_select.Id) == Place.PlaceHand;
+        }
+
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count > 0)
+            {
+                if (player.GetMark(Name) == 0)
+                {
+                    WrappedCard cn = new WrappedCard(ChanniCard.ClassName) { Skill = Name };
+                    cn.AddSubCards(cards);
+                    return cn;
+                }
+                else if (player.GetMark(Name) == cards.Count)
+                {
+                    WrappedCard duel = new WrappedCard(Duel.ClassName) { Skill = "_channi" };
+                    duel.AddSubCards(cards);
+                    return duel;
+                }
+            }
+            return null;
+        }
+    }
+
+    public class ChanniCard : SkillCard
+    {
+        public static string ClassName = "ChanniCard";
+        public ChanniCard() : base(ClassName) { will_throw = false; }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && Self != to_select;
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From, target = card_use.To[0];
+            List<int> ids = new List<int>(card_use.Card.SubCards);
+            room.ObtainCard(target, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, "channi", string.Empty), false);
+            if (target.Alive && target.HandcardNum >= ids.Count)
+            {
+                target.SetMark("channi", ids.Count);
+                target.SetFlags("channi");
+                WrappedCard duel = room.AskForUseCard(target, RespondType.Skill, "@@channi", string.Format("@channi:{0}::{1}", player.Name, ids.Count), null, -1, HandlingMethod.MethodUse, true);
+                target.SetMark("channi", 0);
+
+                if (duel != null)
+                {
+                    if (target.Alive && target.HasFlag("channi_damage"))
+                        room.DrawCards(target, new DrawCardStruct(ids.Count, player, "channi"));
+                    else if (player.Alive && target.HasFlag("channi_damaged") && !player.IsKongcheng())
+                        room.ThrowAllHandCards(player);
+
+                    target.SetFlags("-channi");
+                    target.SetFlags("-channi_damage");
+                    target.SetFlags("-channi_damaged");
+                }
+            }
+
+        }
+    }
+
+    public class Nifu : TriggerSkill
+    {
+        public Nifu() : base("nifu")
+        {
+            events.Add(TriggerEvent.EventPhaseStart);
+            skill_type = SkillType.Wizzard;
+            frequency = Frequency.Compulsory;
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (player.Phase == PlayerPhase.Finish)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                    if (p.HandcardNum != 3)
+                        triggers.Add(new TriggerStruct(Name, p));
+            }
+            return triggers;
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(ask_who, Name);
+            GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
+            room.BroadcastSkillInvoke(Name, "male", ask_who.HandcardNum < 3 ? 1 : 2, gsk.General, gsk.SkinId);
+
+            if (ask_who.HandcardNum < 3)
+            {
+                room.DrawCards(ask_who, 3 - ask_who.HandcardNum, Name);
+            }
+            else
+            {
+                int count = ask_who.HandcardNum - 3;
+                room.AskForDiscard(ask_who, Name, count, count, false, false, "@nifu", false, info.SkillPosition);
+            }
+
+            return false;
         }
     }
 

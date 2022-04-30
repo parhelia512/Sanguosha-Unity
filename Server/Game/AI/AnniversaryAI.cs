@@ -99,6 +99,7 @@ namespace SanguoshaServer.AI
                 new TianzeAI(),
                 new DifaAI(),
                 new XuezhaoAI(),
+                new ChanniAI(),
             };
 
             use_cards = new List<UseCard>
@@ -120,6 +121,7 @@ namespace SanguoshaServer.AI
                 new CuijianCardAI(),
                 new BazhanCardAI(),
                 new XuezhaoCardAI(),
+                new ChanniCardAI(),
             };
         }
     }
@@ -3941,5 +3943,122 @@ namespace SanguoshaServer.AI
         }
 
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 7;
+    }
+
+    public class ChanniAI : SkillEvent
+    {
+        public ChanniAI() : base("channi") { }
+
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            CardUseStruct use = new CardUseStruct();
+            Room room = ai.Room;
+            int count = player.GetMark(Name);
+            List<int> hands = new List<int>();
+            foreach (int id in player.GetCards("h"))
+                if (!RoomLogic.IsCardLimited(room, player, room.GetCard(id), HandlingMethod.MethodUse, true))
+                    hands.Add(id);
+
+            if (hands.Count >= count)
+            {
+                WrappedCard duel = new WrappedCard(Duel.ClassName) { Skill = "_channi" };
+                ai.SortByKeepValue(ref hands);
+                for (int i = 0; i < count; i++)
+                    duel.AddSubCard(hands[i]);
+
+                List<Player> targets = new List<Player>();
+                foreach (Player p in room.GetOtherPlayers(player))
+                    if (RoomLogic.IsProhibited(room, player, p, duel) == null)
+                        targets.Add(p);
+
+                if (targets.Count > 0)
+                {
+                    int slash = ai.GetCards(Slash.ClassName, player, true).Count;
+
+                    List<ScoreStruct> scores = new List<ScoreStruct>();
+                    foreach (Player p in targets)
+                    {
+                        ScoreStruct score = ai.GetDamageScore(new DamageStruct(duel, player, p));
+                        score.Players = new List<Player> { p };
+                        scores.Add(score);
+                    }
+
+                    scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+                    foreach (ScoreStruct score in scores)
+                    {
+                        if (score.Score > 0 && (ai.IsFriend(score.Players[0]) || ai.GetKnownCardsNums(Slash.ClassName, "h", score.Players[0], player) <= slash))
+                        {
+                            use.From = player;
+                            use.To = score.Players;
+                            use.Card = duel;
+                            return use;
+                        }
+                    }
+                }
+            }
+            return use;
+        }
+
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            if (!player.HasUsed(ChanniCard.ClassName) && !player.IsKongcheng())
+                return new List<WrappedCard> { new WrappedCard(ChanniCard.ClassName) { Skill = Name } };
+
+            return new List<WrappedCard>();
+        }
+
+        public override ScoreStruct GetDamageScore(TrustedAI ai, DamageStruct damage)
+        {
+            ScoreStruct score = new ScoreStruct();
+            if (damage.Card != null && damage.From != null && damage.Card.GetSkillName() == Name && damage.From.HasFlag(Name))
+                score.Score += damage.Card.SubCards.Count * 1.2;
+            return score;
+        }
+    }
+
+    public class ChanniCardAI : UseCard
+    {
+        public ChanniCardAI() : base(ChanniCard.ClassName) { }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            {
+                foreach (Player p in use.To)
+                    if (ai.GetPlayerTendency(p) != "unknown")
+                        ai.UpdatePlayerRelation(player, p, true);
+            }
+        }
+
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            List<Player> friends = ai.FriendNoSelf;
+            if (friends.Count > 0)
+            {
+                ai.SortByDefense(ref friends, false);
+                use.Card = card;
+                use.Card.AddSubCards(player.GetCards("h"));
+                foreach (Player p in friends)
+                {
+                    if (ai.HasSkill("wushuang", p))
+                    {
+                        use.To.Add(p);
+                        return;
+                    }
+                }
+
+                foreach (Player p in friends)
+                {
+                    if (ai.HasSkill("wusheng|wusheng_jx", p))
+                    {
+                        use.To.Add(p);
+                        return;
+                    }
+                }
+
+                use.To.Add(friends[0]);
+            }
+        }
+
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 1.2;
     }
 }
