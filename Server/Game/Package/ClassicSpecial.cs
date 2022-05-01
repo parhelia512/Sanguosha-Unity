@@ -362,7 +362,6 @@ namespace SanguoshaServer.Package
                 { "sidao", new List<string>{ "#sidao" } },
                 { "tanbei", new List<string>{ "#tanbei-target", "#tanbei-prohibit" } },
                 { "qingzhong", new List<string>{ "#qingzhong" } },
-                { "baobian", new List<string>{ "#baobian" } },
                 { "qizhou", new List<string>{ "#qizhou" } },
                 { "zhidao", new List<string>{ "#zhidao" } },
                 { "xingzhao", new List<string>{ "#xingzhao" } },
@@ -13000,13 +12999,13 @@ namespace SanguoshaServer.Package
             switch (count)
             {
                 case 0:
-                    room.HandleAcquireDetachSkills(player, "shensu_jx", true);
+                    room.HandleAcquireDetachSkills(player, "tiaoxin_jx", true);
                     break;
                 case 1:
                     room.HandleAcquireDetachSkills(player, "paoxiao_jx", true);
                     break;
                 case 2:
-                    room.HandleAcquireDetachSkills(player, "tiaoxin_jx", true);
+                    room.HandleAcquireDetachSkills(player, "shensu_jx", true);
                     break;
             }
             player.AddMark(Name);
