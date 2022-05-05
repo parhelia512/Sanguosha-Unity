@@ -34,12 +34,18 @@ namespace SanguoshaServer.Package
                 new KuangcaiHegemonyMax(),
                 new KuangcaiHegemonyTar(),
                 new ShejianHegemony(),
+                new FenglueHegemony(),
+                new FenglueStrategy(),
+                new Anyong(),
+
             };
 
             skill_cards = new List<FunctionCard>
             {
                 new WeimengHCard(),
                 new WeimengSCard(),
+                new FenglueCard(),
+                new FenglueSCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -716,4 +722,181 @@ namespace SanguoshaServer.Package
         }
     }
 
+    public class FenglueHegemony : ZeroCardViewAsSkill
+    {
+        public FenglueHegemony() : base("fenglue_hegemony") { }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(FenglueCard.ClassName) && !player.IsKongcheng();
+
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(FenglueCard.ClassName) { Skill = Name, ShowSkill = Name };
+    }
+
+    public class FenglueCard : SkillCard
+    {
+        public static string ClassName = "FenglueCard";
+        public FenglueCard() : base(ClassName)
+        { }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self && !to_select.IsKongcheng() && RoomLogic.CanBePindianBy(room, to_select, Self);
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From;
+            Player target = card_use.To[0];
+
+            PindianStruct pd = room.PindianSelect(player, target, "fenglue_hegemony");
+            room.Pindian(ref pd);
+
+            if (pd.Success)
+            {
+                if (player.Alive && target.Alive && !target.IsAllNude())
+                {
+                    List<int> ids = new List<int>();
+                    List<int> hej = target.GetCards("hej");
+                    if (hej.Count <= 2)
+                        ids = hej;
+                    else
+                        ids = room.AskForCardsChosen(target, target, new List<string> { "hej^false^none", "hej^false^none" }, "fenglue_hegemony");
+
+                    room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, target.Name, player.Name, Name, string.Empty), false);
+                }
+            }
+            else
+            {
+                if (player.Alive && target.Alive && !player.IsNude())
+                {
+                    List<int> ids = room.AskForExchange(player, Name, 1, 1, string.Format("@fenglue_hegemony-fail:{0}::1", target.Name), string.Empty, "..", card_use.Card.SkillPosition);
+                    room.ObtainCard(target, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, Name, string.Empty), false);
+                }
+            }
+
+            if (target.Alive) room.HandleAcquireDetachSkills(target, "fenglue_strategy", true);
+        }
+    }
+    public class FenglueStrategy : TriggerSkill
+    {
+        public FenglueStrategy() : base("fenglue_strategy")
+        {
+            events.Add(TriggerEvent.EventPhaseChanging);
+            view_as_skill = new FenglueStrategyVS();
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                room.HandleAcquireDetachSkills(player, "-fenglue_strategy", true);
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+
+    public class FenglueStrategyVS : ZeroCardViewAsSkill
+    {
+        public FenglueStrategyVS() : base("fenglue_strategy") { }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(FenglueSCard.ClassName) && !player.IsKongcheng();
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(FenglueSCard.ClassName) { Skill = Name };
+    }
+
+    public class FenglueSCard : SkillCard
+    {
+        public static string ClassName = "FenglueSCard";
+        public FenglueSCard() : base(ClassName)
+        { }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self && !to_select.IsKongcheng() && RoomLogic.CanBePindianBy(room, to_select, Self);
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From;
+            Player target = card_use.To[0];
+
+            PindianStruct pd = room.PindianSelect(player, target, "fenglue_strategy");
+            room.Pindian(ref pd);
+
+            if (pd.Success)
+            {
+                if (player.Alive && target.Alive && !target.IsAllNude())
+                {
+                    int id = room.AskForCardChosen(target, target, "hej", "fenglue_strategy");
+                    room.ObtainCard(player, room.GetCard(id), new CardMoveReason(MoveReason.S_REASON_GIVE, target.Name, player.Name, Name, string.Empty), false);
+                }
+            }
+            else
+            {
+                if (player.Alive && target.Alive && !player.IsNude())
+                {
+                    List<int> ids = new List<int>();
+                    if (player.GetCardCount(true) <= 2)
+                        ids = player.GetCards("he");
+                    else
+                        ids = room.AskForExchange(player, Name, 2, 2, string.Format("@fenglue_hegemony-fail:{0}::2", target.Name), string.Empty, "..", card_use.Card.SkillPosition);
+
+                    room.ObtainCard(target, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, Name, string.Empty), false);
+                }
+            }
+        }
+    }
+
+    public class Anyong : TriggerSkill
+    {
+        public Anyong() : base("anyong")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.DamageCaused };
+            skill_type = SkillType.Attack;
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (data is DamageStruct damage && player != null && player.Alive && damage.To != player)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                    if (p != damage.To && !p.HasFlag(Name) && RoomLogic.WillBeFriendWith(room, p, player, Name))
+                        triggers.Add(new TriggerStruct(Name, p));               
+            }
+
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is DamageStruct damage && room.AskForSkillInvoke(ask_who, Name, string.Format("@anyong:{0}:{1}:{2}", player.Name, damage.To.Name, damage.Damage), info.SkillPosition))
+            {
+                ask_who.SetFlags(Name);
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                return info;
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(player, Name);
+            DamageStruct damage = (DamageStruct)data;
+            damage.Damage *= 2;
+
+            LogMessage log = new LogMessage
+            {
+                Type = "#AddDamage",
+                From = player.Name,
+                To = new List<string> { damage.To.Name },
+                Arg = Name,
+                Arg2 = damage.Damage.ToString()
+            };
+            room.SendLog(log);
+
+            data = damage;
+
+            if (damage.To.HasShownOneGeneral())
+            {
+                room.LoseHp(ask_who);
+                if (ask_who.Alive) room.HandleAcquireDetachSkills(ask_who, "-anyong", false);
+            }
+            else if (damage.To.HasShownOneGeneral())
+                room.AskForDiscard(ask_who, Name, 2, 2, false, false, "@anyong-discard", false, info.SkillPosition);
+
+            return false;
+        }
+    }
 }
