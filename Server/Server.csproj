@@ -127,6 +127,7 @@
     <Compile Include="Game\AI\MobileAI.cs" />
     <Compile Include="Game\AI\MythAI.cs" />
     <Compile Include="Game\AI\NaturefourAI.cs" />
+    <Compile Include="Game\AI\StrategyAI.cs" />
     <Compile Include="Game\Extensions\AchieveCollector.cs" />
     <Compile Include="Game\AI\AI.cs" />
     <Compile Include="Game\AI\AICore.cs" />
@@ -179,6 +180,7 @@
     <Compile Include="Game\Package\Stander.cs" />
     <Compile Include="Game\Package\StanderCards.cs" />
     <Compile Include="Game\Package\StrategicAdvantageCards.cs" />
+    <Compile Include="Game\Package\Strategy.cs" />
     <Compile Include="Game\Package\Transformation.cs" />
     <Compile Include="Game\Room.cs" />
     <Compile Include="Game\RoomCard.cs" />
