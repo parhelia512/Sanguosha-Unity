@@ -29,7 +29,10 @@ namespace SanguoshaServer.Package
 
                 new Zhente(),
                 new Zhiwei(),
-
+                new Yusui(),
+                new Boyan(),
+                new BoyanStrategy(),
+                
                 new KuangcaiHegemony(),
                 new KuangcaiHegemonyMax(),
                 new KuangcaiHegemonyTar(),
@@ -46,6 +49,8 @@ namespace SanguoshaServer.Package
                 new WeimengSCard(),
                 new FenglueCard(),
                 new FenglueSCard(),
+                new BoyanCard(),
+                new BoyanSCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -584,8 +589,129 @@ namespace SanguoshaServer.Package
         }
     }
 
+    public class Yusui : TriggerSkill
+    {
+        public Yusui()  :base("yusui")
+        {
+            events.Add(TriggerEvent.TargetConfirmed);
+            skill_type = SkillType.Masochism;
+        }
 
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardUseStruct use && use.From != null && use.From != player && !RoomLogic.WillBeFriendWith(room, player, use.From) && !Engine.IsSkillCard(use.Card.Name)
+                && WrappedCard.IsBlack(use.Card.Suit) && !player.HasFlag(Name) && base.Triggerable(player, room) && player.Hp > 0)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
 
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardUseStruct use && room.AskForSkillInvoke(player, Name, use.From, info.SkillPosition))
+            {
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, use.From.Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.SetFlags(Name);
+                room.LoseHp(player);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.Alive && data is CardUseStruct use && use.From.Alive)
+            {
+                List<string> choices = new List<string>();
+                if (!use.From.IsKongcheng())
+                    choices.Add("discard");
+                if (use.From.Hp > player.Hp)
+                    choices.Add("losehp");
+
+                if (choices.Count > 0)
+                {
+                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + use.From.Name }, use.From);
+                    if (choice == "discard")
+                    {
+                        int count = Math.Min(use.From.HandcardNum, use.From.MaxHp);
+                        room.AskForDiscard(use.From, Name, count, count, false, false, string.Format("@yusui:{0}::{1}", player.Name, count), false);
+                    }
+                    else
+                        room.LoseHp(use.From, use.From.Hp - player.Hp);
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class Boyan : ZeroCardViewAsSkill
+    {
+        public Boyan() : base("boyan") { }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(BoyanCard.ClassName);
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(BoyanCard.ClassName) { Skill = Name, ShowSkill = Name };
+    }
+
+    public class BoyanCard : SkillCard
+    {
+        public static string ClassName = "BoyanCard";
+        public BoyanCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => to_select != Self && targets.Count == 0;
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From, target = card_use.To[0];
+            if (target.HandcardNum < target.MaxHp)
+                room.DrawCards(target, new DrawCardStruct(target.MaxHp - target.HandcardNum, player, "boyan"));
+
+            if (target.Alive)
+            {
+                string pattern = ".|.|.|hand";
+                RoomLogic.SetPlayerCardLimitation(target, "boyan", "use,response", pattern, true);
+                room.HandleAcquireDetachSkills(target, "-boyan_strategy", true);
+            }
+        }
+    }
+    public class BoyanStrategy : TriggerSkill
+    {
+        public BoyanStrategy() : base("boyan_strategy")
+        {
+            events.Add(TriggerEvent.EventPhaseChanging);
+            view_as_skill = new BoyanStrategyVS();
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                room.HandleAcquireDetachSkills(player, "-boyan_strategy", true);
+                foreach (Player p in room.GetAlivePlayers())
+                    RoomLogic.RemovePlayerCardLimitation(p, "boyan");
+            }
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+    public class BoyanStrategyVS : ZeroCardViewAsSkill
+    {
+        public BoyanStrategyVS() : base("boyan_strategy") { }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(BoyanSCard.ClassName);
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(BoyanSCard.ClassName) { Skill = Name };
+    }
+
+    public class BoyanSCard : SkillCard
+    {
+        public static string ClassName = "BoyanSCard";
+        public BoyanSCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => to_select != Self && targets.Count == 0;
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player target = card_use.To[0];
+            string pattern = ".|.|.|hand";
+            RoomLogic.SetPlayerCardLimitation(target, "boyan", "use,response", pattern, true);
+        }
+    }
+
+    //miheng
     public class KuangcaiHegemony : TriggerSkill
     {
         public KuangcaiHegemony() : base("kuangcai_hegemony")
@@ -605,7 +731,6 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
     }
 
-    //miheng
     public class KuangcaiHegemonyTar : TargetModSkill
     {
         public KuangcaiHegemonyTar() : base("#kuangcai_hegemony", true)
@@ -755,7 +880,14 @@ namespace SanguoshaServer.Package
                     if (hej.Count <= 2)
                         ids = hej;
                     else
-                        ids = room.AskForCardsChosen(target, target, new List<string> { "hej^false^none", "hej^false^none" }, "fenglue_hegemony");
+                    {
+                        target.SetFlags("fenglue_hegemony");
+                        List<int> judges = target.GetCards("j");
+                        target.PileChange("#Judging", judges);
+                        ids = room.AskForExchange(target, "fenglue_hegemony", 2, 2, string.Format("@fenglue_hegemony-give:{0}::{1}", player.Name, 2), "#Judging", "..", string.Empty);
+                        target.SetFlags("-fenglue_hegemony");
+                        target.PileChange("#Judging", judges, false);
+                    }
 
                     room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, target.Name, player.Name, Name, string.Empty), false);
                 }
@@ -764,7 +896,7 @@ namespace SanguoshaServer.Package
             {
                 if (player.Alive && target.Alive && !player.IsNude())
                 {
-                    List<int> ids = room.AskForExchange(player, Name, 1, 1, string.Format("@fenglue_hegemony-fail:{0}::1", target.Name), string.Empty, "..", card_use.Card.SkillPosition);
+                    List<int> ids = room.AskForExchange(player, "fenglue_hegemony", 1, 1, string.Format("@fenglue_hegemony-fail:{0}::1", target.Name), string.Empty, "..", card_use.Card.SkillPosition);
                     room.ObtainCard(target, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, Name, string.Empty), false);
                 }
             }
@@ -816,8 +948,14 @@ namespace SanguoshaServer.Package
             {
                 if (player.Alive && target.Alive && !target.IsAllNude())
                 {
-                    int id = room.AskForCardChosen(target, target, "hej", "fenglue_strategy");
-                    room.ObtainCard(player, room.GetCard(id), new CardMoveReason(MoveReason.S_REASON_GIVE, target.Name, player.Name, Name, string.Empty), false);
+                    target.SetFlags("fenglue_strategy");
+                    List<int> judges = target.GetCards("j");
+                    target.PileChange("#Judging", judges);
+                    List<int> ids = room.AskForExchange(target, "fenglue_strategy", 1, 1, string.Format("@fenglue_hegemony-give:{0}::{1}", player.Name, 1), "#Judging", "..", string.Empty);
+                    target.SetFlags("-fenglue_strategy");
+                    target.PileChange("#Judging", judges, false);
+
+                    room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, target.Name, player.Name, Name, string.Empty), false);
                 }
             }
             else
@@ -828,7 +966,7 @@ namespace SanguoshaServer.Package
                     if (player.GetCardCount(true) <= 2)
                         ids = player.GetCards("he");
                     else
-                        ids = room.AskForExchange(player, Name, 2, 2, string.Format("@fenglue_hegemony-fail:{0}::2", target.Name), string.Empty, "..", card_use.Card.SkillPosition);
+                        ids = room.AskForExchange(player, "fenglue_strategy", 2, 2, string.Format("@fenglue_hegemony-fail:{0}::2", target.Name), string.Empty, "..", card_use.Card.SkillPosition);
 
                     room.ObtainCard(target, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, Name, string.Empty), false);
                 }
@@ -853,18 +991,23 @@ namespace SanguoshaServer.Package
                     if (p != damage.To && !p.HasFlag(Name) && RoomLogic.WillBeFriendWith(room, p, player, Name))
                         triggers.Add(new TriggerStruct(Name, p));               
             }
-
             return triggers;
         }
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (data is DamageStruct damage && room.AskForSkillInvoke(ask_who, Name, string.Format("@anyong:{0}:{1}:{2}", player.Name, damage.To.Name, damage.Damage), info.SkillPosition))
+            if (data is DamageStruct damage)
             {
-                ask_who.SetFlags(Name);
-                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
-                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
-                return info;
+                room.SetTag(Name, data);
+                bool invoke = room.AskForSkillInvoke(ask_who, Name, string.Format("@anyong:{0}:{1}:{2}", player.Name, damage.To.Name, damage.Damage), info.SkillPosition);
+                room.RemoveTag(Name);
+                if (invoke)
+                {
+                    ask_who.SetFlags(Name);
+                    room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                    return info;
+                }
             }
 
             return new TriggerStruct();

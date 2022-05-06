@@ -217,6 +217,8 @@ namespace SanguoshaServer.Package
                 new Qingman(),
                 new JiqiaoSY(),
                 new XiongyiSy(),
+                new YusuiClassic(),
+                new BoyanClassic(),
             };
 
             skill_cards = new List<FunctionCard>
@@ -259,6 +261,7 @@ namespace SanguoshaServer.Package
                 new JinghuiCard(),
                 new ChanniCard(),
                 new WeimengCard(),
+                new BoyanCCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -13181,6 +13184,110 @@ namespace SanguoshaServer.Package
             }
 
             return false;
+        }
+    }
+
+
+    public class YusuiClassic : TriggerSkill
+    {
+        public YusuiClassic() : base("yusui_classic")
+        {
+            events.Add(TriggerEvent.TargetConfirmed);
+            skill_type = SkillType.Masochism;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardUseStruct use && use.From != null && use.From != player && !Engine.IsSkillCard(use.Card.Name)
+                && WrappedCard.IsBlack(use.Card.Suit) && !player.HasFlag(Name) && base.Triggerable(player, room) && player.Hp > 0)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardUseStruct use && room.AskForSkillInvoke(player, Name, use.From, info.SkillPosition))
+            {
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, use.From.Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.SetFlags(Name);
+                room.LoseHp(player);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.Alive && data is CardUseStruct use && use.From.Alive)
+            {
+                List<string> choices = new List<string>();
+                if (!use.From.IsKongcheng())
+                    choices.Add("discard");
+                if (use.From.Hp > player.Hp)
+                    choices.Add("losehp");
+
+                if (choices.Count > 0)
+                {
+                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + use.From.Name }, use.From);
+                    if (choice == "discard")
+                    {
+                        int count = Math.Min(use.From.HandcardNum, use.From.MaxHp);
+                        room.AskForDiscard(use.From, Name, count, count, false, false, string.Format("@yusui:{0}::{1}", player.Name, count), false);
+                    }
+                    else
+                        room.LoseHp(use.From, use.From.Hp - player.Hp);
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class BoyanClassic : TriggerSkill
+    {
+        public BoyanClassic() : base("boyan_classic")
+        {
+            events.Add(TriggerEvent.EventPhaseChanging);
+            view_as_skill = new BoyanVS();
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                    RoomLogic.RemovePlayerCardLimitation(p, Name);
+            }
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+
+
+    public class BoyanVS : ZeroCardViewAsSkill
+    {
+        public BoyanVS() : base("boyan_classic") { }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(BoyanCCard.ClassName);
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(BoyanCCard.ClassName) { Skill = Name };
+    }
+
+    public class BoyanCCard : SkillCard
+    {
+        public static string ClassName = "BoyanCCard";
+        public BoyanCCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => to_select != Self && targets.Count == 0;
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From, target = card_use.To[0];
+            int count = Math.Min(5 - target.HandcardNum, target.MaxHp - target.HandcardNum);
+            if (count > 0) room.DrawCards(target, new DrawCardStruct(count, player, "boyan_classic"));
+
+            if (target.Alive)
+            {
+                string pattern = ".|.|.|hand";
+                RoomLogic.SetPlayerCardLimitation(target, "boyan_classic", "use,response", pattern, true);
+            }
         }
     }
 }
