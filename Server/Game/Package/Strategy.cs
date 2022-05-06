@@ -667,7 +667,7 @@ namespace SanguoshaServer.Package
             {
                 string pattern = ".|.|.|hand";
                 RoomLogic.SetPlayerCardLimitation(target, "boyan", "use,response", pattern, true);
-                room.HandleAcquireDetachSkills(target, "-boyan_strategy", true);
+                room.HandleAcquireDetachSkills(target, "boyan_strategy", true);
             }
         }
     }
@@ -1031,7 +1031,7 @@ namespace SanguoshaServer.Package
 
             data = damage;
 
-            if (damage.To.HasShownOneGeneral())
+            if (damage.To.HasShownAllGenerals())
             {
                 room.LoseHp(ask_who);
                 if (ask_who.Alive) room.HandleAcquireDetachSkills(ask_who, "-anyong", false);

@@ -3824,6 +3824,7 @@ namespace SanguoshaServer.Package
             }
             if (index == 2 || index == 3)
             {
+                player.SetMark("qiaobianPhase", (int)change.To);
                 string use_prompt = string.Format("@qiaobian-{0}", index);
                 room.AskForUseCard(player, RespondType.Skill, "@@qiaobian_jx", use_prompt, null, index, HandlingMethod.MethodUse, true, info.SkillPosition);
             }

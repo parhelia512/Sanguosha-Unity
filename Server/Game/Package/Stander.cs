@@ -1146,23 +1146,8 @@ namespace SanguoshaServer.Package
         public override bool CanPreShow() => true;
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            PhaseChangeStruct change = (PhaseChangeStruct)data;
-            player.SetMark("qiaobianPhase", (int)change.To);
-            int index = 0;
-            switch (change.To)
-            {
-                case PlayerPhase.RoundStart:
-                case PlayerPhase.Start:
-                case PlayerPhase.Finish:
-                case PlayerPhase.PhaseNone:
-                case PlayerPhase.NotActive: return new TriggerStruct();
-
-                case PlayerPhase.Judge: index = 1; break;
-                case PlayerPhase.Draw: index = 2; break;
-                case PlayerPhase.Play: index = 3; break;
-                case PlayerPhase.Discard: index = 4; break;
-            }
-            if (base.Triggerable(player, room) && index > 0 && RoomLogic.CanDiscard(room, player, player, "h"))
+            if (data is  PhaseChangeStruct change && (change.To == PlayerPhase.Judge || change.To == PlayerPhase.Draw || change.To == PlayerPhase.Play || change.To == PlayerPhase.Discard)
+                && base.Triggerable(player, room) && RoomLogic.CanDiscard(room, player, player, "h"))
                 return new TriggerStruct(Name, player);
             return new TriggerStruct();
         }
@@ -1202,6 +1187,7 @@ namespace SanguoshaServer.Package
             if (index == 2 || index == 3)
             {
                 string use_prompt = string.Format("@qiaobian-{0}", index);
+                player.SetMark("qiaobianPhase", (int)change.To);
                 room.AskForUseCard(player, RespondType.Skill, "@@qiaobian", use_prompt, null, index, HandlingMethod.MethodUse, true, info.SkillPosition);
             }
             return false;

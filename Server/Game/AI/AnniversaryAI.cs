@@ -79,6 +79,7 @@ namespace SanguoshaServer.AI
                 new FenyueAI(),
                 new XuheAI(),
                 new ShiyuanAI(),
+                new DushiAI(),
                 new ZhuideAI(),
                 new MinsiAI(),
                 new JijingAI(),
@@ -3137,8 +3138,13 @@ namespace SanguoshaServer.AI
         public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
         {
             List<Player> enemies = ai.GetEnemies(player);
-            if (enemies.Count > 0)
-                return new List<Player> { enemies[0] };
+            if (player.GetRoleEnum() == PlayerRole.Loyalist)
+            {
+                foreach (Player p in enemies)
+                    if (p.GetRoleEnum() == PlayerRole.Lord)
+                        return new List<Player> { p };
+            }
+            if (enemies.Count > 0) return new List<Player> { enemies[0] };
             return new List<Player> { targets[0] };
         }
     }
