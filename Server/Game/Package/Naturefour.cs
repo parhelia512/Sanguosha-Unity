@@ -79,6 +79,7 @@ namespace SanguoshaServer.Package
                 new QiangxiJX(),
                 new ShensuJX(),
                 new Shebian(),
+                new QiaobianJX(),
 
                 new BuquJX(),
                 new BuquJXClear(),
@@ -3729,6 +3730,122 @@ namespace SanguoshaServer.Package
             }
 
             return false;
+        }
+    }
+
+    public class QiaobianJX : TriggerSkill
+    {
+        public QiaobianJX() : base("qiaobian_jx")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.EventPhaseStart, TriggerEvent.GameStart };
+            view_as_skill = new QiaobianJXVS();
+            skill_type = SkillType.Wizzard;
+        }
+        private readonly List<string> phase_strings = new List<string> { "round_start" , "start" , "judge" , "draw"
+                , "play" , "discard", "finish" , "not_active" };
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.GameStart && base.Triggerable(player, room))
+            {
+                player.AddMark(Name, 2);
+                room.SetPlayerStringMark(player, Name, "2");
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish)
+            {
+                List<int> ids = player.ContainsTag(Name) ? (List<int>)player.GetTag(Name) : new List<int>();
+                if (ids.Count == 0 || !ids.Contains(player.HandcardNum))
+                {
+                    player.AddMark(Name);
+                    room.SetPlayerStringMark(player, Name, player.GetMark(Name).ToString());
+                    ids.Add(player.HandcardNum);
+                    player.SetTag(Name, ids);
+                }
+            }
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && base.Triggerable(player, room)
+                && (change.To == PlayerPhase.Judge || change.To == PlayerPhase.Draw || change.To == PlayerPhase.Play || change.To == PlayerPhase.Discard)
+                && (!player.IsNude() && RoomLogic.CanDiscard(room, player, player, "he") || player.GetMark(Name) > 0))
+            {
+                return new TriggerStruct(Name, player);
+            }
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player zhanghe, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is PhaseChangeStruct change)
+            {
+                int index = (int)(change.To);
+                string prompt = string.Format("@qiaobian_jx:::{0}", phase_strings[index]);
+                if (room.AskForSkillInvoke(zhanghe, Name, prompt, info.SkillPosition))
+                {
+                    bool lose_mark = false;
+                    if (!zhanghe.IsNude() && RoomLogic.CanDiscard(room, zhanghe, zhanghe, "he"))
+                    {
+                        bool option = zhanghe.GetMark(Name) > 0;
+                        lose_mark = !room.AskForDiscard(zhanghe, Name, 1, 1, option, true, option ? "@qiaobian_jx-optional" : "@qiaobian_jx-discard", true, info.SkillPosition);
+                    }
+
+                    if (lose_mark)
+                    {
+                        zhanghe.AddMark(Name, -1);
+                        room.SetPlayerStringMark(zhanghe, Name, zhanghe.GetMark(Name).ToString());
+                    }
+
+                    if (zhanghe.Alive)
+                    {
+                        room.BroadcastSkillInvoke(Name, zhanghe, info.SkillPosition);
+                        room.SkipPhase(zhanghe, change.To);
+                        return info;
+                    }
+                }
+            }
+
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            PhaseChangeStruct change = (PhaseChangeStruct)data;
+            int index = 0;
+            switch (change.To)
+            {
+                case PlayerPhase.RoundStart:
+                case PlayerPhase.Start:
+                case PlayerPhase.Finish:
+                case PlayerPhase.PhaseNone:
+                case PlayerPhase.NotActive: return false;
+
+                case PlayerPhase.Judge: index = 1; break;
+                case PlayerPhase.Draw: index = 2; break;
+                case PlayerPhase.Play: index = 3; break;
+                case PlayerPhase.Discard: index = 4; break;
+            }
+            if (index == 2 || index == 3)
+            {
+                string use_prompt = string.Format("@qiaobian-{0}", index);
+                room.AskForUseCard(player, RespondType.Skill, "@@qiaobian_jx", use_prompt, null, index, HandlingMethod.MethodUse, true, info.SkillPosition);
+            }
+            return false;
+        }
+    }
+
+    public class QiaobianJXVS : ZeroCardViewAsSkill
+    {
+        public QiaobianJXVS() : base("qiaobian_jx") { }
+
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position = null)
+        {
+            return reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && pattern == "@@qiaobian_jx";
+        }
+        public override WrappedCard ViewAs(Room room, Player player)
+        {
+            return new WrappedCard(QiaobianCard.ClassName)
+            {
+                Skill = Name,
+                Mute = true
+            };
         }
     }
 
