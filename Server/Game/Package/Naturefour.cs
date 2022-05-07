@@ -3737,7 +3737,7 @@ namespace SanguoshaServer.Package
     {
         public QiaobianJX() : base("qiaobian_jx")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.EventPhaseStart, TriggerEvent.GameStart };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.EventPhaseStart, TriggerEvent.GameStart, TriggerEvent.EventLoseSkill };
             view_as_skill = new QiaobianJXVS();
             skill_type = SkillType.Wizzard;
         }
@@ -3761,6 +3761,12 @@ namespace SanguoshaServer.Package
                     ids.Add(player.HandcardNum);
                     player.SetTag(Name, ids);
                 }
+            }
+            else if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == Name)
+            {
+                player.RemoveTag(Name);
+                player.SetMark(Name, 0);
+                room.RemovePlayerStringMark(player, Name);
             }
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -3791,7 +3797,10 @@ namespace SanguoshaServer.Package
                     if (lose_mark)
                     {
                         zhanghe.AddMark(Name, -1);
-                        room.SetPlayerStringMark(zhanghe, Name, zhanghe.GetMark(Name).ToString());
+                        if (zhanghe.GetMark(Name) > 0)
+                            room.SetPlayerStringMark(zhanghe, Name, zhanghe.GetMark(Name).ToString());
+                        else
+                            room.RemovePlayerStringMark(zhanghe, Name);
                     }
 
                     if (zhanghe.Alive)

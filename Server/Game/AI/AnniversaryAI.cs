@@ -4148,8 +4148,9 @@ namespace SanguoshaServer.AI
             {
                 WrappedCard duel = new WrappedCard(Duel.ClassName) { Skill = "_channi" };
                 ai.SortByKeepValue(ref hands);
-                for (int i = 0; i < count; i++)
-                    duel.AddSubCard(hands[i]);
+                //for (int i = 0; i < count; i++)
+                //    duel.AddSubCard(hands[i]);
+                duel.AddSubCard(hands[0]);
 
                 List<Player> targets = new List<Player>();
                 foreach (Player p in room.GetOtherPlayers(player))

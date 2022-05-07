@@ -49,6 +49,7 @@ namespace SanguoshaServer.AI
                 new TuntianJXAI(),
                 new ShensuJXAI(),
                 new ShebianAI(),
+                new QiaobianJXAI(),
             };
 
             use_cards = new List<UseCard>
@@ -2107,6 +2108,257 @@ namespace SanguoshaServer.AI
             return result;
         }
     }
+
+    public class QiaobianJXAI : SkillEvent
+    {
+        public QiaobianJXAI() : base("qiaobian_jx")
+        {
+            key = new List<string> { "cardChosen:qiaobian_jx" };
+        }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (data is string choice)
+            {
+                string[] choices = choice.Split(':');
+                if (choices[1] == Name)
+                {
+                    Room room = ai.Room;
+                    int id = int.Parse(choices[2]);
+                    Player target = room.FindPlayer(choices[4]);
+
+                    if (player != target)
+                    {
+                        if (room.GetCardPlace(id) == Player.Place.PlaceDelayedTrick)
+                            ai.UpdatePlayerRelation(player, target, true);
+                        else
+                        {
+                            bool friend = ai.GetKeepValue(id, target, Player.Place.PlaceEquip) < 0;
+                            ai.UpdatePlayerRelation(player, target, friend);
+                        }
+                    }
+                }
+            }
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            ai.Number[Name] = -1;
+
+            List<int> cards = player.GetCards("he");
+            List<double> values = ai.SortByKeepValue(ref cards, false);
+            Room room = ai.Room;
+            Player stealer = null;
+
+            foreach (Player ap in room.GetOtherPlayers(player))
+            {
+                if (ai.HasSkill("tuxi|tuxi_jx", ap) && ai.IsEnemy(ap))
+                {
+                    stealer = ap;
+                    break;
+                }
+            }
+            int card = -1;
+            for (int i = 0; i < cards.Count; i++)
+            {
+                if (ai.IsCard(cards[i], Peach.ClassName, player))
+                {
+                    if (stealer != null && player.HandcardNum <= 2 && player.Hp > 2 && !RoomLogic.PlayerContainsTrick(room, stealer, SupplyShortage.ClassName))
+                    {
+                        card = cards[i];
+                        break;
+                    }
+                    bool to_discard_peach = true;
+                    foreach (Player fd in ai.GetFriends(player))
+                    {
+                        if (fd.Hp <= 2 && (!ai.HasSkill("niepan", fd) || fd.GetMark("@nirvana") == 0))
+                        {
+                            to_discard_peach = false;
+                            break;
+                        }
+                    }
+                    if (to_discard_peach)
+                    {
+                        card = cards[i];
+                        break;
+                    }
+                }
+                else
+                {
+                    card = cards[i];
+                    break;
+                }
+            }
+
+            if (card == -1 && player.GetMark(Name) == 0)
+                return false;
+
+            ai.Number[Name] = card;
+            if (values[0] > 3 && player.GetMark(Name) > 0) ai.Number[Name] = -1;
+            
+            Player.PlayerPhase phase = (Player.PlayerPhase)player.GetMark("qiaobianPhase");
+
+            if (phase == Player.PlayerPhase.Judge && !player.IsSkipped(Player.PlayerPhase.Judge))
+            {
+                if (RoomLogic.PlayerContainsTrick(room, player, Lightning.ClassName))
+                {
+                    Player wizzard = ai.GetWizzardRaceWinner(Lightning.ClassName, player);
+                    if ((wizzard != null && ai.IsEnemy(wizzard)) || ai.GetFriends(player).Count > ai.GetEnemies(player).Count)
+                        return true;
+                }
+                else if (RoomLogic.PlayerContainsTrick(room, player, SupplyShortage.ClassName))
+                {
+                    if (player.Hp > player.HandcardNum) return true;
+                    List<Player> targets = TuxiAI.FindTuxiTargets(ai, player);
+                    if (targets.Count == 2) return true;
+                }
+                else if (RoomLogic.PlayerContainsTrick(room, player, Indulgence.ClassName))
+                {
+                    if (player.HandcardNum > 3 || player.HandcardNum > player.Hp - 1) return true;
+                    foreach (Player friend in ai.FriendNoSelf)
+                        if (RoomLogic.PlayerContainsTrick(room, player, Indulgence.ClassName) || RoomLogic.PlayerContainsTrick(room, player, SupplyShortage.ClassName))
+                            return true;
+                }
+            }
+            else if (phase == Player.PlayerPhase.Draw && !player.IsSkipped(Player.PlayerPhase.Draw) && !ai.HasSkill("tuxi|tuxi_jx"))
+            {
+                ai.Target["qiaobian1"] = null;
+                ai.Target["qiaobian2"] = null;
+
+                if (player.HasFlag("jieyue_draw") || player.HasTreasure(JadeSeal.ClassName) || player.GetMark("@tangerine") > 0)
+                    return false;
+                List<Player> targets = TuxiAI.FindTuxiTargets(ai, player);
+                if (targets.Count == 2)
+                {
+                    ai.Target["qiaobian1"] = targets[0];
+                    ai.Target["qiaobian2"] = targets[1];
+                    return true;
+                }
+            }
+            else if (phase == Player.PlayerPhase.Play && !player.IsSkipped(Player.PlayerPhase.Play))
+            {
+                foreach (Player friend in ai.GetFriends(player))
+                {
+                    if (friend.JudgingArea.Count > 0 && QiaobianAI.CardForQiaobian(ai, friend).Key >= 0)
+                        return true;
+                }
+
+                foreach (Player friend in ai.FriendNoSelf)
+                {
+                    if (friend.HasEquip() && ai.HasSkill(TrustedAI.LoseEquipSkill, friend) && QiaobianAI.CardForQiaobian(ai, friend).Key >= 0)
+                        return true;
+                }
+
+                cards = player.GetCards("h");
+                ai.SortByKeepValue(ref cards, false);
+                //to_discard = new List<int>(cards[0]);
+                double top_value = 0;
+                foreach (int id in cards)
+                {
+                    if (!ai.IsCard(id, Jink.ClassName, player))
+                    {
+                        double value = ai.GetUseValue(id, player);
+                        if (value > top_value)
+                            top_value = value;
+                    }
+                }
+
+                if (top_value >= 3.7 && ai.GetTurnUse().Count > 0) return false;
+                foreach (Player p in ai.GetEnemies(player))
+                {
+                    if (QiaobianAI.CardForQiaobian(ai, p).Key > 0)
+                        return true;
+                }
+            }
+            else if (phase == Player.PlayerPhase.Discard && !player.IsSkipped(Player.PlayerPhase.Discard) && player.HandcardNum > RoomLogic.GetMaxCards(room, player) + 1)
+            {
+                player.SetFlags("AI_ConsideringQiaobianSkipDiscard");
+                return true;
+            }
+
+            return false;
+        }
+
+        public override List<int> OnDiscard(TrustedAI ai, Player player, List<int> ids, int min, int max, bool option)
+        {
+            int id = (int)ai.Number[Name];
+            if (id >= 0) return new List<int> { id };
+            return new List<int>();
+        }
+
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            Player.PlayerPhase phase = (Player.PlayerPhase)player.GetMark("qiaobianPhase");
+            CardUseStruct use = new CardUseStruct { From = player, Card = new WrappedCard(QiaobianCard.ClassName) { Mute = true, Skill = Name }, To = new List<Player>() };
+            if (prompt == "@qiaobian-2" && ai.Target["qiaobian1"] != null && ai.Target["qiaobian2"] != null)
+            {
+                use.To.Add(ai.Target["qiaobian1"]);
+                use.To.Add(ai.Target["qiaobian2"]);
+                return use;
+            }
+            else
+            {
+                foreach (Player friend in ai.GetFriends(player))
+                {
+                    if (friend.JudgingArea.Count > 0 && QiaobianAI.CardForQiaobian(ai, friend).Key >= 0)
+                    {
+                        use.To.Add(friend);
+                        return use;
+                    }
+                }
+                foreach (Player friend in ai.FriendNoSelf)
+                {
+                    if (friend.HasEquip() && ai.HasSkill(TrustedAI.LoseEquipSkill, friend) && QiaobianAI.CardForQiaobian(ai, friend).Key >= 0)
+                    {
+                        use.To.Add(friend);
+                        return use;
+                    }
+                }
+
+                List<Player> enemies = ai.GetEnemies(player);
+                ai.SortByDefense(ref enemies, false);
+                foreach (Player p in enemies)
+                {
+                    if (QiaobianAI.CardForQiaobian(ai, p).Key >= 0)
+                    {
+                        use.To.Add(p);
+                        return use;
+                    }
+                }
+            }
+
+            return new CardUseStruct();
+        }
+
+        public override List<int> OnCardsChosen(TrustedAI ai, Player from, Player to, string flags, int min, int max, List<int> disable_ids)
+        {
+            List<int> result = new List<int>();
+            if (flags == "ej")
+            {
+                int id = QiaobianAI.CardForQiaobian(ai, to).Key;
+                if (id >= 0)
+                    result.Add(id);
+            }
+
+            return null;
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> target, int min, int max)
+        {
+            List<Player> result = new List<Player>();
+            if (ai.Room.GetTag("QiaobianTarget") != null && ai.Room.GetTag("QiaobianTarget") is Player from)
+            {
+                Player to = QiaobianAI.CardForQiaobian(ai, from).Value;
+                if (to != null)
+                    result.Add(to);
+                else
+                    ai.Room.Debug("巧变3 AI出错");
+            }
+
+            return result;
+        }
+    }
+
 
 
     public class HaoshiClassicAI : SkillEvent

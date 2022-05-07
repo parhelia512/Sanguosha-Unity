@@ -10537,7 +10537,7 @@ namespace SanguoshaServer.Package
                     cn.AddSubCards(cards);
                     return cn;
                 }
-                else if (player.GetMark(Name) == cards.Count)
+                else if (cards.Count > 0 && player.GetMark(Name) <= cards.Count)
                 {
                     WrappedCard duel = new WrappedCard(Duel.ClassName) { Skill = "_channi" };
                     duel.AddSubCards(cards);
@@ -10570,7 +10570,7 @@ namespace SanguoshaServer.Package
                 if (duel != null)
                 {
                     if (target.Alive && target.HasFlag("channi_damage"))
-                        room.DrawCards(target, new DrawCardStruct(ids.Count, player, "channi"));
+                        room.DrawCards(target, new DrawCardStruct(duel.SubCards.Count, player, "channi"));
                     else if (player.Alive && target.HasFlag("channi_damaged") && !player.IsKongcheng())
                         room.ThrowAllHandCards(player);
 

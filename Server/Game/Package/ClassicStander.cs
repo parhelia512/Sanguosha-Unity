@@ -2518,9 +2518,7 @@ namespace SanguoshaServer.Package
 
         public override bool Triggerable(Player target, Room room)
         {
-            int count = 3 + target.Hp;
-            if (room.Players.Count >= 7) count = 2 + target.Hp;
-            return target.GetMark(Name) == 0 && base.Triggerable(target, room) && target.Phase == PlayerPhase.Start && target.HandcardNum >= count;
+            return target.GetMark(Name) == 0 && base.Triggerable(target, room) && (target.Phase == PlayerPhase.Start || target.Phase == PlayerPhase.Finish) && target.HandcardNum - target.Hp >= 2;
         }
 
         public override bool OnPhaseChange(Room room, Player player, TriggerStruct info)
@@ -2530,7 +2528,26 @@ namespace SanguoshaServer.Package
             room.DoSuperLightbox(player, info.SkillPosition, Name);
             room.LoseMaxHp(player);
             if (player.Alive)
-                room.HandleAcquireDetachSkills(player, "gongxin", true);
+            {
+                List<string> choices = new List<string> { "draw" };
+                if (player.GetLostHp() > 0)
+                    choices.Add("recover");
+
+                if (room.AskForChoice(player, Name, string.Join("+", choices)) == "recover")
+                {
+                    RecoverStruct recover = new RecoverStruct
+                    {
+                        Recover = 1,
+                        Who = player
+                    };
+                    room.Recover(player, recover, true);
+                }
+                else
+                    room.DrawCards(player, 2, Name);
+
+                if (player.Alive)
+                    room.HandleAcquireDetachSkills(player, "gongxin", true);
+            }
             return false;
         }
     }
@@ -2590,29 +2607,36 @@ namespace SanguoshaServer.Package
     {
         public Botu() : base("botu")
         {
-            events = new List<TriggerEvent> { TriggerEvent.CardUsedAnnounced, TriggerEvent.EventPhaseChanging };
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime, TriggerEvent.EventPhaseChanging, TriggerEvent.RoundStart };
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (player != null && room.Current == player && triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Card != null && base.Triggerable(player, room))
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && room.Current != null && data is CardsMoveOneTimeStruct move && move.To_place == Place.DiscardPile)
             {
-                int suit = (int)RoomLogic.GetCardSuit(room, use.Card);
-                List<int> suits = player.ContainsTag(Name + "Suit") ? (List<int>)player.GetTag(Name + "Suit") : new List<int>();
-                if (suit < 4 && !suits.Contains(suit))
+                List<int> suits = room.ContainsTag(Name) ? (List<int>)room.GetTag(Name) : new List<int>();
+                foreach (int id in move.Card_ids)
                 {
-                    suits.Add(suit);
-                    player.SetTag(Name + "Suit", suits);
+                    int suit = (int)room.GetCard(id).Suit;
+                    if (!suits.Contains(suit))
+                        suits.Add(suit);
                 }
+                room.SetTag(Name, suits);
             }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.NotActive)
+                room.RemoveTag(Name);
+            else if (triggerEvent == TriggerEvent.RoundStart)
+                foreach (Player p in room.GetAlivePlayers())
+                    p.SetMark(Name, 0);
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.EventPhaseChanging && base.Triggerable(player, room) && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && base.Triggerable(player, room) && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive
+                && room.ContainsTag(Name) && room.GetTag(Name) is List<int> suits && suits.Count == 4)
             {
-                List<int> suits = player.ContainsTag(Name + "Suit") ? (List<int>)player.GetTag(Name + "Suit") : new List<int>();
-                if (suits.Count == 4)
+                int count = Math.Min(3, room.AliveCount());
+                if (player.GetMark(Name) < count)
                     return new TriggerStruct(Name, player);
             }
 
@@ -2623,6 +2647,8 @@ namespace SanguoshaServer.Package
         {
             if (room.AskForSkillInvoke(ask_who, Name, null, info.SkillPosition))
             {
+                room.RemoveTag(Name);
+                player.AddMark(Name);
                 room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                 return info;
             }
