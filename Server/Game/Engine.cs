@@ -39,7 +39,7 @@ namespace SanguoshaServer.Game
         private static Dictionary<string, Dictionary<string, General>> generals = new Dictionary<string, Dictionary<string, General>>();
         private static Dictionary<string, List<string>> pack_generals = new Dictionary<string, List<string>>();
         private static Dictionary<string, List<string>> related_skills = new Dictionary<string, List<string>>();
-        private static Dictionary<string, List<General>> convert_pairs = new Dictionary<string, List<General>>();
+        private static Dictionary<string, Dictionary<string, List<General>>> convert_pairs = new Dictionary<string, Dictionary<string, List<General>>>();
         private static Dictionary<string, SkillEvent> ai_skill_event = new Dictionary<string, SkillEvent>();
         private static Dictionary<string, UseCard> ai_card_event = new Dictionary<string, UseCard>();
         private static List<string> huashen_baned = new List<string>();
@@ -507,6 +507,7 @@ namespace SanguoshaServer.Game
             //生成武将模板
             foreach (string mode in game_modes.Keys)
             {
+                convert_pairs[mode] = new Dictionary<string, List<General>>();
                 generals[mode] = new Dictionary<string, General>();
                 foreach (string pack in game_modes[mode].GeneralPackage)
                 {
@@ -540,9 +541,9 @@ namespace SanguoshaServer.Game
                         if (!string.IsNullOrEmpty(main))                //添加主武将
                         {
                             if (convert_pairs.ContainsKey(main))
-                                convert_pairs[main].Add(general);
+                                convert_pairs[mode][main].Add(general);
                             else
-                                convert_pairs[main] = new List<General> { general };
+                                convert_pairs[mode][main] = new List<General> { general };
                         }
                     }
                     pack_generals[pack] = general_names;                //按卡牌包给武将分类
@@ -673,20 +674,20 @@ namespace SanguoshaServer.Game
             return generals;
         }
 
-        public static List<General> GetConverPairs(string name)
+        public static List<General> GetConverPairs(string name, string mode)
         {
-            if (convert_pairs.ContainsKey(name))
-                return convert_pairs[name];
+            if (convert_pairs[mode].ContainsKey(name))
+                return convert_pairs[mode][name];
             else
                 return new List<General>();
         }
 
-        public static string GetMainGeneral(General general)
+        public static string GetMainGeneral(General general, string mode)
         {
-            foreach (string name in convert_pairs.Keys)
+            foreach (string general_name in convert_pairs[mode].Keys)
             {
-                if (name == general.Name || convert_pairs[name].Contains(general))
-                    return name;
+                if (general_name == general.Name || convert_pairs[mode][general_name].Contains(general))
+                    return general_name;
             }
 
             return general.Name;

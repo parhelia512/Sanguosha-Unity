@@ -337,7 +337,7 @@ namespace SanguoshaServer.Scenario
                 List<string> all = new List<string>(options[player]);
                 foreach (string general in all)
                 {
-                    foreach (General g in Engine.GetConverPairs(general))
+                    foreach (General g in Engine.GetConverPairs(general, room.Setting.GameMode))
                         if (room.Setting.GeneralPackage.Contains(g.Package))
                             options[player].Add(g.Name);
                 }

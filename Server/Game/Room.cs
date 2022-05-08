@@ -3187,12 +3187,12 @@ namespace SanguoshaServer.Game
             bool remove = general.StartsWith("-");
             string general_name = general;
             if (remove) general_name = general_name.Substring(1);
-            string main = Engine.GetMainGeneral(Engine.GetGeneral(general_name, Setting.GameMode));
+            string main = Engine.GetMainGeneral(Engine.GetGeneral(general_name, Setting.GameMode), Setting.GameMode);
             if (remove)
                 UsedGeneral.Remove(main);
             else if (!UsedGeneral.Contains(main))
                 UsedGeneral.Add(main);
-            foreach (General sub in Engine.GetConverPairs(main))
+            foreach (General sub in Engine.GetConverPairs(main, Setting.GameMode))
             {
                 if (!Setting.GeneralPackage.Contains(sub.Package)) continue;
                 if (remove)

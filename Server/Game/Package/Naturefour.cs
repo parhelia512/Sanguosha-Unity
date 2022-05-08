@@ -1349,7 +1349,7 @@ namespace SanguoshaServer.Package
                 { TriggerEvent.Death, 0 },
             };
         }
-
+        
         public static void Acquiregenerals(Room room, Player zuoci, int n)
         {
             List<string> huashens = zuoci.ContainsTag("huashen") ? (List<string>)zuoci.GetTag("huashen") : new List<string>();
@@ -1488,12 +1488,15 @@ namespace SanguoshaServer.Package
             foreach (string name in room.Generals)
             {
                 General general = Engine.GetGeneral(name, room.Setting.GameMode);
+                if (general.Kingdom.Contains(General.KingdomENUM.TobeDicede)) continue;
                 if (!room.UsedGeneral.Contains(name) && !ban.Contains(name))
                 {
                     available.Add(name);
-                    foreach (General g in Engine.GetConverPairs(name))
-                        if (!room.UsedGeneral.Contains(g.Name) && !ban.Contains(g.Name))
+                    foreach (General g in Engine.GetConverPairs(name, room.Setting.GameMode))
+                    {
+                        if (!room.UsedGeneral.Contains(g.Name) && !ban.Contains(g.Name) && !available.Contains(g.Name))
                             available.Add(g.Name);
+                    }
                 }
             }
             List<string> result = new List<string>();
