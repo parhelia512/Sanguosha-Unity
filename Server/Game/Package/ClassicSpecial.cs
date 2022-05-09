@@ -3860,7 +3860,7 @@ namespace SanguoshaServer.Package
             {
                 List<int> ids = new List<int>();
                 if (!p.IsNude())
-                    ids = room.AskForExchange(p, Name, 1, p.Hp > 0 ? 0 : 1, string.Format("@zengou-discard:{0}", player.Name), string.Empty, "^Basic!", info.SkillPosition);
+                    ids = room.AskForExchange(p, Name, 1, p.Hp > 0 ? 0 : 1, string.Format("@zengou-discard:{0}", player.Name), string.Empty, "^BasicCard!", info.SkillPosition);
 
                 room.BroadcastSkillInvoke(Name, p, info.SkillPosition);
                 room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, p.Name, player.Name);
@@ -3922,7 +3922,7 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            if (triggerEvent == TriggerEvent.EventPhaseStart && player != null && player.Phase == PlayerPhase.Finish)
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player != null && player.Alive && player.Phase == PlayerPhase.Finish)
             {
                 foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
                     if (p.HasFlag("changji_damage") || (p != player && p.HasFlag("changji_damaged")))
@@ -3933,13 +3933,13 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (ask_who.HasFlag("changji_damage") && room.AskForSkillInvoke(ask_who, Name, "@changji-draw", info.SkillPosition))
+            if (ask_who.HasFlag("changji_damage") && room.AskForSkillInvoke(ask_who, Name, "@changji-draw:" + player.Name, info.SkillPosition))
             {
                 ask_who.SetFlags("changji_draw");
                 room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                 return info;
             }
-            else if (ask_who.HasFlag("changji_damaged") && player.Alive && player != ask_who && !player.IsNude() && RoomLogic.CanDiscard(room, player, player, "he")
+            else if (ask_who.HasFlag("changji_damaged") && player != ask_who && !player.IsNude() && RoomLogic.CanDiscard(room, player, player, "he")
                 && room.AskForSkillInvoke(ask_who, Name, "@changji-discard:" + player.Name, info.SkillPosition))
             {
                 ask_who.SetFlags("changji_discard");
@@ -3954,7 +3954,7 @@ namespace SanguoshaServer.Package
         {
             if (ask_who.HasFlag("changji_draw"))
             {
-                room.DrawCards(ask_who, 2, Name);
+                room.DrawCards(player, new DrawCardStruct(2, ask_who, Name));
                 if (ask_who.Alive && ask_who.HasFlag("changji_damaged") && player.Alive && player != ask_who && !player.IsNude() && RoomLogic.CanDiscard(room, player, player, "he")
                     && room.AskForSkillInvoke(ask_who, Name, "@changji-discard:" + player.Name, info.SkillPosition))
                 {
@@ -3966,10 +3966,10 @@ namespace SanguoshaServer.Package
             else
             {
                 room.AskForDiscard(player, Name, 2, 2, false, true, "@changji-from:" + ask_who.Name, false);
-                if (ask_who.Alive && ask_who.HasFlag("changji_damage") && room.AskForSkillInvoke(ask_who, Name, "@changji-draw", info.SkillPosition))
+                if (ask_who.Alive && ask_who.HasFlag("changji_damage") && room.AskForSkillInvoke(ask_who, Name, "@changji-draw:" + player.Name, info.SkillPosition))
                 {
                     room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
-                    room.DrawCards(ask_who, 2, Name);
+                    room.DrawCards(player, new DrawCardStruct(2, ask_who, Name));
                 }
             }
 

@@ -5274,17 +5274,27 @@ namespace SanguoshaServer.Package
     {
         public Lueying() : base("lueying")
         {
-            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.CardFinished };
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.CardFinished, TriggerEvent.CardUsedAnnounced };
             frequency = Frequency.Compulsory;
             skill_type = SkillType.Attack;
             view_as_skill = new LueyingVS();
         }
-
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Card.Name == Dismantlement.ClassName && use.Card.GetSkillName() == Name)
+            {
+                player.AddMark("zhui_mark", -2);
+                if (player.GetMark("zhui_mark") > 0)
+                    room.SetPlayerStringMark(player, "zhui_mark", player.GetMark("zhui_mark").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "zhui_mark");
+            }
+        }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && base.Triggerable(player, room))
             {
-                if (triggerEvent == TriggerEvent.TargetChosen || (player.Phase != PlayerPhase.NotActive && player.GetMark("zhui_mark") >= 2))
+                if (triggerEvent == TriggerEvent.TargetChosen || (triggerEvent == TriggerEvent.CardFinished && player.Phase != PlayerPhase.NotActive && player.GetMark("zhui_mark") >= 2))
                     return new TriggerStruct(Name, player);
             }
             return new TriggerStruct();
@@ -5302,14 +5312,6 @@ namespace SanguoshaServer.Package
             else
             {
                 WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@lueying", "@lueying", null, -1, HandlingMethod.MethodUse, false, info.SkillPosition);
-                if (card != null)
-                {
-                    player.AddMark("zhui_mark", -2);
-                    if (player.GetMark("zhui_mark") > 0)
-                        room.SetPlayerStringMark(player, "zhui_mark", player.GetMark("zhui_mark").ToString());
-                    else
-                        room.RemovePlayerStringMark(player, "zhui_mark");
-                }
             }
             return false;
         }
@@ -5346,17 +5348,27 @@ namespace SanguoshaServer.Package
     {
         public Yingwu() : base("yingwu")
         {
-            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.CardFinished };
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.CardFinished, TriggerEvent.CardUsedAnnounced };
             frequency = Frequency.Compulsory;
             skill_type = SkillType.Attack;
             view_as_skill = new YingwuVS();
         }
-
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Card.Name == Slash.ClassName && use.Card.GetSkillName() == Name)
+            {
+                player.AddMark("zhui_mark", -2);
+                if (player.GetMark("zhui_mark") > 0)
+                    room.SetPlayerStringMark(player, "zhui_mark", player.GetMark("zhui_mark").ToString());
+                else
+                    room.RemovePlayerStringMark(player, "zhui_mark");
+            }
+        }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (data is CardUseStruct use && Engine.GetFunctionCard(use.Card.Name) is TrickCard && base.Triggerable(player, room))
             {
-                if (triggerEvent == TriggerEvent.TargetChosen || (player.Phase != PlayerPhase.NotActive && player.GetMark("zhui_mark") >= 2))
+                if (triggerEvent == TriggerEvent.TargetChosen || (triggerEvent == TriggerEvent.CardFinished && player.Phase != PlayerPhase.NotActive && player.GetMark("zhui_mark") >= 2))
                     return new TriggerStruct(Name, player);
             }
             return new TriggerStruct();
@@ -5374,14 +5386,6 @@ namespace SanguoshaServer.Package
             else
             {
                 WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@yingwu", "@yingwu", null, -1, HandlingMethod.MethodUse, false, info.SkillPosition);
-                if (card != null)
-                {
-                    player.AddMark("zhui_mark", -2);
-                    if (player.GetMark("zhui_mark") > 0)
-                        room.SetPlayerStringMark(player, "zhui_mark", player.GetMark("zhui_mark").ToString());
-                    else
-                        room.RemovePlayerStringMark(player, "zhui_mark");
-                }
             }
             return false;
         }
