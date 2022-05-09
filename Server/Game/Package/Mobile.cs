@@ -5277,6 +5277,7 @@ namespace SanguoshaServer.Package
             events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.CardFinished };
             frequency = Frequency.Compulsory;
             skill_type = SkillType.Attack;
+            view_as_skill = new LueyingVS();
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -5298,46 +5299,46 @@ namespace SanguoshaServer.Package
                 player.AddMark("zhui_mark");
                 room.SetPlayerStringMark(player, "zhui_mark", player.GetMark("zhui_mark").ToString());
             }
-            else if (data is CardUseStruct use)
+            else
             {
-                bool discard = false;
-                foreach (Player p in use.To)
+                WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@lueying", "@lueying", null, -1, HandlingMethod.MethodUse, false, info.SkillPosition);
+                if (card != null)
                 {
-                    if (p.Alive && !p.IsKongcheng() && RoomLogic.CanDiscard(room, player, p, "h"))
-                    {
-                        player.AddMark("zhui_mark", -2);
-                        if (player.GetMark("zhui_mark") > 0)
-                            room.SetPlayerStringMark(player, "zhui_mark", player.GetMark("zhui_mark").ToString());
-                        else
-                            room.RemovePlayerStringMark(player, "zhui_mark");
-
-                        room.SendCompulsoryTriggerLog(player, Name);
-                        room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
-                        discard = true;
-                        break;
-                    }
-                }
-
-                if (discard)
-                {
-                    foreach (Player p in use.To)
-                    {
-                        if (player.Alive && p.Alive && !p.IsKongcheng() && RoomLogic.CanDiscard(room, player, p, "h"))
-                        {
-                            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
-                            CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, p.Name, Name, null)
-                            {
-                                General = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition)
-                            };
-                            List<int> ints = new List<int>();
-                            ints.Add(room.AskForCardChosen(player, p, "h", Name, false, HandlingMethod.MethodDiscard));
-
-                            room.ThrowCard(ref ints, reason, p, player);
-                        }
-                    }
+                    player.AddMark("zhui_mark", -2);
+                    if (player.GetMark("zhui_mark") > 0)
+                        room.SetPlayerStringMark(player, "zhui_mark", player.GetMark("zhui_mark").ToString());
+                    else
+                        room.RemovePlayerStringMark(player, "zhui_mark");
                 }
             }
             return false;
+        }
+    }
+
+    public class LueyingVS : ViewAsSkill
+    {
+        public LueyingVS() : base("lueying")
+        {
+            response_pattern = "@@lueying";
+        }
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => false;
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count > 0)
+                return cards[0];
+            else
+                return null;
+        }
+
+        public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player Self)
+        {
+            List<WrappedCard> all_cards = new List<WrappedCard>();
+            WrappedCard slash = new WrappedCard(Dismantlement.ClassName)
+            {
+                Skill = "lueying"
+            };
+            all_cards.Add(slash);
+            return all_cards;
         }
     }
 
