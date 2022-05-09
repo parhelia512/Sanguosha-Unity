@@ -75,6 +75,8 @@ namespace SanguoshaServer.Package
                 new Tuogu(),
                 new Shanzhuan(),
                 new JixianZL(),
+                new Zengou(),
+                new Changji(),
 
                 new Mizhao(),
                 new Tianming(),
@@ -3828,6 +3830,152 @@ namespace SanguoshaServer.Package
         }
     }
 
+    public class Zengou : TriggerSkill
+    {
+        public Zengou() : base("zengou")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.JinkEffect };
+            skill_type = SkillType.Wizzard;
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.JinkEffect && data is CardResponseStruct resp)
+            {
+                List<Player> chengyus = RoomLogic.FindPlayersBySkillName(room, Name);
+                foreach (Player p in chengyus)
+                {
+                    if (p != player && RoomLogic.InMyAttackRange(room, p, player) && (p.Hp > 0 || !p.IsNude()))
+                        triggers.Add(new TriggerStruct(Name, p));
+                }
+            }
+
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player p, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(p, Name, string.Format("@zengou:{0}", player.Name), info.SkillPosition))
+            {
+                List<int> ids = new List<int>();
+                if (!p.IsNude())
+                    ids = room.AskForExchange(p, Name, 1, p.Hp > 0 ? 0 : 1, string.Format("@zengou-discard:{0}", player.Name), string.Empty, "^Basic!", info.SkillPosition);
+
+                room.BroadcastSkillInvoke(Name, p, info.SkillPosition);
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, p.Name, player.Name);
+                if (ids.Count == 0)
+                    room.LoseHp(p);
+                else
+                    room.ThrowCard(ids[0], p, null, Name);
+
+                return info;
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+
+            LogMessage log = new LogMessage
+            {
+                Type = "#ShefuEffect",
+                From = ask_who.Name,
+                To = new List<string> { player.Name },
+                Arg = Name,
+                Arg2 = Jink.ClassName
+            };
+            room.SendLog(log);
+
+            if (ask_who.Alive && data is CardResponseStruct resp)
+            {
+                List<int> ids = new List<int>();
+                foreach (int id in resp.Card.SubCards)
+                {
+                    if (room.GetCardPlace(id) == Place.PlaceTable || room.GetCardPlace(id) == Place.DiscardPile)
+                        ids.Add(id);
+                }
+                if (ids.Count > 0)
+                    room.ObtainCard(ask_who, ref ids, new CardMoveReason(MoveReason.S_REASON_RECYCLE, ask_who.Name, Name, string.Empty));
+            }
+
+            return true;
+        }
+    }
+
+    public class Changji : TriggerSkill
+    {
+        public Changji() : base("changji")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.Damage, TriggerEvent.Damaged, TriggerEvent.EventPhaseStart };
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.Damage)
+                player.SetFlags("changji_damage");
+            else if (triggerEvent == TriggerEvent.Damaged)
+                player.SetFlags("changji_damaged");
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player != null && player.Phase == PlayerPhase.Finish)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                    if (p.HasFlag("changji_damage") || (p != player && p.HasFlag("changji_damaged")))
+                        triggers.Add(new TriggerStruct(Name, p));
+            }
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (ask_who.HasFlag("changji_damage") && room.AskForSkillInvoke(ask_who, Name, "@changji-draw", info.SkillPosition))
+            {
+                ask_who.SetFlags("changji_draw");
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                return info;
+            }
+            else if (ask_who.HasFlag("changji_damaged") && player.Alive && player != ask_who && !player.IsNude() && RoomLogic.CanDiscard(room, player, player, "he")
+                && room.AskForSkillInvoke(ask_who, Name, "@changji-discard:" + player.Name, info.SkillPosition))
+            {
+                ask_who.SetFlags("changji_discard");
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (ask_who.HasFlag("changji_draw"))
+            {
+                room.DrawCards(ask_who, 2, Name);
+                if (ask_who.Alive && ask_who.HasFlag("changji_damaged") && player.Alive && player != ask_who && !player.IsNude() && RoomLogic.CanDiscard(room, player, player, "he")
+                    && room.AskForSkillInvoke(ask_who, Name, "@changji-discard:" + player.Name, info.SkillPosition))
+                {
+                    room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                    room.AskForDiscard(player, Name, 2, 2, false, true, "@changji-from:" + ask_who.Name, false);
+                }
+            }
+            else
+            {
+                room.AskForDiscard(player, Name, 2, 2, false, true, "@changji-from:" + ask_who.Name, false);
+                if (ask_who.Alive && ask_who.HasFlag("changji_damage") && room.AskForSkillInvoke(ask_who, Name, "@changji-draw", info.SkillPosition))
+                {
+                    room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                    room.DrawCards(ask_who, 2, Name);
+                }
+            }
+
+            return false;
+        }
+    }
 
     public class Tianming : TriggerSkill
     {
