@@ -885,7 +885,7 @@ namespace SanguoshaServer.Package
                     }
                     if (ids.Count > 0 && ids.Count < player.GetCards("he").Count)
                     {
-                        WrappedCard card = room.AskForUseCard(target, FunctionCard.RespondType.Skill, "@@zhengpi!", "@zhengpi-give", null);
+                        WrappedCard card = room.AskForUseCard(target, FunctionCard.RespondType.Skill, "@@zhengpi!", "@zhengpi-give:" + player.Name, null);
                         if (card != null)
                             ids = new List<int>(card.SubCards);
                     }
