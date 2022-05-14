@@ -231,6 +231,7 @@ namespace SanguoshaServer.AI
         {
             if (prompt.StartsWith("slash-jink") || prompt.StartsWith("@multi-jink"))
             {
+                Room room = ai.Room;
                 SlashEffectStruct effect = (SlashEffectStruct)data;
                 DamageStruct damage = new DamageStruct(effect.Slash, effect.From, effect.To, 1 + effect.Drank + effect.ExDamage);
                 if (effect.Slash.Name == FireSlash.ClassName)
@@ -260,7 +261,7 @@ namespace SanguoshaServer.AI
                 int available = 0;
                 foreach (WrappedCard jink in cards)
                 {
-                    if (!RoomLogic.IsCardLimited(ai.Room, player, jink, FunctionCard.HandlingMethod.MethodUse))
+                    if (!RoomLogic.IsCardLimited(ai.Room, player, jink, HandlingMethod.MethodUse) && Engine.MatchExpPattern(room, pattern, player, jink))
                     {
                         available++;
                         result = jink;

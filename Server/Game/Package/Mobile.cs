@@ -10,6 +10,7 @@ using static CommonClass.Game.CardUseStruct;
 using CommonClass;
 using System.IO;
 using log4net.Util;
+using System.Text;
 
 namespace SanguoshaServer.Package
 {
@@ -129,6 +130,8 @@ namespace SanguoshaServer.Package
                 new FangzongPro(),
                 new Mingxuan(),
                 new Xianchou(),
+                new LiegongMobile(),
+                new LiegongMobileTar(),
 
                 new Yingjian(),
                 new Shixin(),
@@ -210,6 +213,7 @@ namespace SanguoshaServer.Package
                 { "jianyi", new List<string> { "#jianyi" } },
                 { "shidi", new List<string> { "#shidi" } },
                 { "qishe", new List<string> { "#qishe" } },
+                { "liegong_mobile", new List<string> { "#liegong_mobile-tar" } },
             };
         }
     }
@@ -6947,6 +6951,154 @@ namespace SanguoshaServer.Package
             }
 
             return false;
+        }
+    }
+
+    public class LiegongMobile : TriggerSkill
+    {
+        public LiegongMobile() : base("liegong_mobile")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.TargetConfirmed, TriggerEvent.CardUsed };
+            skill_type = SkillType.Attack;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if ((triggerEvent == TriggerEvent.TargetConfirmed || triggerEvent == TriggerEvent.CardUsed) && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name) && base.Triggerable(player, room))
+            {
+                int suit = (int)use.Card.Suit;
+                if (suit < 4)
+                {
+                    List<int> suits = player.ContainsTag(Name) ? (List<int>)player.GetTag(Name) : new List<int>();
+                    if (!suits.Contains(suit))
+                    {
+                        suits.Add(suit);
+                        player.SetTag(Name, suits);
+                        StringBuilder strs = new StringBuilder();
+                        foreach (int id in suits)
+                            strs.Append(WrappedCard.GetSuitIcon((WrappedCard.CardSuit)id));
+
+                        room.SetPlayerStringMark(player, Name, strs.ToString());
+                    }
+                }
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use && base.Triggerable(player, room) && use.Card.Name.Contains(Slash.ClassName) && use.To.Count == 1
+                && player.ContainsTag(Name) && player.GetTag(Name) is List<int> suits && suits.Count > 0)
+                return new TriggerStruct(Name, player, use.To);
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player skill_target, ref object data, Player player, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, skill_target, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player target, ref object data, Player player, TriggerStruct info)
+        {
+            if (player.GetTag(Name) is List<int> suits && data is CardUseStruct use)
+            {
+                player.RemoveTag(Name);
+                room.RemovePlayerStringMark(player, Name);
+
+                int count = suits.Count - 1;
+                if (count > 0)
+                {
+                    List<int> card_ids = room.GetNCards(count);
+                    int add = 0;
+                    foreach (int id in card_ids)
+                    {
+                        WrappedCard card = room.GetCard(id);
+                        room.MoveCardTo(card, player, Place.PlaceTable, new CardMoveReason(MoveReason.S_REASON_TURNOVER, player.Name, Name, null), false);
+                        if (suits.Contains((int)card.Suit))
+                            add++;
+                    }
+
+                    if (add > 0)
+                    {
+                        LogMessage log = new LogMessage
+                        {
+                            Type = "#damage-add",
+                            From = player.Name,
+                            Arg = use.Card.Name,
+                            Arg2 = add.ToString()
+                        };
+                        room.SendLog(log);
+
+                        use.ExDamage += count;
+                    }
+
+                    room.MoveCards(new List<CardsMoveStruct>{ new CardsMoveStruct(card_ids, null, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, null, Name, null)) }, true);
+                }
+
+                StringBuilder strs = new StringBuilder();
+                List<string> suits_str = new List<string> { "spade", "heart", "club", "diamond" };
+                foreach (int id in suits)
+                {
+                    strs.Append(WrappedCard.GetSuitIcon((WrappedCard.CardSuit)id));
+                    suits_str.Remove(WrappedCard.GetSuitString((WrappedCard.CardSuit)id));
+                }
+                string pattern = string.Empty;
+                if (suits.Count == 4)
+                    pattern = "Jink|none";
+                else
+                    pattern = string.Format("Jink|{0}", string.Join(",", suits_str));
+
+                LogMessage log2 = new LogMessage
+                {
+                    Type = "$NoJinkSuit",
+                    From = target.Name,
+                    Card_str = RoomLogic.CardToString(room, use.Card),
+                    Arg = strs.ToString()
+                };
+                room.SendLog(log2);
+
+                int index = 0;
+                for (int i = 0; i < use.EffectCount.Count; i++)
+                {
+                    CardBasicEffect effect = use.EffectCount[i];
+                    if (effect.To == target)
+                    {
+                        index++;
+                        if (index == info.Times)
+                        {
+                            effect.RespondPattern = pattern;
+                            break;
+                        }
+                    }
+                }
+                data = use;
+            }
+            return false;
+        }
+    }
+
+    public class LiegongMobileTar : TargetModSkill
+    {
+        public LiegongMobileTar() : base("#liegong_mobile-tar")
+        {
+        }
+
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern)
+        {
+            if (from != null && RoomLogic.PlayerHasSkill(room, from, "liegong_mobile") && to != null)
+            {
+                int distance = RoomLogic.DistanceTo(room, from, to, card);
+                return distance > 0 && RoomLogic.GetCardNumber(room, card) >= distance;
+            }
+
+            return false;
+        }
+
+        public override void GetEffectIndex(Room room, Player player, WrappedCard card, ModType type, ref int index, ref string skill_name, ref string general_name, ref int skin_id)
+        {
+            index = -2;
         }
     }
 
