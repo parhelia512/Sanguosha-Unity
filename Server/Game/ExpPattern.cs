@@ -160,7 +160,6 @@ namespace SanguoshaServer.Game
                 checkpoint = WrappedCard.GetSuitString(RoomLogic.GetCardSuit(room, card)) == suit
                     || (WrappedCard.IsBlack(RoomLogic.GetCardSuit(room, card)) && suit == "black")
                     || (WrappedCard.IsRed(RoomLogic.GetCardSuit(room, card)) && suit == "red")
-                    || (RoomLogic.GetCardSuit(room, card) == WrappedCard.CardSuit.NoSuit && suit == "none")
                     ? positive : !positive;
                 if (checkpoint) break;
             }

@@ -7038,17 +7038,13 @@ namespace SanguoshaServer.Package
                 }
 
                 StringBuilder strs = new StringBuilder();
-                List<string> suits_str = new List<string> { "spade", "heart", "club", "diamond" };
+                List<string> suits_str = new List<string> { "spade", "heart", "club", "diamond", "no_suit", "no_suit_black", "no_suit_red" };
                 foreach (int id in suits)
                 {
                     strs.Append(WrappedCard.GetSuitIcon((WrappedCard.CardSuit)id));
                     suits_str.Remove(WrappedCard.GetSuitString((WrappedCard.CardSuit)id));
                 }
-                string pattern = string.Empty;
-                if (suits.Count == 4)
-                    pattern = "Jink|none";
-                else
-                    pattern = string.Format("Jink|{0}", string.Join(",", suits_str));
+                string pattern = string.Format("Jink|{0}", string.Join(",", suits_str));
 
                 LogMessage log2 = new LogMessage
                 {
