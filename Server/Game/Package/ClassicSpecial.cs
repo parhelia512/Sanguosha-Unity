@@ -12555,19 +12555,13 @@ namespace SanguoshaServer.Package
     {
         public Zhuhai() : base("zhuhai")
         {
-            events = new List<TriggerEvent> { TriggerEvent.Damage, TriggerEvent.EventPhaseStart, TriggerEvent.CardUsedAnnounced };
+            events = new List<TriggerEvent> { TriggerEvent.Damage, TriggerEvent.EventPhaseStart };
             skill_type = SkillType.Attack;
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             if (triggerEvent == TriggerEvent.Damage && player.Alive && room.Current == player)
                 player.SetFlags(Name);
-            else if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Pattern == "Slash:zhuhai")
-            {
-                room.ShowSkill(player, Name, string.Empty);
-                room.NotifySkillInvoked(player, Name);
-                room.BroadcastSkillInvoke(Name, player);
-            }
         }
 
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
@@ -12586,32 +12580,41 @@ namespace SanguoshaServer.Package
         {
             if (player.Alive && ask_who.Alive)
             {
-                ask_who.SetFlags("slashTargetFix");
-                player.SetFlags("SlashAssignee");
-
-                WrappedCard used = room.AskForUseCard(ask_who, RespondType.Slash, "Slash:zhuhai", "@zhuhai-slash:" + player.Name, null, -1, HandlingMethod.MethodUse, false);
-                if (used == null)
-                {
-                    ask_who.SetFlags("-slashTargetFix");
-                    player.SetFlags("-SlashAssignee");
-                }
+                room.AskForUseCard(ask_who, RespondType.Skill, "@@zhuhai", "@zhuhai:" + player.Name, null, -1, HandlingMethod.MethodUse, false);
+                return info;
             }
 
             return new TriggerStruct();
         }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info) => false;
     }
 
-    public class ZhuhaiTag : TargetModSkill
+    public class ZhuhaiVS : ViewAsSkill
     {
-        public ZhuhaiTag() : base("#zhuhai", false) { }
-        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseStruct.CardUseReason reason, string pattern)
-        {
-            if (reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && to.HasFlag("SlashAssignee")
-                && (room.GetRoomState().GetCurrentResponseSkill() == "zhuhai" || pattern == "Slash:zhuhai"))
-                return true;
+        public ZhuhaiVS() : base("zhuhai") { response_pattern = "@@zhuhai"; }
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => false;
 
-            return false;
+        public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
+        {
+            List<WrappedCard> result = new List<WrappedCard>();
+            result.Add(new WrappedCard(Slash.ClassName) { Skill = Name, DistanceLimited = false });
+            result.Add(new WrappedCard(Dismantlement.ClassName) { Skill = Name });
+            return result;
         }
+
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count == 1 && cards[0].IsVirtualCard())
+                return cards[0];
+            return null;
+        }
+    }
+
+    public class ZhuhaiTag : ProhibitSkill
+    {
+        public ZhuhaiTag() : base("#zhuhai") { }
+        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null) => card != null && card.GetSkillName() == "zhuhai" && room.Current != to;
     }
 
     public class Qianxin : TriggerSkill
@@ -12652,7 +12655,7 @@ namespace SanguoshaServer.Package
         }
         public override bool IsEnabledAtPlay(Room room, Player player)
         {
-            return !player.HasUsed(JianyanCard.ClassName);
+            return !player.HasFlag("jianyan_color") || !player.HasFlag("jianyan_type");
         }
         public override WrappedCard ViewAs(Room room, Player player)
         {
@@ -12668,7 +12671,20 @@ namespace SanguoshaServer.Package
         public override void Use(Room room, CardUseStruct card_use)
         {
             Player player = card_use.From;
-            string choice = room.AskForChoice(player, "jianyan", "basic+equip+trick+red+black", new List<string> { "@jianyan" });
+            List<string> choices = new List<string>();
+            if (!player.HasFlag("jianyan_color"))
+            {
+                choices.Add("red");
+                choices.Add("black");
+            }
+            if (!player.HasFlag("jianyan_type"))
+            {
+                choices.Add("basic");
+                choices.Add("equip");
+                choices.Add("trick");
+            }
+
+            string choice = room.AskForChoice(player, "jianyan", string.Join("+", choices), new List<string> { "@jianyan" });
             List<int> ids = new List<int>();
             foreach (int id in room.DrawPile)
             {
@@ -12676,26 +12692,31 @@ namespace SanguoshaServer.Package
                 FunctionCard fcard = Engine.GetFunctionCard(card.Name);
                 if (fcard.TypeID == CardType.TypeBasic && choice == "basic")
                 {
+                    player.SetFlags("jianyan_type");
                     ids.Add(id);
                     break;
                 }
                 else if (fcard.TypeID == CardType.TypeEquip && choice == "equip")
                 {
+                    player.SetFlags("jianyan_type");
                     ids.Add(id);
                     break;
                 }
                 else if (fcard.TypeID == CardType.TypeTrick && choice == "trick")
                 {
+                    player.SetFlags("jianyan_type");
                     ids.Add(id);
                     break;
                 }
                 else if (WrappedCard.IsBlack(card.Suit) && choice == "black")
                 {
+                    player.SetFlags("jianyan_color");
                     ids.Add(id);
                     break;
                 }
                 else if (WrappedCard.IsRed(card.Suit) && choice == "red")
                 {
+                    player.SetFlags("jianyan_color");
                     ids.Add(id);
                     break;
                 }

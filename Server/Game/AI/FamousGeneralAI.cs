@@ -3031,6 +3031,17 @@ namespace SanguoshaServer.AI
         public XianzhenAI() : base("xianzhen")
         { }
 
+        public override void DamageEffect(TrustedAI ai, ref DamageStruct damage, DamageStruct.DamageStep step)
+        {
+            if (step <= DamageStruct.DamageStep.Caused && damage.From != null && damage.From.Alive && damage.Card != null && !Engine.IsSkillCard(damage.Card.Name)
+                && damage.From.ContainsTag(Name) && damage.From.GetTag(Name) is List<string> names && names.Contains(damage.To.Name))
+            {
+                List<string> cards = damage.From.ContainsTag("xianzhen_cards") ? (List<string>)damage.From.GetTag("xianzhen_cards") : new List<string>();
+                string card_name = damage.Card.Name.Contains(Slash.ClassName) ? Slash.ClassName : damage.Card.Name;
+                if (!cards.Contains(card_name))
+                    damage.Damage++;
+            }
+        }
 
         public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
         {

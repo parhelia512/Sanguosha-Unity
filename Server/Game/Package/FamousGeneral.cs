@@ -88,6 +88,7 @@ namespace SanguoshaServer.Package
                 new XianzhenTar(),
                 new XianzhenMax(),
                 new Jinjiu(),
+                new JinjiuProhibit(),
                 new Zhige(),
                 new Zongzuo(),
                 new Huaiyi(),
@@ -277,6 +278,7 @@ namespace SanguoshaServer.Package
                 { "jingce", new List<string>{ "#jingce" } },
                 { "yanzhu", new List<string>{ "#yanzhu" } },
                 { "zhaofu", new List<string>{ "#zhaofu" } },
+                { "jinjiu", new List<string>{ "#jinjiu-prohibit" } },
             };
         }
     }
@@ -8423,21 +8425,46 @@ namespace SanguoshaServer.Package
     {
         public Xianzhen() : base("xianzhen")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardTargetAnnounced };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardTargetAnnounced, TriggerEvent.DamageCaused };
             view_as_skill = new XianzhenViewAsSkill();
             skill_type = SkillType.Attack;
         }
+
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive
                 && player.ContainsTag(Name) && player.GetTag(Name) is List<string> target_names)
             {
                 player.RemoveTag(Name);
+                player.RemoveTag("xianzhen_cards");
                 foreach (string target_name in target_names)
                 {
                     Player target = room.FindPlayer(target_name, true);
                     if (target != null)
                         target.RemoveArmorNullified(player);
+                }
+            }
+            else if (triggerEvent == TriggerEvent.DamageCaused && data is DamageStruct damage && player != null && player.Alive && damage.Card != null && damage.To != player
+                && player.ContainsTag(Name) && player.GetTag(Name) is List<string> names && names.Contains(damage.To.Name) && !Engine.IsSkillCard(damage.Card.Name))
+            {
+                List<string> cards = player.ContainsTag("xianzhen_cards") ? (List<string>)player.GetTag("xianzhen_cards") : new List<string>();
+                string card_name = damage.Card.Name.Contains(Slash.ClassName) ? Slash.ClassName : damage.Card.Name;
+                if (!cards.Contains(card_name))
+                {
+                    LogMessage log = new LogMessage
+                    {
+                        Type = "#AddDamage",
+                        From = player.Name,
+                        To = new List<string> { damage.To.Name },
+                        Arg = Name,
+                        Arg2 = (++damage.Damage).ToString()
+                    };
+                    room.SendLog(log);
+
+                    data = damage;
+
+                    cards.Add(card_name);
+                    player.SetTag("xianzhen_cards", cards);
                 }
             }
         }
@@ -8572,6 +8599,7 @@ namespace SanguoshaServer.Package
 
         public override void ViewAs(Room room, ref RoomCard card, Player player)
         {
+            card.SetNumber(13);
             card.ChangeName(Slash.ClassName);
         }
     }
@@ -8619,6 +8647,21 @@ namespace SanguoshaServer.Package
         public override void GetEffectIndex(Room room, Player player, WrappedCard card, ref int index, ref string skill_name, ref string general_name, ref int skin_id)
         {
             index = -2;
+        }
+    }
+
+    public class JinjiuProhibit : ProhibitSkill
+    {
+        public JinjiuProhibit() : base("#jinjiu-prohibit")
+        {
+        }
+        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null)
+        {
+            if (card.Name == Analeptic.ClassName && room.Current != null && room.Current.Alive && room.Current.Phase != PlayerPhase.NotActive
+                && RoomLogic.PlayerHasShownSkill(room, room.Current, "jinjiu") && room.Current != from)
+                return true;
+
+            return false;
         }
     }
 

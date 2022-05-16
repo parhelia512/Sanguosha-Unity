@@ -1020,18 +1020,20 @@ namespace SanguoshaServer.AI
         public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
             Room room = ai.Room;
+            Player target = room.Current;
+            CardUseStruct use = new CardUseStruct(null, player, new List<Player> { target });
+            WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = Name, DistanceLimited = false };
+            List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { slash }, new List<Player> { target }, false);
+            double slash_point = 0, dis_point = 0;
+            if (scores.Count > 0) slash_point = scores[0].Score;
+            WrappedCard dis = new WrappedCard(Dismantlement.ClassName) { Skill = Name };
+            if (!target.IsAllNude() && RoomLogic.CanDiscard(room, player, target, "hej") && RoomLogic.IsProhibited(room, player, target, dis) == null)
+                dis_point = ai.FindCards2Discard(player, target, Name, "hej", HandlingMethod.MethodDiscard).Score;
 
-            CardUseStruct use = new CardUseStruct(null, player, new List<Player>());
-            List<Player> targets = new List<Player>();
-            foreach (Player p in room.GetOtherPlayers(player))
-                if (p.HasFlag("SlashAssignee")) targets.Add(p);
-
-            List<ScoreStruct> values = ai.CaculateSlashIncome(player, null, targets);
-            if (values.Count > 0 && values[0].Score > 0)
-            {
-                use.Card = values[0].Card;
-                use.To = values[0].Players;
-            }
+            if (slash_point > dis_point && slash_point > 0)
+                use.Card = slash;
+            else if (dis_point > slash_point && dis_point > 0)
+                use.Card = dis;
 
             return use;
         }
@@ -1150,26 +1152,36 @@ namespace SanguoshaServer.AI
         {
             List<Player> friends = ai.GetFriends(player);
             ai.SortByDefense(ref friends, false);
-            foreach (Player p in friends)
-                if (p.IsMale() && ai.IsWeak(p) && !ai.HasSkill("zishu", p))
-                    return "red";
 
-            foreach (Player p in friends)
-                if (p.IsMale() && ai.HasSkill(TrustedAI.LoseEquipSkill, p) && !ai.WillSkipPlayPhase(p) && !ai.HasSkill("zishu", p))
-                    return "equip";
+            if (!player.HasFlag("jianyan_color"))
+            {
+                foreach (Player p in friends)
+                    if (p.IsMale() && ai.IsWeak(p) && !ai.HasSkill("zishu", p))
+                        return "red";
+            }
 
-            foreach (Player p in friends)
-                if (p.IsMale() && ai.HasSkill(TrustedAI.NeedEquipSkill, p) && !ai.WillSkipPlayPhase(p) && !ai.HasSkill("zishu", p))
-                    return "equip";
+            if (!player.HasFlag("jianyan_type"))
+            {
+                foreach (Player p in friends)
+                    if (p.IsMale() && ai.HasSkill(TrustedAI.LoseEquipSkill, p) && !ai.WillSkipPlayPhase(p) && !ai.HasSkill("zishu", p))
+                        return "equip";
 
-            if (player.GetEquips().Count < 2) return "equip";
+                foreach (Player p in friends)
+                    if (p.IsMale() && ai.HasSkill(TrustedAI.NeedEquipSkill, p) && !ai.WillSkipPlayPhase(p) && !ai.HasSkill("zishu", p))
+                        return "equip";
 
-            return "trick";
+                if (player.GetEquips().Count < 2) return "equip";
+            }
+
+            if (!player.HasFlag("jianyan_type"))
+                return "trick";
+            else
+                return "red";
         }
 
         public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
         {
-            if (!player.HasUsed(JianyanCard.ClassName))
+            if (!player.HasFlag("jianyan_color") || !player.HasFlag("jianyan_type"))
                 return new List<WrappedCard> { new WrappedCard(JianyanCard.ClassName) { Skill = Name } };
 
             return new List<WrappedCard>();

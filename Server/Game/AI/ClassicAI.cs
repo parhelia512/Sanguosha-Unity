@@ -3015,7 +3015,6 @@ namespace SanguoshaServer.AI
             { "@lianji-slash", "lianji" },
             { "@jianji", "jianji" },
             { "@zhongyong-slash", "zhongyong" },
-            { "@zhuhai-slash", "zhuhai" },
             { "@sheque-slash", "sheque" },
             { "@mingxuan-slash", "mingxuan" },
         };

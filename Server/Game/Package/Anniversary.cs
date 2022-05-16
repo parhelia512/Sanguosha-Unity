@@ -6459,6 +6459,26 @@ namespace SanguoshaServer.Package
 
                     room.RoomThread.Trigger(TriggerEvent.MaxHpChanged, room, player);
                 }
+
+                if (player.Alive)
+                {
+                    List<string> choices = new List<string> { "draw" };
+                    if (player.GetLostHp() > 0)
+                    {
+                        choices.Add("recover");
+                    }
+                    if (room.AskForChoice(player, Name, string.Join("+", choices)) == "recover")
+                    {
+                        RecoverStruct recover = new RecoverStruct
+                        {
+                            Recover = 1,
+                            Who = player
+                        };
+                        room.Recover(player, recover, true);
+                    }
+                    else
+                        room.DrawCards(player, 2, Name);
+                }
             }
         }
 
@@ -6544,17 +6564,7 @@ namespace SanguoshaServer.Package
     public class Mouzhu : ZeroCardViewAsSkill
     {
         public Mouzhu() : base("mouzhu") { }
-        public override bool IsEnabledAtPlay(Room room, Player player)
-        {
-            if (!player.HasUsed(MouzhuCard.ClassName))
-            {
-                foreach (Player p in room.GetOtherPlayers(player))
-                    if (RoomLogic.DistanceTo(room, player, p) == 1 || p.Hp == player.Hp)
-                        return true;
-            }
-
-            return false;
-        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(MouzhuCard.ClassName);
 
         public override WrappedCard ViewAs(Room room, Player player)
         {
@@ -6567,48 +6577,20 @@ namespace SanguoshaServer.Package
         public static string ClassName = "MouzhuCard";
         public MouzhuCard() : base(ClassName)
         {
-            target_fixed = true;
         }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => to_select != Self && (RoomLogic.DistanceTo(room, Self, to_select) == 1 || to_select.Hp == Self.Hp);
 
         public override void Use(Room room, CardUseStruct card_use)
         {
             Player player = card_use.From;
-            List<string> choices = new List<string>();
-            foreach (Player p in room.GetOtherPlayers(player))
-            {
-                if (!choices.Contains("distance") && RoomLogic.DistanceTo(room, player, p) == 1)
-                    choices.Add("distance");
-                if (!choices.Contains("hp") && p.Hp == player.Hp)
-                    choices.Add("hp");
-            }
-            if (choices.Count > 0)
-            {
-                string choice = room.AskForChoice(player, "mouzhu", string.Join("+", choices), null, true);
-                List<Player> targets = new List<Player>();
-                if (choice == "hp")
-                {
-                    foreach (Player p in room.GetOtherPlayers(player))
-                        if (p.Hp == player.Hp && !p.IsKongcheng())
-                            targets.Add(p);
-                }
-                else
-                {
-                    foreach (Player p in room.GetOtherPlayers(player))
-                        if (RoomLogic.DistanceTo(room, player, p) == 1 && !p.IsKongcheng())
-                            targets.Add(p);
-                }
+            foreach (Player p in card_use.To)
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
 
-                if (targets.Count > 0)
-                {
-                    foreach (Player p in targets)
-                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
-
-                    foreach (Player p in targets)
-                    {
-                        if (p.Alive && player.Alive && !p.IsKongcheng())
-                            Do(room, p, player);
-                    }
-                }
+            foreach (Player p in card_use.To)
+            {
+                if (p.Alive && player.Alive && !p.IsKongcheng())
+                    Do(room, p, player);
             }
         }
 
