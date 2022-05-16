@@ -776,21 +776,14 @@ namespace SanguoshaServer.Package
     {
         public ShejianHegemony() : base("shejian_hegemony")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.TargetConfirmed };
+            events = new List<TriggerEvent> { TriggerEvent.TargetConfirmed };
             skill_type = SkillType.Attack;
-        }
-
-        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
-        {
-            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
-                foreach (Player p in room.GetAlivePlayers())
-                    p.SetMark("shejian_invoke", 0);
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (data is CardUseStruct use && use.To.Count == 1 && base.Triggerable(player, room) && !player.IsKongcheng() && use.From != null && use.From.Alive
-                && use.From != player && RoomLogic.CanDiscard(room, player, player, "h") && player.GetMark("shejian_invoke") < 2)
+                && use.From != player && RoomLogic.CanDiscard(room, player, player, "h"))
             {
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
                 if (fcard is BasicCard || fcard is TrickCard)
@@ -811,7 +804,6 @@ namespace SanguoshaServer.Package
                     new CardMoveReason(MoveReason.S_REASON_THROW, player.Name, Name, string.Empty) { General = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition) },
                     player, null, Name);
                 player.SetMark(Name, ids.Count);
-                player.AddMark("shejian_invoke");
                 return info;
             }
 
