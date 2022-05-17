@@ -105,6 +105,7 @@ namespace SanguoshaServer.AI
                 new DifaAI(),
                 new XuezhaoAI(),
                 new ChanniAI(),
+                new MouzhuAI(),
             };
 
             use_cards = new List<UseCard>
@@ -129,6 +130,7 @@ namespace SanguoshaServer.AI
                 new ChanniCardAI(),
                 new BoyanCCardAI(),
                 new WeimengCardAI(),
+                new MouzhuCardAI(),
             };
         }
     }
@@ -4246,5 +4248,57 @@ namespace SanguoshaServer.AI
         }
 
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 1.2;
+    }
+
+    public class MouzhuAI : SkillEvent
+    {
+        public MouzhuAI() : base("mouzhu") { }
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            if (!player.HasUsed(MouzhuCard.ClassName))
+                return new List<WrappedCard> { new WrappedCard(MouzhuCard.ClassName) { Skill = Name } };
+            return new List<WrappedCard>();
+        }
+
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
+        {
+            if (choice.Contains("slash") && data is Player target)
+            {
+                WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_mouzhu", DistanceLimited = false };
+                List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { slash }, new List<Player> { target }, false);
+                if (scores.Count > 0 && scores[0].Score > 0)
+                    return "slash";
+            }
+            if (choice.Contains("duel"))
+                return "duel";
+            else
+                return "slash";
+        }
+    }
+
+    public class MouzhuCardAI : UseCard
+    {
+        public MouzhuCardAI() : base(MouzhuCard.ClassName) { }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            {
+                foreach (Player p in use.To)
+                    if (ai.GetPlayerTendency(p) != "unknown")
+                        ai.UpdatePlayerRelation(player, p, false);
+            }
+        }
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            List<Player> enemies = ai.GetEnemies(player);
+            List<Player> targets = enemies.FindAll(t => !t.IsKongcheng() && (t.Hp == player.Hp || RoomLogic.DistanceTo(ai.Room, player, t) == 1));
+            if (targets.Count > 0)
+            {
+                use.Card = card;
+                use.To = targets;
+            }
+        }
+
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 5;
     }
 }

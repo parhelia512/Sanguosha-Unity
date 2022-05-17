@@ -12579,15 +12579,10 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             if (player.Alive && ask_who.Alive)
-            {
                 room.AskForUseCard(ask_who, RespondType.Skill, "@@zhuhai", "@zhuhai:" + player.Name, null, -1, HandlingMethod.MethodUse, false);
-                return info;
-            }
 
             return new TriggerStruct();
         }
-
-        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info) => false;
     }
 
     public class ZhuhaiVS : ViewAsSkill
@@ -12598,8 +12593,8 @@ namespace SanguoshaServer.Package
         public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
         {
             List<WrappedCard> result = new List<WrappedCard>();
-            result.Add(new WrappedCard(Slash.ClassName) { Skill = Name, DistanceLimited = false });
-            result.Add(new WrappedCard(Dismantlement.ClassName) { Skill = Name });
+            result.Add(new WrappedCard(Slash.ClassName) { Skill = Name, ShowSkill = Name, DistanceLimited = false });
+            result.Add(new WrappedCard(Dismantlement.ClassName) { Skill = Name, ShowSkill = Name });
             return result;
         }
 

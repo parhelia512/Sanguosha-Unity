@@ -6579,7 +6579,8 @@ namespace SanguoshaServer.Package
         {
         }
 
-        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => to_select != Self && (RoomLogic.DistanceTo(room, Self, to_select) == 1 || to_select.Hp == Self.Hp);
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+            => !to_select.IsKongcheng() && to_select != Self && (RoomLogic.DistanceTo(room, Self, to_select) == 1 || to_select.Hp == Self.Hp);
 
         public override void Use(Room room, CardUseStruct card_use)
         {
@@ -6603,8 +6604,7 @@ namespace SanguoshaServer.Package
                 if (from.Alive && to.Alive && from.HandcardNum < to.HandcardNum)
                 {
                     List<string> choices = new List<string>();
-                    WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_mouzhu" };
-                    slash.DistanceLimited = false;
+                    WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_mouzhu", DistanceLimited = false };
                     if (RoomLogic.IsProhibited(room, from, to, slash) == null)
                         choices.Add("slash");
 

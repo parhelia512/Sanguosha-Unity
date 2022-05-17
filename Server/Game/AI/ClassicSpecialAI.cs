@@ -1022,11 +1022,11 @@ namespace SanguoshaServer.AI
             Room room = ai.Room;
             Player target = room.Current;
             CardUseStruct use = new CardUseStruct(null, player, new List<Player> { target });
-            WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = Name, DistanceLimited = false };
+            WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = Name, ShowSkill = Name, DistanceLimited = false };
             List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { slash }, new List<Player> { target }, false);
             double slash_point = 0, dis_point = 0;
             if (scores.Count > 0) slash_point = scores[0].Score;
-            WrappedCard dis = new WrappedCard(Dismantlement.ClassName) { Skill = Name };
+            WrappedCard dis = new WrappedCard(Dismantlement.ClassName) { Skill = Name, ShowSkill = Name };
             if (!target.IsAllNude() && RoomLogic.CanDiscard(room, player, target, "hej") && RoomLogic.IsProhibited(room, player, target, dis) == null)
                 dis_point = ai.FindCards2Discard(player, target, Name, "hej", HandlingMethod.MethodDiscard).Score;
 
