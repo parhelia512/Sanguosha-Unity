@@ -244,23 +244,18 @@ namespace SanguoshaServer.Package
             }
             else
             {
-                int count = 0;
-                List<Player> targets = new List<Player>();
+                bool invoke = false;
                 foreach (Player p in room.GetOtherPlayers(player))
                 {
-                    if (p.GetMark("@night") > count)
-                        count = p.GetMark("@night");
+                    if (p.GetMark("@night") > 0)
+                    {
+                        invoke = true;
+                        break;
+                    }
                 }
-                if (count == 0) return new TriggerStruct();
 
-                foreach (Player p in room.GetOtherPlayers(player))
-                    if (p.GetMark("@night") == count)
-                        targets.Add(p);
-
-                if (targets.Count > 0)
+                if (invoke && room.AskForSkillInvoke(player, Name, "@wuhun", info.SkillPosition))
                 {
-                    Player target = room.AskForPlayerChosen(player, targets, Name, "@wuhun", false, true, info.SkillPosition);
-                    player.SetTag(Name, target.Name);
                     room.BroadcastSkillInvoke(Name, "male", 2, gsk.General, gsk.SkinId);
                     return info;
                 }
@@ -277,12 +272,9 @@ namespace SanguoshaServer.Package
             }
             else if (triggerEvent == TriggerEvent.Death)
             {
-                Player target = room.FindPlayer(player.GetTag(Name).ToString());
-                player.RemoveTag(Name);
-
                 JudgeStruct judge = new JudgeStruct
                 {
-                    Who = target,
+                    Who = player,
                     Pattern = "Peach#GodSalvation",
                     Good = false,
                     PlayAnimation = true,
@@ -292,11 +284,23 @@ namespace SanguoshaServer.Package
 
                 room.Judge(ref judge);
 
-                if (judge.IsEffected() && target.Alive)
+                if (judge.IsEffected())
                 {
-                    target.Hp = 0;
-                    room.BroadcastProperty(target, "Hp");
-                    room.KillPlayer(target, new DamageStruct());
+                    List<Player> targets = new List<Player>();
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (p.GetMark("@night") > 0)
+                        {
+                            targets.Add(p);
+                        }
+                    }
+                    List<Player> victims = room.AskForPlayersChosen(player, targets, Name, 1, targets.Count, "@wuhun-target", true, info.SkillPosition);
+                    if (victims.Count > 0)
+                    {
+                        foreach (Player p in victims)
+                            if (p.Alive)
+                                room.LoseHp(p, p.GetMark("@night"));
+                    }
                 }
             }
 

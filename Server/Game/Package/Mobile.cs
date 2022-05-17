@@ -6958,28 +6958,36 @@ namespace SanguoshaServer.Package
     {
         public LiegongMobile() : base("liegong_mobile")
         {
-            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.TargetConfirmed, TriggerEvent.CardUsed };
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.TargetConfirmed, TriggerEvent.CardUsed, TriggerEvent.CardResponded };
             skill_type = SkillType.Attack;
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if ((triggerEvent == TriggerEvent.TargetConfirmed || triggerEvent == TriggerEvent.CardUsed) && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name) && base.Triggerable(player, room))
+            int suit = -1;
+            if ((triggerEvent == TriggerEvent.TargetConfirmed || triggerEvent == TriggerEvent.CardUsed) && data is CardUseStruct use
+                && !Engine.IsSkillCard(use.Card.Name) && base.Triggerable(player, room))
             {
-                int suit = (int)use.Card.Suit;
-                if (suit < 4)
-                {
-                    List<int> suits = player.ContainsTag(Name) ? (List<int>)player.GetTag(Name) : new List<int>();
-                    if (!suits.Contains(suit))
-                    {
-                        suits.Add(suit);
-                        player.SetTag(Name, suits);
-                        StringBuilder strs = new StringBuilder();
-                        foreach (int id in suits)
-                            strs.Append(WrappedCard.GetSuitIcon((WrappedCard.CardSuit)id));
+                suit = (int)use.Card.Suit;
+            }
+            else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Use && resp.Card != null
+                && !Engine.IsSkillCard(resp.Card.Name) && base.Triggerable(player, room))
+            {
+                suit = (int)resp.Card.Suit;
+            }
 
-                        room.SetPlayerStringMark(player, Name, strs.ToString());
-                    }
+            if (suit >= 0 && suit < 4)
+            {
+                List<int> suits = player.ContainsTag(Name) ? (List<int>)player.GetTag(Name) : new List<int>();
+                if (!suits.Contains(suit))
+                {
+                    suits.Add(suit);
+                    player.SetTag(Name, suits);
+                    StringBuilder strs = new StringBuilder();
+                    foreach (int id in suits)
+                        strs.Append(WrappedCard.GetSuitIcon((WrappedCard.CardSuit)id));
+
+                    room.SetPlayerStringMark(player, Name, strs.ToString());
                 }
             }
         }
