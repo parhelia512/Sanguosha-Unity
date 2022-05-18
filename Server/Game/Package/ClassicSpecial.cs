@@ -12557,6 +12557,7 @@ namespace SanguoshaServer.Package
         {
             events = new List<TriggerEvent> { TriggerEvent.Damage, TriggerEvent.EventPhaseStart };
             skill_type = SkillType.Attack;
+            view_as_skill = new ZhuhaiVS();
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
