@@ -1022,18 +1022,29 @@ namespace SanguoshaServer.AI
             Room room = ai.Room;
             Player target = room.Current;
             CardUseStruct use = new CardUseStruct(null, player, new List<Player> { target });
-            WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = Name, ShowSkill = Name, DistanceLimited = false };
-            List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { slash }, new List<Player> { target }, false);
-            double slash_point = 0, dis_point = 0;
-            if (scores.Count > 0) slash_point = scores[0].Score;
-            WrappedCard dis = new WrappedCard(Dismantlement.ClassName) { Skill = Name, ShowSkill = Name };
-            if (!target.IsAllNude() && RoomLogic.CanDiscard(room, player, target, "hej") && RoomLogic.IsProhibited(room, player, target, dis) == null)
-                dis_point = ai.FindCards2Discard(player, target, Name, "hej", HandlingMethod.MethodDiscard).Score;
 
-            if (slash_point > dis_point && slash_point > 0)
-                use.Card = slash;
-            else if (dis_point > slash_point && dis_point > 0)
-                use.Card = dis;
+            List<int> ids = ai.GetKnownHandPileCards(player);
+            if (ids.Count > 0)
+            {
+                List<double> values = ai.SortByUseValue(ref ids, false);
+
+                WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = Name, ShowSkill = Name, DistanceLimited = false };
+                slash.AddSubCard(ids[0]);
+                slash = RoomLogic.ParseUseCard(room, slash);
+                List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { slash }, new List<Player> { target }, false);
+                double slash_point = 0, dis_point = 0;
+                if (scores.Count > 0) slash_point = scores[0].Score;
+                WrappedCard dis = new WrappedCard(Dismantlement.ClassName) { Skill = Name, ShowSkill = Name };
+                dis.AddSubCard(ids[0]);
+                dis = RoomLogic.ParseUseCard(room, dis);
+                if (!target.IsAllNude() && RoomLogic.CanDiscard(room, player, target, "hej") && RoomLogic.IsProhibited(room, player, target, dis) == null)
+                    dis_point = ai.FindCards2Discard(player, target, Name, "hej", HandlingMethod.MethodDiscard).Score;
+
+                if (slash_point > dis_point && slash_point > 0 && slash_point > values[0] / 2)
+                    use.Card = slash;
+                else if (dis_point > slash_point && dis_point > 0 && dis_point > values[0] / 2)
+                    use.Card = dis;
+            }
 
             return use;
         }

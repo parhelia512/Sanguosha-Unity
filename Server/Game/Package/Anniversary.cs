@@ -6439,12 +6439,11 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.EventPhaseEnd && player.Phase == PlayerPhase.Play && base.Triggerable(player, room))
             {
-                int count = 99;
+                int count = 0;
                 foreach (Player p in room.GetAlivePlayers())
-                {
-                    if (p.MaxHp < count) count = p.MaxHp;
-                }
-                if (player.MaxHp == count)
+                    if (p.MaxHp > count) count = p.MaxHp;
+
+                if (player.MaxHp < count)
                 {
                     player.MaxHp++;
                     room.BroadcastProperty(player, "MaxHp");

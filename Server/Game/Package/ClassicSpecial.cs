@@ -12588,14 +12588,30 @@ namespace SanguoshaServer.Package
 
     public class ZhuhaiVS : ViewAsSkill
     {
-        public ZhuhaiVS() : base("zhuhai") { response_pattern = "@@zhuhai"; }
-        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => false;
+        public ZhuhaiVS() : base("zhuhai")
+        {
+            response_pattern = "@@zhuhai";
+            response_or_use = true;
+        }
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
+        {
+            return selected.Count == 0 && room.GetCardPlace(to_select.Id) != Place.PlaceEquip && !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse);
+        }
 
         public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
         {
             List<WrappedCard> result = new List<WrappedCard>();
-            result.Add(new WrappedCard(Slash.ClassName) { Skill = Name, ShowSkill = Name, DistanceLimited = false });
-            result.Add(new WrappedCard(Dismantlement.ClassName) { Skill = Name, ShowSkill = Name });
+            if (cards.Count == 1)
+            {
+                WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = Name, ShowSkill = Name, DistanceLimited = false };
+                slash.AddSubCards(cards);
+                slash = RoomLogic.ParseUseCard(room, slash);
+                result.Add(slash);
+                WrappedCard dis = new WrappedCard(Dismantlement.ClassName) { Skill = Name, ShowSkill = Name };
+                dis.AddSubCards(cards);
+                dis = RoomLogic.ParseUseCard(room, dis);
+                result.Add(dis);
+            }
             return result;
         }
 
