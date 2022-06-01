@@ -218,8 +218,8 @@ namespace SanguoshaServer.Package
                 new Ziyuan(),
                 new Jujia(),
                 new JujiaMax(),
-                new Zhuhai(),
-                new ZhuhaiTag(),
+                new ZhuhaiJX(),
+                new ZhuhaiJXTag(),
                 new Qianxin(),
                 new Jianyan(),
                 new Qianya(),
@@ -281,6 +281,8 @@ namespace SanguoshaServer.Package
                 new FenxunJX(),
                 new FenxunJXEffect(),
                 new Lanjiang(),
+                new Aichen(),
+                new Luochong(),
             };
 
             skill_cards = new List<FunctionCard>
@@ -329,6 +331,7 @@ namespace SanguoshaServer.Package
                 new SujianCard(),
                 new ChuitiCard(),
                 new YuanhuCard(),
+                new AichenCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -353,7 +356,7 @@ namespace SanguoshaServer.Package
                 { "xionghuo", new List<string>{ "#xionghuo", "#xionghuo-max", "#xionghuo-prohibit" } },
                 { "tuifeng", new List<string>{ "#tuifeng", "#tuifeng-tar" } },
                 { "falu", new List<string>{ "#falu" } },
-                { "zhuhai", new List<string>{ "#zhuhai" } },
+                { "zhuhai_jx", new List<string>{ "#zhuhai_jx" } },
                 { "biluan", new List<string>{ "#biluan" } },
                 { "lixia", new List<string>{ "#lixia" } },
                 { "lianpian", new List<string>{ "#lianpian" } },
@@ -12551,13 +12554,13 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Zhuhai : TriggerSkill
+    public class ZhuhaiJX : TriggerSkill
     {
-        public Zhuhai() : base("zhuhai")
+        public ZhuhaiJX() : base("zhuhai_jx")
         {
             events = new List<TriggerEvent> { TriggerEvent.Damage, TriggerEvent.EventPhaseStart };
             skill_type = SkillType.Attack;
-            view_as_skill = new ZhuhaiVS();
+            view_as_skill = new ZhuhaiJXVS();
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
@@ -12580,17 +12583,17 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             if (player.Alive && ask_who.Alive)
-                room.AskForUseCard(ask_who, RespondType.Skill, "@@zhuhai", "@zhuhai:" + player.Name, null, -1, HandlingMethod.MethodUse, false);
+                room.AskForUseCard(ask_who, RespondType.Skill, "@@zhuhai_jx", "@zhuhai_jx:" + player.Name, null, -1, HandlingMethod.MethodUse, false);
 
             return new TriggerStruct();
         }
     }
 
-    public class ZhuhaiVS : ViewAsSkill
+    public class ZhuhaiJXVS : ViewAsSkill
     {
-        public ZhuhaiVS() : base("zhuhai")
+        public ZhuhaiJXVS() : base("zhuhai_jx")
         {
-            response_pattern = "@@zhuhai";
+            response_pattern = "@@zhuhai_jx";
             response_or_use = true;
         }
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
@@ -12623,10 +12626,10 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class ZhuhaiTag : ProhibitSkill
+    public class ZhuhaiJXTag : ProhibitSkill
     {
-        public ZhuhaiTag() : base("#zhuhai") { }
-        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null) => card != null && card.GetSkillName() == "zhuhai" && room.Current != to;
+        public ZhuhaiJXTag() : base("#zhuhai_jx") { }
+        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null) => card != null && card.GetSkillName() == "zhuhai_jx" && room.Current != to;
     }
 
     public class Qianxin : TriggerSkill
@@ -16373,6 +16376,367 @@ namespace SanguoshaServer.Package
                         player.SetFlags("-lanjiang");
                         if (target != null)
                             room.DrawCards(target, new DrawCardStruct(1, player, Name));
+                    }
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class Aichen : TriggerSkill
+    {
+        public Aichen() : base("aichen")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.Damaged, TriggerEvent.RoundStart };
+            skill_type = SkillType.Masochism;
+            view_as_skill = new AichenVS();
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.RoundStart)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    p.SetMark("aichen_1", 0);
+                    p.SetMark("aichen_2", 0);
+                    p.SetMark("aichen_3", 0);
+                    p.SetMark("aichen_4", 0);
+                }
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if ((triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Start || triggerEvent == TriggerEvent.Damaged) && base.Triggerable(player, room))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<string> choices = new List<string>();
+            if (player.GetMark("aichen_1") == 0 && player.GetMark("aichen_1_invalid") == 0)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    if (p.IsWounded())
+                    {
+                        choices.Add("recover");
+                        break;
+                    }
+                }
+            }
+            if (player.GetMark("aichen_2") == 0 && player.GetMark("aichen_2_invalid") == 0)
+            {
+                bool add = true;
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    if (p.HasFlag("Global_Dying"))
+                    {
+                        add = false;
+                        break;
+                    }
+                }
+                if (add) choices.Add("losehp");
+            }
+            if (player.GetMark("aichen_3") == 0 && player.GetMark("aichen_3_invalid") == 0)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    if (p.GetCards("ej").Count > 0 && RoomLogic.CanDiscard(room, player, p, "ej"))
+                    {
+                        choices.Add("discard");
+                        break;
+                    }
+                }
+            }
+            if (player.GetMark("aichen_4") == 0 && player.GetMark("aichen_4_invalid") == 0)
+                choices.Add("draw");
+
+            if (choices.Count > 0)
+            {
+                choices.Add("cancel");
+                string choice = room.AskForChoice(player, Name, string.Join("+", choices));
+                if (choice != "cancel")
+                {
+                    room.NotifySkillInvoked(player, Name);
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    player.SetTag(Name, choice);
+                    return info;
+                }
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.GetTag(Name) is string choice)
+            {
+                player.RemoveTag(Name);
+                switch (choice)
+                {
+                    case "recover":
+                        {
+                            player.SetMark("aichen_1", 1);
+                            List<Player> targets = new List<Player>();
+                            foreach (Player p in room.GetAlivePlayers())
+                                if (p.IsWounded()) targets.Add(p);
+
+                            if (targets.Count > 0)
+                            {
+                                player.SetFlags("aichen_recover");
+                                Player target = room.AskForPlayerChosen(player, targets, Name, "@aichen-recover", false, true, info.SkillPosition);
+                                player.SetFlags("-aichen_recover");
+
+                                RecoverStruct recover = new RecoverStruct
+                                {
+                                    Who = player,
+                                    Recover = 1
+                                };
+                                room.Recover(target, recover, true);
+                            }
+                        }
+                        break;
+                    case "losehp":
+                        {
+                            player.SetMark("aichen_2", 1);
+
+                            player.SetFlags("aichen_lose");
+                            Player target = room.AskForPlayerChosen(player, room.GetAlivePlayers(), Name, "@aichen-losehp", false, true, info.SkillPosition);
+                            player.SetFlags("-aichen_lose");
+
+                            room.LoseHp(target);
+                        }
+                        break;
+                    case "discard":
+                        {
+                            int count = 2;
+                            player.SetMark("aichen_3", 1);
+
+                            while (count > 0 && player.Alive)
+                            {
+                                List<Player> targets = new List<Player>();
+                                foreach (Player p in room.GetAlivePlayers())
+                                    if (p.GetCards("ej").Count > 0 && RoomLogic.CanDiscard(room, player, p, "ej")) targets.Add(p);
+
+                                if (targets.Count > 0)
+                                {
+                                    player.SetFlags("aichen_discard");
+                                    Player target = room.AskForPlayerChosen(player, targets, Name, "@aichen-discard", count != 2, true, info.SkillPosition);
+                                    player.SetFlags("-aichen_discard");
+
+                                    if (target != null)
+                                    {
+                                        int card_id = room.AskForCardChosen(player, target, "ej", Name, false, HandlingMethod.MethodDiscard);
+                                        room.ThrowCard(card_id, room.GetCardPlace(card_id) == Place.PlaceDelayedTrick ? null : target, player != target ? player : null);
+                                    }
+                                }
+                                count--;
+                            }
+                        }
+                        break;
+                    case "draw":
+                        {
+                            player.SetMark("aichen_4", 1);
+                            room.DrawCards(player, 2, Name);
+                            if (player.Alive && !player.IsNude())
+                                room.AskForUseCard(player, RespondType.Skill, "@@aichen", "@aichen", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+                        }
+                        break;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class AichenVS : ViewAsSkill
+    {
+        public AichenVS() : base("aichen") { response_pattern = "@@aichen"; }
+
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => true;
+
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count > 0)
+            {
+                WrappedCard card = new WrappedCard(AichenCard.ClassName);
+                card.AddSubCards(cards);
+                return card;
+            }
+            return null;
+        }
+    }
+
+    public class AichenCard : SkillCard
+    {
+        public static string ClassName = "AichenCard";
+        public AichenCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            return targets.Count == 0 && to_select != Self;
+        }
+
+        public override void OnUse(Room room, CardUseStruct card_use)
+        {
+            List<int> ids = new List<int>(card_use.Card.SubCards);
+            room.ObtainCard(card_use.To[0], ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, card_use.From.Name, card_use.To[0].Name, "aichen", string.Empty), false);
+        }
+    }
+
+    public class Luochong : TriggerSkill
+    {
+        public Luochong() : base("luochong")
+        {
+            events.Add(TriggerEvent.Dying);
+            skill_type = SkillType.Recover;
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && RoomLogic.PlayerHasSkill(room, player, "aichen"))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<string> choices = new List<string>();
+            if (player.GetMark("aichen_1") == 0 && player.GetMark("aichen_1_invalid") == 0)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    if (p.IsWounded())
+                    {
+                        choices.Add("recover");
+                        break;
+                    }
+                }
+            }
+            if (player.GetMark("aichen_2") == 0 && player.GetMark("aichen_2_invalid") == 0)
+            {
+                choices.Add("losehp");
+            }
+            if (player.GetMark("aichen_3") == 0 && player.GetMark("aichen_3_invalid") == 0)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    if (p.GetCards("ej").Count > 0 && RoomLogic.CanDiscard(room, player, p, "ej"))
+                    {
+                        choices.Add("discard");
+                        break;
+                    }
+                }
+            }
+            if (player.GetMark("aichen_4") == 0 && player.GetMark("aichen_4_invalid") == 0)
+                choices.Add("draw");
+
+            if (choices.Count > 1)
+            {
+                room.SendCompulsoryTriggerLog(player, Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+
+                int coun = 1 - player.Hp;
+                if (coun > 0) room.Recover(player, coun);
+
+                if (player.Alive)
+                {
+                    string choice = room.AskForChoice(player, "aichen", string.Join("+", choices));
+                    LogMessage log = new LogMessage
+                    {
+                        From = player.Name,
+                        Type = "#luochong",
+                        Arg = string.Format("aichen:{0}", choice)
+                    };
+                    room.SendLog(log);
+
+                    switch (choice)
+                    {
+                        case "recover":
+                            {
+                                player.SetMark("aichen_1_invalid", 1);
+                                List<Player> targets = new List<Player>();
+                                foreach (Player p in room.GetAlivePlayers())
+                                    if (p.IsWounded()) targets.Add(p);
+
+                                if (targets.Count > 0)
+                                {
+                                    player.SetFlags("aichen_recover");
+                                    Player target = room.AskForPlayerChosen(player, targets, "aichen", "@aichen-recover", false, true, info.SkillPosition);
+                                    player.SetFlags("-aichen_recover");
+
+                                    RecoverStruct recover = new RecoverStruct
+                                    {
+                                        Who = player,
+                                        Recover = 1
+                                    };
+                                    room.Recover(target, recover, true);
+                                }
+                            }
+                            break;
+                        case "losehp":
+                            {
+                                player.SetMark("aichen_2_invalid", 1);
+
+                                bool add = true;
+                                foreach (Player p in room.GetAlivePlayers())
+                                {
+                                    if (p.HasFlag("Global_Dying"))
+                                    {
+                                        add = false;
+                                        break;
+                                    }
+                                }
+
+                                if (add)
+                                {
+                                    player.SetFlags("aichen_lose");
+                                    Player target = room.AskForPlayerChosen(player, room.GetAlivePlayers(), "aichen", "@aichen-losehp", false, true, info.SkillPosition);
+                                    player.SetFlags("-aichen_lose");
+
+                                    room.LoseHp(target);
+                                }
+                            }
+                            break;
+                        case "discard":
+                            {
+                                int count = 2;
+                                player.SetMark("aichen_3_invalid", 1);
+
+                                while (count > 0 && player.Alive)
+                                {
+                                    List<Player> targets = new List<Player>();
+                                    foreach (Player p in room.GetAlivePlayers())
+                                        if (p.GetCards("ej").Count > 0 && RoomLogic.CanDiscard(room, player, p, "ej")) targets.Add(p);
+
+                                    if (targets.Count > 0)
+                                    {
+                                        player.SetFlags("aichen_discard");
+                                        Player target = room.AskForPlayerChosen(player, targets, "aichen", "@aichen-discard", count != 2, true, info.SkillPosition);
+                                        player.SetFlags("-aichen_discard");
+
+                                        if (target != null)
+                                        {
+                                            int card_id = room.AskForCardChosen(player, target, "ej", "aichen", false, HandlingMethod.MethodDiscard);
+                                            room.ThrowCard(card_id, room.GetCardPlace(card_id) == Place.PlaceDelayedTrick ? null : target, player != target ? player : null);
+                                        }
+                                    }
+                                    count--;
+                                }
+                            }
+                            break;
+                        case "draw":
+                            {
+                                player.SetMark("aichen_4_invalid", 1);
+                                room.DrawCards(player, 2, "aichen");
+                                if (player.Alive && !player.IsNude())
+                                    room.AskForUseCard(player, RespondType.Skill, "@@aichen", "@aichen", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+                            }
+                            break;
                     }
                 }
             }

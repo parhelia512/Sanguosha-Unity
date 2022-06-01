@@ -110,7 +110,7 @@ namespace SanguoshaServer.AI
                 new ZiyuanAI(),
                 new FumanAI(),
                 new ShuimengAI(),
-                new ZhuhaiAI(),
+                new ZhuhaiJXAI(),
                 new JianyanAI(),
                 new BaobianAI(),
                 new BingzhengAI(),
@@ -1013,9 +1013,9 @@ namespace SanguoshaServer.AI
         }
     }
 
-    public class ZhuhaiAI : SkillEvent
+    public class ZhuhaiJXAI : SkillEvent
     {
-        public ZhuhaiAI() : base("zhuhai") { }
+        public ZhuhaiJXAI() : base("zhuhai_jx") { }
 
         public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {

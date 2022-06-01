@@ -26,6 +26,7 @@ namespace SanguoshaServer.AI
                 new ShuliangAI(),
                 new TongduAI(),
                 new QingyinAI(),
+                new ZhuhaiAI(),
                 new JujianHegemonyAI(),
 
                 new GuishuAI(),
@@ -491,6 +492,28 @@ namespace SanguoshaServer.AI
             use.Card = card;
         }
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 6;
+    }
+
+
+    public class ZhuhaiAI : SkillEvent
+    {
+        public ZhuhaiAI() : base("zhuhai") { }
+
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            Room room = ai.Room;
+
+            CardUseStruct use = new CardUseStruct(null, player, new List<Player>());
+            List<Player> targets = new List<Player> { room.Current };            
+            List<ScoreStruct> values = ai.CaculateSlashIncome(player, null, targets);
+            if (values.Count > 0 && values[0].Score > 0)
+            {
+                use.Card = values[0].Card;
+                use.To = values[0].Players;
+            }
+
+            return use;
+        }
     }
 
     public class JujianHegemonyAI : SkillEvent

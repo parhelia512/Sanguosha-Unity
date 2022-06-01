@@ -1708,6 +1708,7 @@ namespace SanguoshaServer.AI
             { "@tiaoxin-slash", "tiaoxin" },
             { "@luanwu-slash", "luanwu" },
             { "@kill_victim", BeltsheChao.ClassName },
+            { "@zhuhai-slash", "zhuhai" },
         };
 
         public override CardUseStruct AskForUseCard(string pattern, string prompt, FunctionCard.HandlingMethod method)

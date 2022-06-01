@@ -4,7 +4,6 @@ using CommonClassLibrary;
 using SanguoshaServer.Game;
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using static CommonClass.Game.CardUseStruct;
 using static CommonClass.Game.Player;
 using static SanguoshaServer.Package.FunctionCard;
@@ -31,6 +30,8 @@ namespace SanguoshaServer.Package
                 new TunchuAdd(),
                 new TunchuProhibit(),
                 new Shuliang(),
+                new Zhuhai(),
+                new ZhuhaiTag(),
                 new JujianHegemony(),
                 new Tongdu(),
                 new Qingyin(),
@@ -79,6 +80,7 @@ namespace SanguoshaServer.Package
                 { "fengyang", new List<string> { "#fengyang" } },
                 { "guowu_hegemony", new List<string> { "#guowu_hegemony" } },
                 { "zhuangrong_hegemony", new List<string> { "#zhuangrong_hegemony" } },
+                { "zhuhai", new List<string>{ "#zhuhai" } },
             };
         }
     }
@@ -792,6 +794,25 @@ namespace SanguoshaServer.Package
             WrappedCard jujianCard = new WrappedCard(JujianHCard.ClassName) { Skill = Name, ShowSkill = Name };
             jujianCard.AddSubCard(card);
             return jujianCard;
+        }
+    }
+    public class Zhuhai : TriggerSkill    {        public Zhuhai() : base("zhuhai")        {            events = new List<TriggerEvent> { TriggerEvent.Damage, TriggerEvent.EventPhaseStart, TriggerEvent.CardUsedAnnounced };            skill_type = SkillType.Attack;        }        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)        {            if (triggerEvent == TriggerEvent.Damage && player.Alive && room.Current == player)                player.SetFlags(Name);            else if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Pattern == "Slash:zhuhai")            {                room.ShowSkill(player, Name, string.Empty);                room.NotifySkillInvoked(player, Name);                room.BroadcastSkillInvoke(Name, player);            }        }        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)        {            List<TriggerStruct> triggers = new List<TriggerStruct>();            if (triggerEvent == TriggerEvent.EventPhaseStart && player.Alive && player.Phase == PlayerPhase.Finish && player.HasFlag(Name))            {                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))                    if (player != p) triggers.Add(new TriggerStruct(Name, p));            }            return triggers;        }        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)        {            if (player.Alive && ask_who.Alive)            {                ask_who.SetFlags("slashTargetFix");                player.SetFlags("SlashAssignee");                WrappedCard used = room.AskForUseCard(ask_who, RespondType.Slash, "Slash:zhuhai", "@zhuhai-slash:" + player.Name, null, -1, HandlingMethod.MethodUse, false);                if (used == null)                {
+                    ask_who.SetFlags("-slashTargetFix");
+                    player.SetFlags("-SlashAssignee");
+                }
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info) => false;
+    }    public class ZhuhaiTag : TargetModSkill
+    {
+        public ZhuhaiTag() : base("#zhuhai", false) { }
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseStruct.CardUseReason reason, string pattern)
+        {
+            if (reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && to.HasFlag("SlashAssignee")
+                && (room.GetRoomState().GetCurrentResponseSkill() == "zhuhai" || pattern == "Slash:zhuhai"))
+                return true;
+            return false;
         }
     }
 
