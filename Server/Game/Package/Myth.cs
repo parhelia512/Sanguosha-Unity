@@ -66,6 +66,7 @@ namespace SanguoshaServer.Package
                 new Zhiti(),
                 new ZhitiMax(),
                 new Jiufa(),
+                new JiufaResp(),
                 new Tianren(),
                 new Pingxiang(),
             };
@@ -100,6 +101,7 @@ namespace SanguoshaServer.Package
                 //{ "chuyuan", new List<string>{ "#chuyuan" } },
                 { "duorui", new List<string>{ "#duorui" } },
                 { "zhiti", new List<string>{ "#zhiti" } },
+                { "jiufa", new List<string>{ "#jiufa" } },
             };
         }
     }
@@ -2965,24 +2967,7 @@ namespace SanguoshaServer.Package
     {
         public Jiufa() : base("jiufa")
         {
-            events = new List<TriggerEvent> { TriggerEvent.CardUsedAnnounced, TriggerEvent.CardUsed };
-        }
-
-        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
-        {
-            if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name) && base.Triggerable(player, room))
-            {
-                string card_name = use.Card.Name;
-                if (card_name.Contains(Slash.ClassName)) card_name = Slash.ClassName;
-
-                List<string> cards = player.ContainsTag(Name) ? (List<string>)player.GetTag(Name) : new List<string>();
-                if (!cards.Contains(card_name))
-                {
-                    cards.Add(card_name);
-                    player.SetTag(Name, cards);
-                    room.SetPlayerStringMark(player, Name, cards.Count.ToString());
-                }
-            }
+            events = new List<TriggerEvent> { TriggerEvent.CardUsed };
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -3024,7 +3009,7 @@ namespace SanguoshaServer.Package
 
         public override bool MoveFilter(Room room, int id, List<int> downs)
         {
-            if (downs.Count > 0)
+            if (downs.Count > 0 && id >= 0)
             {
                 int number = room.GetCard(id).Number;
                 foreach (int card_id in downs)
@@ -3034,6 +3019,44 @@ namespace SanguoshaServer.Package
 
             return true;
         }
+    }
+
+    public class JiufaResp : TriggerSkill
+    {
+        public JiufaResp() : base("#jiufa")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardResponded, TriggerEvent.CardUsed };
+        }
+
+        public override int Priority => 5;
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            string card_name = string.Empty;
+            if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Use && !Engine.IsSkillCard(resp.Card.Name) && base.Triggerable(player, room))
+            {
+                card_name = resp.Card.Name;
+            }
+            else if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name) && base.Triggerable(player, room))
+            {
+                card_name = use.Card.Name;
+            }
+
+            if (!string.IsNullOrEmpty(card_name))
+            {
+                if (card_name.Contains(Slash.ClassName)) card_name = Slash.ClassName;
+
+                List<string> cards = player.ContainsTag("jiufa") ? (List<string>)player.GetTag("jiufa") : new List<string>();
+                if (!cards.Contains(card_name))
+                {
+                    cards.Add(card_name);
+                    player.SetTag("jiufa", cards);
+                    room.SetPlayerStringMark(player, "jiufa", cards.Count.ToString());
+                }
+            }
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
     }
 
     public class Tianren : TriggerSkill
@@ -3046,8 +3069,7 @@ namespace SanguoshaServer.Package
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
-            if ((move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_USE && move.To_place == Place.PlaceTable && base.Triggerable(move.From, room))
+            if (data is CardsMoveOneTimeStruct move && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_USE && base.Triggerable(move.From, room))
             {
                 for (int i = 0; i < move.Card_ids.Count; i++)
                 {
@@ -3067,30 +3089,19 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
-
-            if ((move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_USE && move.To_place == Place.DiscardPile && base.Triggerable(move.From, room))
+            if (data is CardsMoveOneTimeStruct move && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_USE && move.To_place == Place.DiscardPile && base.Triggerable(move.From, room))
             {
-                if (move.From_places.Count == 1 && move.From_places[0] == Place.PlaceTable)
+                for (int i = 0; i < move.Card_ids.Count; i++)
                 {
-                    foreach (int id in move.Card_ids)
+                    int card_id = move.Card_ids[i];
+                    if (move.From_places[i] == Place.PlaceHand)
                     {
-                        if (room.GetCard(id).HasFlag(Name))
-                            return new TriggerStruct(Name, move.From);
+                        WrappedCard card = room.GetCard(card_id);
+                        FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                        if (!(fcard is EquipCard)) return new TriggerStruct(Name, move.From);
                     }
-                }
-                else if (move.From_places.Contains(Place.PlaceHand))
-                {
-                    for (int i = 0; i < move.Card_ids.Count; i++)
-                    {
-                        int card_id = move.Card_ids[i];
-                        if (move.From_places[i] == Place.PlaceHand)
-                        {
-                            WrappedCard card = room.GetCard(card_id);
-                            FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                            if (!(fcard is EquipCard)) return new TriggerStruct(Name, move.From);
-                        }
-                    }
+                    else if (move.From_places[i] == Place.PlaceTable && room.GetCard(card_id).HasFlag(Name))
+                        return new TriggerStruct(Name, move.From);
                 }
             }
 
@@ -3181,22 +3192,31 @@ namespace SanguoshaServer.Package
             room.DoSuperLightbox(card_use.From, card_use.Card.SkillPosition, "pingxiang");
 
             List<Player> targets = new List<Player>();
-            for (int i = 0; i < card_use.To.Count; i++)
+            if (card_use.To.Count == 1)
             {
-                int count = 1;
-                Player p1 = card_use.To[i];
-                if (targets.Contains(p1)) continue;
-                for (int x = i + 1; x < card_use.To.Count; x++)
-                {
-                    Player p2 = card_use.To[x];
-                    if (p2 == p1)
-                    {
-                        count++;
-                    }
-                }
+                card_use.To[0].SetMark("pingxiang", 9);
+                targets.Add(card_use.To[0]);
+            }
+            else
+            {
 
-                p1.SetMark("pingxiang", count);
-                targets.Add(p1);
+                for (int i = 0; i < card_use.To.Count; i++)
+                {
+                    int count = 1;
+                    Player p1 = card_use.To[i];
+                    if (targets.Contains(p1)) continue;
+                    for (int x = i + 1; x < card_use.To.Count; x++)
+                    {
+                        Player p2 = card_use.To[x];
+                        if (p2 == p1)
+                        {
+                            count++;
+                        }
+                    }
+
+                    p1.SetMark("pingxiang", count);
+                    targets.Add(p1);
+                }
             }
 
             card_use.To = targets;

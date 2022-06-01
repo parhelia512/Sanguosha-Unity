@@ -6193,7 +6193,7 @@ namespace SanguoshaServer.Game
                                 Card = card,
                                 General = RoomLogic.GetGeneralSkin(this, player, card.Skill, card.SkillPosition)
                             };
-                            CardsMoveStruct this_move = new CardsMoveStruct(table_cardids, player, Place.DiscardPile, move_reason);
+                            CardsMoveStruct this_move = new CardsMoveStruct(table_cardids, player, null, Place.PlaceTable, Place.DiscardPile, move_reason);
                             MoveCardsAtomic(new List<CardsMoveStruct> { this_move }, true);
                         }
                         CardUseStruct card_use = new CardUseStruct
@@ -6229,7 +6229,7 @@ namespace SanguoshaServer.Game
                                 Card = card,
                                 General = RoomLogic.GetGeneralSkin(this, player, card.Skill, card.SkillPosition)
                             };
-                            CardsMoveStruct this_move = new CardsMoveStruct(table_cardids, player, Place.DiscardPile, move_reason);
+                            CardsMoveStruct this_move = new CardsMoveStruct(table_cardids, player, null, Place.PlaceTable, Place.DiscardPile, move_reason);
                             MoveCardsAtomic(new List<CardsMoveStruct> { this_move }, true);
                         }
                         RemoveSubCards(card);
