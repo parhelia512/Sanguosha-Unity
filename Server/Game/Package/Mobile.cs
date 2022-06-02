@@ -181,6 +181,7 @@ namespace SanguoshaServer.Package
                 new YanjiaoSPCard(),
                 new ShangyiCCard(),
                 new DiaoduCard(),
+                new GongshunCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -5837,10 +5838,11 @@ namespace SanguoshaServer.Package
         {
             if (data is CardUseStruct use && use.From.Alive)
             {
-                List<string> choices = new List<string> { "draw" };
-                if (!use.From.IsNude() && RoomLogic.CanDiscard(room, use.From, use.From, "he")) choices.Add("discard");
-                string choice = room.AskForChoice(use.From, Name, string.Join("+", choices), new List<string> { "@duoduan-from:" + player.Name }, data);
-                if (choice == "draw")
+                bool draw = true;
+                if (!use.From.IsNude() && RoomLogic.CanDiscard(room, use.From, use.From, "he"))
+                    draw = !room.AskForDiscard(use.From, Name, 1, 1, true, true, string.Format("@duoduan-discard:{0}::{1}", player.Name, use.Card.Name));
+
+                if (draw)
                 {
                     room.DrawCards(use.From, new DrawCardStruct(2, player, Name));
 
@@ -5861,7 +5863,7 @@ namespace SanguoshaServer.Package
                         }
                     }
                 }
-                else if (room.AskForDiscard(use.From, Name, 1, 1, false, true, string.Format("@duoduan-discard:{0}::{1}", player.Name, use.Card.Name)))
+                else
                 {
                     LogMessage log = new LogMessage
                     {
@@ -5896,8 +5898,9 @@ namespace SanguoshaServer.Package
     {
         public Gongshun() : base("gongshun")
         {
-            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime, TriggerEvent.TurnStart };
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime, TriggerEvent.TurnStart, TriggerEvent.Death };
             skill_type = SkillType.Wizzard;
+            view_as_skill = new GongshunVS();
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
@@ -5916,9 +5919,64 @@ namespace SanguoshaServer.Package
                     else
                         _move.From.SetTag(Name, ids);
                 }
+                else if (_move.To != null && _move.To_place == Place.PlaceHand)
+                {
+                    if (_move.To.ContainsTag("gongshun_from") && _move.To.GetTag("gongshun_from") is KeyValuePair<string, string> invalid)
+                    {
+                        List<int> results = _move.To.ContainsTag(Name) ? (List<int>)_move.To.GetTag(Name) : new List<int>();
+                        foreach (int id in _move.Card_ids)
+                        {
+                            if (Engine.GetRealCard(id).Name.Contains(invalid.Value))
+                            {
+                                RoomLogic.SetPlayerCardLimitation(_move.To, Name, "use,response,discard", id.ToString());
+                                results.Add(id);
+                            }
+                        }
+                        if (results.Count > 0)
+                            _move.To.SetTag(Name, results);
+                    }
+                    else if (_move.To.ContainsTag("gongshun_to") && _move.To.GetTag("gongshun_to") is KeyValuePair<string, string> _invalid)
+                    {
+                        List<int> results = _move.To.ContainsTag(Name) ? (List<int>)_move.To.GetTag(Name) : new List<int>();
+                        foreach (int id in _move.Card_ids)
+                        {
+                            if (Engine.GetRealCard(id).Name.Contains(_invalid.Value))
+                            {
+                                RoomLogic.SetPlayerCardLimitation(_move.To, Name, "use,response,discard", id.ToString());
+                                results.Add(id);
+                            }
+                        }
+                        if (results.Count > 0)
+                            _move.To.SetTag(Name, results);
+                    }
+                }
             }
-            else if (triggerEvent == TriggerEvent.TurnStart)
+            else if (triggerEvent == TriggerEvent.TurnStart || triggerEvent == TriggerEvent.Death)
             {
+                if (player.ContainsTag("gongshun_to") && player.GetTag("gongshun_to") is string target_name)
+                {
+                    room.RemovePlayerStringMark(player, Name);
+                    player.RemoveTag("gongshun_to");
+
+                    if (player.ContainsTag(Name) && player.GetTag(Name) is List<int> ids)
+                    {
+                        foreach (int id in ids)
+                            RoomLogic.RemovePlayerCardLimitation(player, Name, "use,response,discard", id.ToString());
+                    }
+
+
+                    Player target = room.FindPlayer(target_name);
+                    if (target != null)
+                    {
+                        room.RemovePlayerStringMark(target, Name);
+                        target.RemoveTag("gongshun_from");
+                        if (target.ContainsTag(Name) && target.GetTag(Name) is List<int> _ids)
+                        {
+                            foreach (int id in _ids)
+                                RoomLogic.RemovePlayerCardLimitation(target, Name, "use,response,discard", id.ToString());
+                        }
+                    }
+                }
             }
         }
 
@@ -5927,9 +5985,54 @@ namespace SanguoshaServer.Package
             return new TriggerStruct();
         }
 
-        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            return false;
+            room.AskForUseCard(player, RespondType.Skill, "@@gongshun", "@gongshun", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+            return info;
+        }
+    }
+
+    public class GongshunVS : ViewAsSkill
+    {
+        public GongshunVS() : base("gongshun") { response_pattern = "@@gongshun"; }
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
+        {
+            return selected.Count <= 1 && RoomLogic.CanDiscard(room, player, player, to_select.Id);
+        }
+
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count == 2)
+            {
+                WrappedCard card = new WrappedCard(GongshunCard.ClassName) { Skill = Name };
+                card.AddSubCards(cards);
+                return card;
+            }
+            return null;
+        }
+    }
+
+    public class GongshunCard : SkillCard
+    {
+        public static string ClassName = "GongshunCard";
+        public GongshunCard() : base(ClassName)
+        { will_throw = true; }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self && !to_select.ContainsTag("gongshun_from");
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From;
+            Player target = card_use.To[0];
+
+            List<string> cards = ViewAsSkill.GetGuhuoCards(room, "bt");
+            cards.RemoveAll(t => t.Contains(Slash.ClassName) && t != Slash.ClassName);
+            string choice = room.AskForChoice(player, "gongshun", string.Join("+", cards), new List<string> { "@to-player:" + player.Name }, target);
+            player.SetTag("gongshun_to", new KeyValuePair<string, string>(target.Name, choice));
+            target.SetTag("gongshun_from", new KeyValuePair<string, string>(player.Name, choice));
+
+            room.SetPlayerStringMark(player, "gongshun", choice);
+            room.SetPlayerStringMark(target, "gongshun", choice);
         }
     }
 
