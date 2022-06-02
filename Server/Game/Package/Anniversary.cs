@@ -10626,16 +10626,21 @@ namespace SanguoshaServer.Package
             else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change)
             {
                 if (change.From == PlayerPhase.Draw)
+                {
                     player.SetMark(Name, 0);
+                }
                 else if (change.To == PlayerPhase.NotActive)
+                {
                     player.SetMark("tiqi_max", 0);
+                    room.RemovePlayerStringMark(player, Name);
+                }
             }
         }
 
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            if (triggerEvent == TriggerEvent.EventPhaseEnd && player.GetMark(Name) != 2)
+            if (triggerEvent == TriggerEvent.EventPhaseEnd && player.GetMark(Name) > 0 && player.GetMark(Name) != 2 && player.Phase == PlayerPhase.Draw)
             {
                 foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
                     if (p != player) triggers.Add(new TriggerStruct(Name, p));

@@ -16645,7 +16645,10 @@ namespace SanguoshaServer.Package
 
                 if (player.Alive)
                 {
+                    player.SetFlags(Name);
                     string choice = room.AskForChoice(player, "aichen", string.Join("+", choices));
+                    player.SetFlags("-luochong");
+
                     LogMessage log = new LogMessage
                     {
                         From = player.Name,

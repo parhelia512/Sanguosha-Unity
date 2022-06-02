@@ -143,6 +143,7 @@ namespace SanguoshaServer.AI
                 new ShanxiAI(),
                 new WeiyiAI(),
                 new JinzhiAI(),
+                new AichenAI(),
             };
 
             use_cards = new List<UseCard>
@@ -8612,6 +8613,127 @@ namespace SanguoshaServer.AI
             }
 
             return result;
+        }
+    }
+
+    public class AichenAI : SkillEvent
+    {
+        public AichenAI() : base("aichen")
+        {
+            key = new List<string> { "playerChosen:aichen" };
+        }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (ai.Self == player) return;
+            if (data is string choice && ai.Self != player)
+            {
+                string[] choices = choice.Split(':');
+                if (choices[1] == Name)
+                {
+                    Room room = ai.Room;
+                    Player target = room.FindPlayer(choices[2]);
+
+                    if (player.HasFlag("aichen_recover"))
+                    {
+                        if (ai.GetPlayerTendency(target) != "unknown")
+                            ai.UpdatePlayerRelation(player, target, true);
+                    }
+                    else if (player.HasFlag("aichen_lose") && (!ai.HasSkill("zhaxiang", target) || target.Hp < 2))
+                    {
+                        if (ai.GetPlayerTendency(target) != "unknown")
+                            ai.UpdatePlayerRelation(player, target, false);
+                    }
+                }
+            }
+        }
+
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
+        {
+            Room room = ai.Room;
+            if (player.HasFlag("luochong"))
+            {
+                if (choice.Contains("recover"))
+                    return "recover";
+                if (choice.Contains("discard"))
+                    return "discard";
+                if (choice.Contains("draw"))
+                    return "draw";
+            }
+            else
+            {
+                if (choice.Contains("losehp"))
+                {
+                    foreach (Player p in ai.GetPrioEnemies())
+                        if (ai.IsWeak(p)) return "losehp";
+                }
+                if (choice.Contains("discard"))
+                {
+                    foreach (Player p in ai.GetFriends(player))
+                        if ((RoomLogic.PlayerContainsTrick(room, p, Indulgence.ClassName) || RoomLogic.PlayerContainsTrick(room, p, SupplyShortage.ClassName))
+                            && RoomLogic.CanDiscard(room, player, p, "e"))
+                            return "discard";
+                }
+                if (choice.Contains("draw"))
+                    return "draw";
+                if (choice.Contains("recover"))
+                {
+                    foreach (Player p in ai.GetFriends(player))
+                        if (p.GetLostHp() > 0) return "recover";
+                }
+            }
+            return "cancel";
+        }
+
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            CardUseStruct use = new CardUseStruct();
+            List<int> ids = player.GetCards("he");
+            KeyValuePair<Player, int> key = ai.GetCardNeedPlayer(ids, null, Place.PlaceHand, Name);
+            while (key.Key != null && key.Value >= 0 && ids.Count > 0)
+            {
+                use.Card = new WrappedCard(AichenCard.ClassName);
+                use.Card.AddSubCard(key.Value);
+                use.From = player;
+                use.To = new List<Player> { key.Key };
+
+                ids.Remove(key.Value);
+                key = ai.GetCardNeedPlayer(ids, use.To, Place.PlaceHand, Name);
+            }
+            return use;
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            if (player.HasFlag("aichen_recover"))
+            {
+                ai.SortByDefense(ref targets);
+                foreach (Player p in targets)
+                    if (ai.IsFriend(p)) return new List<Player> { p };
+            }
+            else if (player.HasFlag("aichen_lose"))
+            {
+                List<Player> enemies = ai.GetPrioEnemies();
+                if (enemies.Count > 0)
+                {
+                    ai.SortByDefense(ref enemies);
+                    foreach (Player p in enemies)
+                        if (ai.IsWeak(p)) return new List<Player> { p };
+                    if (enemies.Count > 0) return new List<Player> { enemies[0] };
+                    foreach (Player p in ai.GetEnemies(player))
+                        if (ai.IsWeak(p)) return new List<Player> { p };
+                }
+            }
+            else if (player.HasFlag("aichen_discard"))
+            {
+                Room room = ai.Room;
+                List<ScoreStruct> scores = new List<ScoreStruct>();
+                foreach (Player p in room.GetAlivePlayers())
+                    scores.Add(ai.FindCards2Discard(player, p, Name, "ej", HandlingMethod.MethodDiscard));
+                scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+                return scores[0].Players;
+            }
+
+            return new List<Player>();
         }
     }
 }

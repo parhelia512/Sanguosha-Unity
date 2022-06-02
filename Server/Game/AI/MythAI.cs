@@ -24,6 +24,7 @@ namespace SanguoshaServer.AI
             {
                 new PoxiCardAI(),
                 new ZhanhuoCardAI(),
+                new PingxiangCardAI(),
             };
         }
     }
@@ -235,6 +236,23 @@ namespace SanguoshaServer.AI
                             ai.UpdatePlayerRelation(player, target, friendly);
                         }
                     }
+                }
+            }
+        }
+    }
+
+    public class PingxiangCardAI : UseCard
+    {
+        public PingxiangCardAI() : base(PingxiangCard.ClassName) { }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            {
+                foreach (Player p in use.To)
+                {
+                    if (ai.GetPlayerTendency(p) != "unknown")
+                        ai.UpdatePlayerRelation(player, p, false);
                 }
             }
         }

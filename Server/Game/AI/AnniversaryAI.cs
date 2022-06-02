@@ -106,6 +106,8 @@ namespace SanguoshaServer.AI
                 new XuezhaoAI(),
                 new ChanniAI(),
                 new MouzhuAI(),
+                new TiqiAI(),
+                new BaoshuAI(),
             };
 
             use_cards = new List<UseCard>
@@ -4300,5 +4302,76 @@ namespace SanguoshaServer.AI
         }
 
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 5;
+    }
+
+    public class TiqiAI : SkillEvent
+    {
+        public TiqiAI() : base("tiqi")
+        { key = new List<string> { "skillChoice:tiqi" }; }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str && ai.Self != player)
+            {
+                string[] strs = str.Split(':');
+                if (strs[1] == Name)
+                {
+                    Player target = ai.Room.Current;
+                    Room room = ai.Room;
+
+                    if (ai.GetPlayerTendency(target) != "unknown")
+                        ai.UpdatePlayerRelation(player, target, strs[2] == "add");
+                }
+            }
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
+
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
+        {
+            if (data is Player target)
+            {
+                if (ai.IsFriend(target)) return "add";
+                else if (ai.IsEnemy(target)) return "reduce";
+            }
+            return "cancel";
+        }
+    }
+
+    public class BaoshuAI : SkillEvent
+    {
+        public BaoshuAI() : base("baoshu")
+        {
+            key = new List<string> { "playerChosen:aichen" };
+        }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (ai.Self == player) return;
+            if (data is string choice && ai.Self != player)
+            {
+                string[] choices = choice.Split(':');
+                if (choices[1] == Name)
+                {
+                    Room room = ai.Room;
+
+                    foreach (string player_name in choices[2].Split('+'))
+                    {
+                        Player target = room.FindPlayer(player_name);
+                        if (ai.GetPlayerTendency(target) != "unknown")
+                            ai.UpdatePlayerRelation(player, target, true);
+                    }
+                }
+            }
+        }
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            List<Player> friends = ai.GetFriends(player);
+            ai.Room.SortByActionOrder(ref friends);
+            List<Player> results = new List<Player>();
+            for (int i = 0; i < Math.Min(friends.Count, max); i++)
+                results.Add(friends[i]);
+
+            return results;
+        }
     }
 }
