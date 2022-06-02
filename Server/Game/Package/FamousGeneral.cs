@@ -1905,7 +1905,7 @@ namespace SanguoshaServer.Package
             {
                 if (target.Chained)
                     room.SetPlayerChained(target, false, true);
-                if (!target.FaceUp)
+                if (target.Alive && !target.FaceUp)
                     room.TurnOver(target);
             }
         }

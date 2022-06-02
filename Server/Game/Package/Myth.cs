@@ -2967,7 +2967,16 @@ namespace SanguoshaServer.Package
     {
         public Jiufa() : base("jiufa")
         {
-            events = new List<TriggerEvent> { TriggerEvent.CardUsed };
+            events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.EventLoseSkill };
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == Name)
+            {
+                player.RemoveTag(Name);
+                room.RemovePlayerStringMark(player, Name);
+            }
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -3063,13 +3072,22 @@ namespace SanguoshaServer.Package
     {
         public Tianren() : base("tianren")
         {
-            events.Add(TriggerEvent.CardsMoveOneTime);
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime, TriggerEvent.EventLoseSkill };
             frequency = Frequency.Compulsory;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == Name)
+            {
+                player.RemoveTag(Name);
+                room.RemovePlayerStringMark(player, Name);
+            }
         }
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            if (data is CardsMoveOneTimeStruct move && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_USE && move.To_place == Place.DiscardPile)
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move
+                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_USE && move.To_place == Place.DiscardPile)
             {
                 bool invoke = false;
                 foreach (int card_id  in move.Card_ids)

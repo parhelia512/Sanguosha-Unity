@@ -180,6 +180,10 @@ namespace SanguoshaServer.Package
                 new Yinni(),
                 new Channi(),
                 new Nifu(),
+                new Tiqi(),
+                new TiqiMax(),
+                new Baoshu(),
+                new BaoshuDraw(),
 
                 new Guolun(),
                 new Songsang(),
@@ -306,6 +310,8 @@ namespace SanguoshaServer.Package
                 { "zhenge", new List<string>{ "#zhenge" } },
                 { "xuezhao", new List<string>{ "#xuezhao", "#xuezhao-effect" } },
                 { "huguan", new List<string>{ "#huguan" } },
+                { "tiqi", new List<string>{ "#tiqi" } },
+                { "baoshu", new List<string>{ "#baoshu" } },
             };
         }
     }
@@ -10602,6 +10608,177 @@ namespace SanguoshaServer.Package
             }
 
             return false;
+        }
+    }
+
+    public class Tiqi : TriggerSkill
+    {
+        public Tiqi() : base("tiqi")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime, TriggerEvent.EventPhaseEnd, TriggerEvent.EventPhaseChanging };
+            skill_type = SkillType.Replenish;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.To != null && move.To.Phase == PlayerPhase.Draw
+                && move.Reason.Reason == MoveReason.S_REASON_DRAW && move.To_place == Place.PlaceHand && move.Reason.SkillName == "gamerule")
+                move.To.AddMark(Name, move.Card_ids.Count);
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change)
+            {
+                if (change.From == PlayerPhase.Draw)
+                    player.SetMark(Name, 0);
+                else if (change.To == PlayerPhase.NotActive)
+                    player.SetMark("tiqi_max", 0);
+            }
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.EventPhaseEnd && player.GetMark(Name) != 2)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                    if (p != player) triggers.Add(new TriggerStruct(Name, p));
+            }
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(ask_who, Name, data , info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int count = Math.Abs(2 - player.GetMark(Name));
+            if (count > 0)
+            {
+                room.DrawCards(ask_who, count, Name);
+                if (ask_who.Alive && player.Alive)
+                {
+                    string choice = room.AskForChoice(ask_who, Name, "add+reduce+cancel",
+                        new List<string> { "@to-player:" + player.Name, "@tiqi-add:::" + count.ToString(), "@tiqi-add:::-" + count.ToString() }, player);
+                    if (choice == "add")
+                    {
+                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                        player.AddMark("tiqi_max", count);
+                        LogMessage log = new LogMessage
+                        {
+                            Type = "#tiqi-add",
+                            From = ask_who.Name,
+                            To = new List<string> { player.Name },
+                            Arg = "+" + count.ToString()
+                        };
+                        room.SendLog(log);
+                    }
+                    else if (choice == "reduce")
+                    {
+                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                        player.AddMark("tiqi_max", -count);
+                        LogMessage log = new LogMessage
+                        {
+                            Type = "#tiqi-add",
+                            From = ask_who.Name,
+                            To = new List<string> { player.Name },
+                            Arg = (-count).ToString()
+                        };
+                        room.SendLog(log);
+                    }
+
+                    if (player.Alive)
+                    {
+                        if (player.GetMark("tiqi_max") != 0)
+                            room.SetPlayerStringMark(player, Name, player.GetMark("tiqi_max").ToString());
+                        else
+                            room.RemovePlayerStringMark(player, Name);
+                    }
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class TiqiMax : MaxCardsSkill
+    {
+        public TiqiMax() : base("#tiqi") { }
+        public override int GetExtra(Room room, Player target) => target.GetMark("tiqi_max");
+    }
+
+    public class Baoshu : TriggerSkill
+    {
+        public Baoshu() : base("baoshu")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart };
+            skill_type = SkillType.Replenish;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Start)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int count = player.MaxHp;
+            List<Player> targets = room.AskForPlayersChosen(player, room.GetAlivePlayers(), Name, 0, count, "@baoshu:::" + count.ToString(), true, info.SkillPosition);
+            if (targets.Count > 0)
+            {
+                room.SetTag(Name, targets);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.GetTag(Name) is List<Player> targets)
+            {
+                room.RemoveTag(Name);
+                int count = player.MaxHp - targets.Count;
+                foreach (Player p in targets)
+                {
+                    if (p.Chained)
+                        room.SetPlayerChained(p, false, true);
+                    if (p.Alive && !p.FaceUp)
+                        room.TurnOver(p);
+                    if (p.Alive)
+                    {
+                        p.AddMark(Name, 1 + count);
+                        room.SetPlayerStringMark(p, Name, p.GetMark(Name).ToString());
+                    }
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class BaoshuDraw : DrawCardsSkill
+    {
+        public BaoshuDraw() : base("#baoshu") { frequency = Frequency.Compulsory; }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (player.Phase == Player.PlayerPhase.Draw && (int)data >= 0 && player.GetMark("baoshu") > 0)
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override int GetDrawNum(Room room, Player player, int n)
+        {
+            int count = player.GetMark("baoshu");
+            player.SetMark("baoshu", 0);
+            room.RemovePlayerStringMark(player, "baoshu");
+            return n + count;
         }
     }
 
