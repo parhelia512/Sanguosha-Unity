@@ -3066,46 +3066,31 @@ namespace SanguoshaServer.Package
             events.Add(TriggerEvent.CardsMoveOneTime);
             frequency = Frequency.Compulsory;
         }
-
-        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (data is CardsMoveOneTimeStruct move && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_USE && base.Triggerable(move.From, room))
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (data is CardsMoveOneTimeStruct move && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_USE && move.To_place == Place.DiscardPile)
             {
-                for (int i = 0; i < move.Card_ids.Count; i++)
+                bool invoke = false;
+                foreach (int card_id  in move.Card_ids)
                 {
-                    int card_id = move.Card_ids[i];
-                    if (room.GetCardPlace(card_id) == Place.PlaceTable && move.From_places[i] == Place.PlaceHand)
+                    WrappedCard card = room.GetCard(card_id);
+                    FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                    if (!(fcard is EquipCard))
                     {
-                        WrappedCard card = room.GetCard(card_id);
-                        FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                        if (!(fcard is EquipCard))
-                        {
-                            card.SetFlags(Name);
-                            break;
-                        }
+                        invoke = true;
+                        break;
                     }
                 }
-            }
-        }
-        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
-        {
-            if (data is CardsMoveOneTimeStruct move && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_USE && move.To_place == Place.DiscardPile && base.Triggerable(move.From, room))
-            {
-                for (int i = 0; i < move.Card_ids.Count; i++)
+
+                if (invoke)
                 {
-                    int card_id = move.Card_ids[i];
-                    if (move.From_places[i] == Place.PlaceHand)
-                    {
-                        WrappedCard card = room.GetCard(card_id);
-                        FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                        if (!(fcard is EquipCard)) return new TriggerStruct(Name, move.From);
-                    }
-                    else if (move.From_places[i] == Place.PlaceTable && room.GetCard(card_id).HasFlag(Name))
-                        return new TriggerStruct(Name, move.From);
+                    foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                        triggers.Add(new TriggerStruct(Name, p));
                 }
             }
 
-            return new TriggerStruct();
+            return triggers;
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
