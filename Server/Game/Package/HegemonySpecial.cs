@@ -1789,7 +1789,7 @@ namespace SanguoshaServer.Package
         }
         public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
         {
-            if (player.Phase != PlayerPhase.NotActive || !MatchBasic(respond) || !MatchRetrial(respond))
+            if (player.Phase != PlayerPhase.NotActive || (!MatchBasic(respond) && !MatchRetrial(respond)))
                 return false;
 
             return true;
