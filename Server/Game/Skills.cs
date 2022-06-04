@@ -377,10 +377,16 @@ namespace SanguoshaServer.Game
         public MasochismSkill(string name) : base(name)
         {
             events.Add(TriggerEvent.Damaged);
+            skill_type = SkillType.Masochism;
         }
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            return base.Cost(triggerEvent, room, player, ref data, ask_who, info);
+            if (room.AskForSkillInvoke(ask_who, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
         }
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {

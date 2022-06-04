@@ -10618,7 +10618,7 @@ namespace SanguoshaServer.Package
                     string flag = string.Format("juguan_{0}", RoomLogic.CardToString(room, damage.Card));
                     foreach (Player p in room.GetAlivePlayers())
                     {
-                        if (p.HasFlag("juguan"))
+                        if (p.HasFlag(flag))
                         {
                             from = p;
                             break;

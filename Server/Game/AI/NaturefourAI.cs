@@ -50,6 +50,7 @@ namespace SanguoshaServer.AI
                 new ShensuJXAI(),
                 new ShebianAI(),
                 new QiaobianJXAI(),
+                new SongweiAI(),
             };
 
             use_cards = new List<UseCard>
@@ -2581,6 +2582,43 @@ namespace SanguoshaServer.AI
                 use.Card = card;
                 use.To = targets;
             }
+        }
+    }
+
+    public class SongweiAI : SkillEvent
+    {
+        public SongweiAI() : base("songwei")
+        {
+            key = new List<string> { "skillInvoke:songwei" };
+        }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str && ai.Self != player)
+            {
+                Room room = ai.Room;
+                List<string> strs = new List<string>(str.Split(':'));
+                if (strs[1] == Name)
+                {
+                    Player target = null;
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (p.HasFlag("songwei_target"))
+                        {
+                            target = p;
+                            break;
+                        }
+                    }
+                    if (ai.GetPlayerTendency(target) != "unknown") ai.UpdatePlayerRelation(player, target, strs[2] == "yes");
+                }
+            }
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is Player target && ai.IsFriend(target))
+                return true;
+            return false;
         }
     }
 }

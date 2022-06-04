@@ -39,6 +39,7 @@ namespace SanguoshaServer.AI
                 new XianweiAI(),
                 new TongyuanAI(),
                 new CuijianAI(),
+                new ZhushiAI(),
 
                 new TunanAI(),
                 new ManyiAI(),
@@ -1132,6 +1133,43 @@ namespace SanguoshaServer.AI
         }
 
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 7;
+    }
+
+    public class ZhushiAI : SkillEvent
+    {
+        public ZhushiAI() : base("zhushi")
+        {
+            key = new List<string> { "skillInvoke:zhushi" };
+        }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str && ai.Self != player)
+            {
+                Room room = ai.Room;
+                List<string> strs = new List<string>(str.Split(':'));
+                if (strs[1] == Name)
+                {
+                    Player target = null;
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (p.HasFlag("zhushi_target"))
+                        {
+                            target = p;
+                            break;
+                        }
+                    }
+                    if (ai.GetPlayerTendency(target) != "unknown") ai.UpdatePlayerRelation(player, target, strs[2] == "yes");
+                }
+            }
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is Player target && ai.IsFriend(target))
+                return true;
+            return false;
+        }
     }
 
     public class YizhengCSAI : SkillEvent

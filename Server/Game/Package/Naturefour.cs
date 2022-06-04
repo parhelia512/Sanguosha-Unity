@@ -1961,8 +1961,12 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             Player caopi = room.FindPlayer(info.SkillOwner);
-            if (ask_who.Alive && caopi.Alive && room.AskForSkillInvoke(ask_who, Name, caopi))
+            if (ask_who.Alive && caopi.Alive)
             {
+                caopi.SetFlags("songwei_target");
+                bool invoke = room.AskForSkillInvoke(ask_who, Name, caopi);
+                caopi.SetFlags("-songwei_target");
+
                 room.NotifySkillInvoked(caopi, Name);
                 room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, info.SkillOwner);
                 room.BroadcastSkillInvoke(Name, caopi, info.SkillPosition);
