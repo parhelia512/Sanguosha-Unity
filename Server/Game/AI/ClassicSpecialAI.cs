@@ -8545,7 +8545,7 @@ namespace SanguoshaServer.AI
                             if (count > 0) subs.Add(ids[0]);
                             ids.RemoveAt(0);
                         }
-                        ai.SortByUseValue(ref ids, false);
+                        ai.SortByUseValue(ref ids, false, new List<string> { Name });
                         for (int i = 0; i < count - 1; i++)
                             subs.Add(ids[i]);
                     }
