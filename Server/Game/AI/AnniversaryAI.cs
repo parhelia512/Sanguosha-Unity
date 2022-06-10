@@ -110,6 +110,8 @@ namespace SanguoshaServer.AI
                 new TiqiAI(),
                 new BaoshuAI(),
                 new XiaowuAI(),
+                new ShawuAI(),
+                new HuapingAI(),
             };
 
             use_cards = new List<UseCard>
@@ -4485,6 +4487,24 @@ namespace SanguoshaServer.AI
         }
 
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 9;
+    }
+
+    public class HuapingAI : SkillEvent
+    {
+        public HuapingAI() : base("huaping") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (ai.Room.GetOtherPlayers(player).Count > 1)
+                return player.GetMark("shawu") > 4;
+            return true;
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            foreach (Player p in targets)
+                if (ai.IsFriend(p)) return new List<Player> { p };
+            return new List<Player>();
+        }
     }
 
     public class ShawuAI : SkillEvent
