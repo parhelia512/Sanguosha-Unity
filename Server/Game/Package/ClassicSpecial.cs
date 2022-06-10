@@ -10610,7 +10610,7 @@ namespace SanguoshaServer.Package
             {
                 player.SetFlags(string.Format("juguan_{0}", RoomLogic.CardToString(room, use.Card)));
             }
-            else if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage)
+            else if (triggerEvent == TriggerEvent.DamageDone && data is DamageStruct damage)
             {
                 if (damage.Card != null && damage.Card.GetSkillName() == "juguan")
                 {
@@ -10630,16 +10630,16 @@ namespace SanguoshaServer.Package
                         string str = string.Format("juguan_{0}", from.Name);
                         damage.To.AddMark(str);
                     }
+                }
 
-                    if (damage.From != null && damage.To != null)
+                if (damage.From != null && damage.To != null && damage.To.Alive)
+                {
+                    string str = string.Format("juguan_{0}", damage.To.Name);
+                    if (damage.From.GetMark(str) > 0)
                     {
-                        string str = string.Format("juguan_{0}", damage.To.Name);
-                        if (damage.From.GetMark(str) > 0)
-                        {
-                            damage.From.SetMark(str, 0);
-                            if (damage.To.GetMark("juguan") > 1)
-                                damage.To.SetMark("juguan", 0);
-                        }
+                        damage.From.SetMark(str, 0);
+                        if (damage.To.GetMark("juguan") > 1)
+                            damage.To.SetMark("juguan", 0);
                     }
                 }
             }
@@ -10653,7 +10653,7 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (triggerEvent == TriggerEvent.EventPhaseProceeding && player.Phase == PlayerPhase.Draw && (int)data >= 0 && player.GetMark("juguan") > 0)
-                return new TriggerStruct("juguan", player);
+                return new TriggerStruct(Name, player);
 
             return new TriggerStruct();
         }
