@@ -41,7 +41,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             return ai.AjustWeaponRangeValue(player, card);
         }
@@ -121,7 +121,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             return ai.AjustWeaponRangeValue(player, card) - (8 - ai.Room.AliveCount()) * 0.5;
         }
@@ -140,7 +140,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             foreach (Player p in ai.GetEnemies(player))
@@ -312,7 +312,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             if (player.IsWounded()) value += 1;
@@ -339,7 +339,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             foreach (Player p in ai.GetEnemies(player))
@@ -456,7 +456,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             return value;
@@ -476,7 +476,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             foreach (Player p in ai.GetFriends(player))
@@ -513,7 +513,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             return value;

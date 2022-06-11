@@ -538,7 +538,7 @@ namespace SanguoshaServer.AI
             return result;
         }
 
-        public int GetKnownCardsNums(string pattern, string flags, Player player, Player from = null, bool contains_handpile = true)
+        public int GetKnownCardsNums(string pattern, string flags, Player player, Player from = null, bool contains_handpile = true, List<string> ignore_list = null)
         {
             from = from ?? self;
             int hand = 0;
@@ -577,9 +577,10 @@ namespace SanguoshaServer.AI
                 }
                 hand = hands.Count;
             }
-
+            ignore_list = ignore_list ?? new List<string>();
             foreach (string skill in GetKnownSkills(player))
             {
+                if (ignore_list.Contains(skill)) continue;
                 SkillEvent e = Engine.GetSkillEvent(skill);
                 if (e != null)
                 {
@@ -1864,7 +1865,7 @@ namespace SanguoshaServer.AI
                 int id = card.Id;
                 UseCard card_event = Engine.GetCardUsage(card.Name);
                 if (card_event != null)
-                    basic += card_event.CardValue(this, player, true, card, room.GetCardPlace(id));
+                    basic += card_event.CardValue(this, player, true, card, room.GetCardPlace(id), ignore_list);
 
                 if (room.GetCardOwner(id) == player && room.GetCardPlace(id) == Place.PlaceEquip)
                 {
@@ -1967,7 +1968,7 @@ namespace SanguoshaServer.AI
                 WrappedCard equip = room.GetCard(id);
                 UseCard e = Engine.GetCardUsage(equip.Name);
                 if (e != null)
-                    basic += e.CardValue(this, player, false, card, place);
+                    basic += e.CardValue(this, player, false, card, place, ignore_list);
             }
             else if (find_same && fcard is EquipCard)
             {

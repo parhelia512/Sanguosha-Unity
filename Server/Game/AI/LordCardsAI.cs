@@ -26,7 +26,7 @@ namespace SanguoshaServer.AI
         public DragonPhoenixAI() : base(DragonPhoenix.ClassName)
         { }
 
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             Room room = ai.Room;
             double value = 0;
@@ -119,7 +119,7 @@ namespace SanguoshaServer.AI
     {
         public PeaceSpellAI() : base(PeaceSpell.ClassName)
         { }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = 0;
             Room room = ai.Room;
@@ -218,7 +218,7 @@ namespace SanguoshaServer.AI
             ai.UseEquipCard(ref use, card);
         }
 
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = 0;
             Room room = ai.Room;
@@ -283,7 +283,7 @@ namespace SanguoshaServer.AI
             ai.UseEquipCard(ref use, card);
         }
 
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             return ai.HasSkill(TrustedAI.LoseEquipSkill, player) ? -4 : 0;
         }

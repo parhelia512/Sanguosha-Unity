@@ -28,7 +28,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             return ai.AjustWeaponRangeValue(player, card);
         }

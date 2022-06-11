@@ -356,7 +356,7 @@ namespace SanguoshaServer.AI
             return 0;
         }
 
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             return Value(ai, player, card, place);
         }
@@ -414,7 +414,7 @@ namespace SanguoshaServer.AI
         {
             ai.FindSlashandTarget(ref use, player);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             return SlashAI.Value(ai, player, card, place);
         }
@@ -439,7 +439,7 @@ namespace SanguoshaServer.AI
         {
             ai.FindSlashandTarget(ref use, player);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             return SlashAI.Value(ai, player, card, place);
         }
@@ -3913,7 +3913,7 @@ namespace SanguoshaServer.AI
         {
             ai.UseEquipCard(ref use, card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = 0;
             if (!ai.HasSkill("paoxiao", player))
@@ -3954,7 +3954,7 @@ namespace SanguoshaServer.AI
             return true;
         }
 
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             Player.Gender target_gender = player.PlayerGender == Player.Gender.Male ? Player.Gender.Female :
@@ -4017,7 +4017,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             foreach (Player p in ai.GetEnemies(player))
@@ -4257,7 +4257,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             if (ai.HasSkill("paoxiao", player))
@@ -4325,7 +4325,7 @@ namespace SanguoshaServer.AI
 
             return use;
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             if (ai.HasSkill("luoyi", player))
@@ -4349,7 +4349,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             return ai.AjustWeaponRangeValue(player, card);
         }
@@ -4456,7 +4456,7 @@ namespace SanguoshaServer.AI
             return true;
         }
 
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = 0;
             if (ai.HasSkill("bazhen", player))
@@ -4501,7 +4501,7 @@ namespace SanguoshaServer.AI
             return !d.DoDamage;
         }
 
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             string skills = TrustedAI.MasochismSkill + "|tianxiang|tianxiang_jx";
@@ -4528,7 +4528,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = 0;
             if (ai.HasSkill("bazhen|linglong", player))
@@ -4579,7 +4579,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             foreach (Player p in ai.GetEnemies(player))
@@ -4605,7 +4605,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             value += (ai.GetFriends(player).Count - 1) * 0.1;
@@ -4627,7 +4627,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             return ai.AjustWeaponRangeValue(player, card);
         }
@@ -4691,7 +4691,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = 0;
             Room room = ai.Room;
@@ -4732,7 +4732,7 @@ namespace SanguoshaServer.AI
             {
                 foreach (Player p in ai.GetEnemies(player))
                 {
-                    if (p.HasWeapon(Fan.ClassName) || RoomLogic.PlayerHasSkill(ai.Room, p, "huoji") || ai.GetKnownCardsNums(FireAttack.ClassName, "he", player, p) > 0)
+                    if (p.HasWeapon(Fan.ClassName) || RoomLogic.PlayerHasSkill(ai.Room, p, "huoji") || ai.GetKnownCardsNums(FireAttack.ClassName, "he", player, p, true, ignore_list) > 0)
                         value -= 3;
                 }
             }
@@ -4754,7 +4754,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = 0;
             if (player.GetLostHp() > 0)
@@ -4787,7 +4787,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             return ai.AjudstDHorseValue(player, card, place);
         }
@@ -4807,7 +4807,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             return ai.AjustOHorseValue(player, card, place);
         }

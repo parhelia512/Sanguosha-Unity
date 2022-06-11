@@ -113,7 +113,7 @@ namespace SanguoshaServer.AI
         }
         public virtual List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> target, int min, int max) => null;
 
-        public virtual double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place) => 0;
+        public virtual double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null) => 0;
 
         public virtual bool IsCardEffect(TrustedAI ai, WrappedCard card, Player from, Player to) => true;
 

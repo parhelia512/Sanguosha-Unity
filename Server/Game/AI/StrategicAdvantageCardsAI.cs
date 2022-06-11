@@ -302,7 +302,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             foreach (Player p in ai.Room.GetOtherPlayers(player))
@@ -329,7 +329,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = ai.AjustWeaponRangeValue(player, card);
             List<string> kingdoms = new List<string>();
@@ -413,7 +413,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = 0;
             if (ai.IsWeak(player))
@@ -718,7 +718,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = 0;
             value += player.GetPile("wooden_ox").Count * 0.3;
@@ -766,7 +766,7 @@ namespace SanguoshaServer.AI
         {
             return ai.GetEquipPriorityAdjust(card);
         }
-        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place)
+        public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
             double value = 0;
 
