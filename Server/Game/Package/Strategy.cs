@@ -1015,7 +1015,6 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.SendCompulsoryTriggerLog(player, Name);
             DamageStruct damage = (DamageStruct)data;
             damage.Damage *= 2;
 
@@ -1034,7 +1033,8 @@ namespace SanguoshaServer.Package
             if (damage.To.HasShownAllGenerals())
             {
                 room.LoseHp(ask_who);
-                if (ask_who.Alive) room.HandleAcquireDetachSkills(ask_who, "-anyong", false);
+                string skill = info.SkillPosition == "head" ? "-anyong" : "-anyong!";
+                if (ask_who.Alive) room.HandleAcquireDetachSkills(ask_who, skill, false);
             }
             else if (damage.To.HasShownOneGeneral())
                 room.AskForDiscard(ask_who, Name, 2, 2, false, false, "@anyong-discard", false, info.SkillPosition);

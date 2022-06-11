@@ -5258,19 +5258,21 @@ namespace SanguoshaServer.AI
             foreach (int id in player.GetCards("he"))
                 if (RoomLogic.CanDiscard(room, player, player, id))
                     discards.Add(id);
-            
-            DamageStruct damage = (DamageStruct)room.GetTag("CurrentDamageStruct");
-            int count = ai.HasArmorEffect(player, SilverLion.ClassName) ? 1 : damage.Damage;
-            if (discards.Count >= count)
+
+            if (room.GetTag("combo1") is DamageStruct damage)
             {
-                List<double> values = ai.SortByKeepValue(ref discards, false);
-                double value = 0, damage_value = ai.GetDamageScore(damage, DamageStruct.DamageStep.Done).Score;
-                for (int i = 0; i < count; i++)
+                int count = ai.HasArmorEffect(player, SilverLion.ClassName) ? 1 : damage.Damage;
+                if (discards.Count >= count)
                 {
-                    value += values[i];
-                    result.Add(discards[i]);
+                    List<double> values = ai.SortByKeepValue(ref discards, false);
+                    double value = 0, damage_value = ai.GetDamageScore(damage, DamageStruct.DamageStep.Done).Score;
+                    for (int i = 0; i < count; i++)
+                    {
+                        value += values[i];
+                        result.Add(discards[i]);
+                    }
+                    if (damage_value <= -value * 2 / 3) return result;
                 }
-                if (damage_value <= -value * 2 / 3) return result;
             }
 
             return new List<int>();

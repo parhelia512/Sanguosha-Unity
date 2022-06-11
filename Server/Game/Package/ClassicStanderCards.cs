@@ -713,7 +713,9 @@ namespace SanguoshaServer.Package
             {
                 int id = player.Treasure.Key;
                 room.SetCardFlag(id, "using");
+                room.SetTag("combo1", data);
                 bool invoke = room.AskForDiscard(player, Name, damage.Damage, damage.Damage, true, true, "@comb1:::" + damage.Damage.ToString(), true, "head");
+                room.RemoveTag("combo1");
                 room.SetCardFlag(id, "-using");
 
                 if (invoke) return info;
