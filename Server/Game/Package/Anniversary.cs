@@ -193,6 +193,9 @@ namespace SanguoshaServer.Package
                 new Xiaowu(),
                 new Huaping(),
                 new Shawu(),
+                new Bingjie(),
+                new BingjieEffect(),
+                new Zhengding(),
 
                 new Guolun(),
                 new Songsang(),
@@ -324,6 +327,7 @@ namespace SanguoshaServer.Package
                 { "tiqi", new List<string>{ "#tiqi" } },
                 { "baoshu", new List<string>{ "#baoshu" } },
                 { "juetao", new List<string>{ "#juetao", "#juetao-tar" } },
+                { "bingjie", new List<string>{ "#bingjie" } },
             };
         }
     }
@@ -11231,6 +11235,135 @@ namespace SanguoshaServer.Package
         public override void OnUse(Room room, CardUseStruct card_use)
         {
             card_use.From.SetTag("shawu", card_use.Card.SubCards);
+        }
+    }
+
+    public class Bingjie : TriggerSkill
+    {
+        public Bingjie() : base("bingjie")
+        {
+            events.Add(TriggerEvent.EventPhaseStart);
+            skill_type = SkillType.Attack;
+                }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && player.Phase == PlayerPhase.Play)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                room.LoseMaxHp(player);
+                return info;
+            }
+
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.Alive)
+                player.SetFlags(Name);
+            return false;
+        }
+    }
+
+    public class BingjieEffect : TriggerSkill
+    {
+        public BingjieEffect() : base("#bingjie")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen };
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.TargetChosen && base.Triggerable(player, room) && data is CardUseStruct use && player.HasFlag("bingjie"))
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                if (fcard is Slash || fcard.IsNDTrick())
+                {
+                    List<Player> targets = new List<Player>();
+                    foreach (Player p in use.To)
+                        if (p != player && !p.IsNude())
+                            targets.Add(p);
+
+                    if (targets.Count > 0)
+                        return new TriggerStruct(Name, player, targets);
+                }
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player skill_target, ref object data, Player machao, TriggerStruct info)
+        {
+            DoTieqi(room, skill_target, machao);
+            return false;
+        }
+
+        private void DoTieqi(Room room, Player target, Player player)
+        {
+            room.SendCompulsoryTriggerLog(player, Name);
+            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
+            room.AskForDiscard(target, "bingjie", 1, 1, false, true, string.Format("@bingjie:{0}", player.Name));
+        }
+    }
+
+    public class Zhengding : TriggerSkill
+    {
+        public Zhengding() : base("zhengding")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardResponded, TriggerEvent.CardUsed };
+            skill_type = SkillType.Recover;
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && base.Triggerable(player, room) && resp.Data != null && player.Phase == PlayerPhase.NotActive)
+            {
+                WrappedCard card = null;
+                if (resp.Data is CardEffectStruct effect)
+                    card = effect.Card;
+                else if (resp.Data is SlashEffectStruct slash)
+                    card = slash.Slash;
+
+                if (card != null && resp.Card != null
+                    && ((WrappedCard.IsBlack(card.Suit) && WrappedCard.IsBlack(resp.Card.Suit)) || (card.Suit == WrappedCard.CardSuit.NoSuit && resp.Card.Suit == WrappedCard.CardSuit.NoSuit)
+                    || (WrappedCard.IsRed(card.Suit) && WrappedCard.IsRed(resp.Card.Suit))))
+                    return new TriggerStruct(Name, player);
+            }
+            else if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && use.RespondData != null && use.RespondData.Card != null && base.Triggerable(player, room) && player.Phase == PlayerPhase.NotActive)
+            {
+                if ((WrappedCard.IsBlack(use.Card.Suit) && WrappedCard.IsBlack(use.RespondData.Card.Suit))
+                    || (use.RespondData.Card.Suit == WrappedCard.CardSuit.NoSuit && use.Card.Suit == WrappedCard.CardSuit.NoSuit)
+                    || (WrappedCard.IsRed(use.RespondData.Card.Suit) && WrappedCard.IsRed(use.Card.Suit)))
+                    return new TriggerStruct(Name, player);
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(player, Name);
+            room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+            player.MaxHp++;
+            room.BroadcastProperty(player, "MaxHp");
+
+            LogMessage log = new LogMessage
+            {
+                Type = "$GainMaxHp",
+                From = player.Name,
+                Arg = "1"
+            };
+            room.SendLog(log);
+
+            room.RoomThread.Trigger(TriggerEvent.MaxHpChanged, room, player);
+            return false;
         }
     }
 
