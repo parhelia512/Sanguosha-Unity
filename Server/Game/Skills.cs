@@ -66,6 +66,7 @@ namespace SanguoshaServer.Game
         Damage,           // the moment for -- lieren..
         Damaged,          // the moment for -- yiji..
         DamageComplete,   // the moment for trigger iron chain
+        DamageModified,   // damage is added, reduced, or prevented, for renzheng
 
         Dying,
         QuitDying,

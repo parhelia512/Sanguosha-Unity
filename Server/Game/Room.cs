@@ -5796,7 +5796,7 @@ namespace SanguoshaServer.Game
                 RemoveQinggangTag(damage_data);
                 return;
             }
-
+            int count = data.Damage;
             bool enter_stack = false;
             do
             {
@@ -5867,6 +5867,10 @@ namespace SanguoshaServer.Game
                 else
                     SetTag("CurrentDamageStruct", m_damageStack.Peek());
             }
+
+            //damage had been prevented or modified
+            if (damage_data.Prevented || damage_data.Damage != count)
+                RoomThread.Trigger(TriggerEvent.DamageModified, this, damage_data.To, ref qdata);
         }
 
         public bool IsJinkEffected(Player user, CardResponseStruct response)
