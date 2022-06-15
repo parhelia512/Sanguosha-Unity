@@ -10173,6 +10173,9 @@ namespace SanguoshaServer.Package
                 if (room.GetCard(ids[0]).Suit != WrappedCard.CardSuit.Spade && card_use.From.Alive)
                     room.DrawCards(card_use.From, 1, "anxu");
             }
+
+            if (from.Alive && to.Alive && card_use.From.Alive && card_use.From.IsWounded() && from.HandcardNum == to.HandcardNum)
+                room.Recover(card_use.From);
         }
     }
 
@@ -10232,7 +10235,7 @@ namespace SanguoshaServer.Package
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             Player target = room.FindPlayer((string)player.GetTag(Name));
-            room.DrawCards(target, new DrawCardStruct(3, player, Name));
+            room.DrawCards(target, new DrawCardStruct(room.AliveCount(), player, Name));
             if (target.Alive && target.GetLostHp() > 0)
             {
                 RecoverStruct recover = new RecoverStruct

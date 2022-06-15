@@ -7153,23 +7153,35 @@ namespace SanguoshaServer.Package
                 foreach (Player p in room.GetAlivePlayers())
                     if (p.HasFlag(Name)) p.SetFlags("-gongjian");
         }
-        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.TargetChosen && base.Triggerable(player, room) && !player.HasFlag(Name) && room.ContainsTag(Name) && data is CardUseStruct use
-                && use.Card.Name.Contains(Slash.ClassName) && room.GetTag(Name) is List<Player> targets)
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.TargetChosen && room.ContainsTag(Name) && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && room.GetTag(Name) is List<Player> targets)
             {
-                foreach (Player p in use.To)
-                    if (targets.Contains(p) && !p.IsNude() && RoomLogic.CanDiscard(room, player, p, "he"))
-                        return new TriggerStruct(Name, player);
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                {
+                    if (!p.HasFlag(Name))
+                    {
+                        foreach (Player victim in use.To)
+                        {
+                            if (p != victim && !victim.IsNude() && RoomLogic.CanDiscard(room, p, victim, "he"))
+                            {
+                                triggers.Add(new TriggerStruct(Name, p));
+                                break;
+                            }
+                        }
+                    }
+                }
             }
-            return new TriggerStruct();
+            return triggers;
         }
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            if (room.AskForSkillInvoke(ask_who, Name, data, info.SkillPosition))
             {
-                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                ask_who.SetFlags(Name);
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                 return info;
             }
             return new TriggerStruct();
@@ -7181,25 +7193,25 @@ namespace SanguoshaServer.Package
             {
                 List<Player> players = new List<Player>();
                 foreach (Player p in use.To)
-                    if (targets.Contains(p))
+                    if (targets.Contains(p) && p != ask_who)
                         players.Add(p);
 
                 room.SortByActionOrder(ref players);
                 foreach (Player p in players)
                 {
-                    if (p.Alive && player.Alive && !p.IsNude() && RoomLogic.CanDiscard(room, player, p, "he"))
+                    if (p.Alive && ask_who.Alive && !p.IsNude() && RoomLogic.CanDiscard(room, ask_who, p, "he"))
                     {
-                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
-                        List<int> ids = room.AskForCardsChosen(player, p, new List<string> { "he^false^discard", "he^false^discard"}, Name);
-                        room.ThrowCard(ref ids, p, player);
+                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, p.Name);
+                        List<int> ids = room.AskForCardsChosen(ask_who, p, new List<string> { "he^false^discard", "he^false^discard"}, Name);
+                        room.ThrowCard(ref ids, p, ask_who);
                         List<int> get = new List<int>();
                         foreach (int id in ids)
                         {
-                            if (room.GetCard(id).Name.Contains(Slash.ClassName))
+                            if (room.GetCard(id).Name.Contains(Slash.ClassName) && room.GetCardPlace(id) == Place.DiscardPile)
                                 get.Add(id);
                         }
-                        if (get.Count > 0 && player.Alive)
-                            room.ObtainCard(player, ref get, new CardMoveReason(MoveReason.S_REASON_RECYCLE, player.Name, Name, string.Empty));
+                        if (get.Count > 0 && ask_who.Alive)
+                            room.ObtainCard(ask_who, ref get, new CardMoveReason(MoveReason.S_REASON_RECYCLE, ask_who.Name, Name, string.Empty));
                     }
                 }
             }
