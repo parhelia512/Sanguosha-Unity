@@ -672,10 +672,10 @@ namespace SanguoshaServer.Package
             List<WrappedCard> results = new List<WrappedCard>();
             if (player.HasFlag("xuanhuo_source") && cards.Count == 0)
             {
-                results.Add(new WrappedCard(Slash.ClassName));
-                results.Add(new WrappedCard(FireSlash.ClassName));
-                results.Add(new WrappedCard(ThunderSlash.ClassName));
-                results.Add(new WrappedCard(Duel.ClassName));
+                results.Add(new WrappedCard(Slash.ClassName) { Skill = Name});
+                results.Add(new WrappedCard(FireSlash.ClassName) { Skill = Name });
+                results.Add(new WrappedCard(ThunderSlash.ClassName) { Skill = Name });
+                results.Add(new WrappedCard(Duel.ClassName) { Skill = Name });
             }
 
             return results;

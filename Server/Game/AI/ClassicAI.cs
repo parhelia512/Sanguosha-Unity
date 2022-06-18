@@ -2308,6 +2308,11 @@ namespace SanguoshaServer.AI
                 cards.Add(slash);
                 if (player.HasWeapon(Fan.ClassName) && slash.Name == Slash.ClassName && !slash.SubCards.Contains(player.Weapon.Key))
                 {
+                    string skill_name = slash.GetSkillName();
+                    if (skill_name == "rende" || skill_name == "yigui" || skill_name == "guhuo" || skill_name == "jiaozhao" || skill_name == "zhanyi" || skill_name == "heqia" || skill_name == "youlong" || skill_name == "jinzhi"
+                        || skill_name == "xuanhuo_jx" || skill_name == "jianying" || skill_name == "huomo" || skill_name == "taoluan" || skill_name == "zhanyi" || skill_name == "miewu")
+                        continue;
+
                     WrappedCard fire_slash = new WrappedCard(FireSlash.ClassName)
                     {
                         DistanceLimited = slash.DistanceLimited

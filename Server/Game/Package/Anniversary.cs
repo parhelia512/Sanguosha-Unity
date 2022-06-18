@@ -9937,11 +9937,15 @@ namespace SanguoshaServer.Package
                 int count = 1;
                 WrappedCard card = room.GetCard(id);
                 bool add = false;
-                FunctionCard damage_type = Engine.GetFunctionCard(damage.Card.Name);
-                if (damage.Card != null && !Engine.IsSkillCard(damage.Card.Name))
+
+                if (damage.Card != null)
                 {
-                    if (damage.Card.Suit != WrappedCard.CardSuit.NoSuit && WrappedCard.IsBlack(damage.Card.Suit) == WrappedCard.IsBlack(card.Suit)) count++;
-                    if (Engine.GetFunctionCard(card.Name).TypeID == damage_type.TypeID) add = true;
+                    FunctionCard damage_type = Engine.GetFunctionCard(damage.Card.Name);
+                    if (!Engine.IsSkillCard(damage.Card.Name))
+                    {
+                        if (damage.Card.Suit != WrappedCard.CardSuit.NoSuit && WrappedCard.IsBlack(damage.Card.Suit) == WrappedCard.IsBlack(card.Suit)) count++;
+                        if (Engine.GetFunctionCard(card.Name).TypeID == damage_type.TypeID) add = true;
+                    }
                 }
 
                 room.DrawCards(player, count, Name);
