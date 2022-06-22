@@ -1870,6 +1870,7 @@ namespace SanguoshaServer.Package
         {
             if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
             {
+                room.SetPlayerMark(player, limit_mark, 0);
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                 room.DoSuperLightbox(player, info.SkillPosition, Name);
                 player.SetTag(Name, player.ActualGeneral2);
