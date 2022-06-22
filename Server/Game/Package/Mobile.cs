@@ -5289,6 +5289,7 @@ namespace SanguoshaServer.Package
             if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Card.Name == Dismantlement.ClassName && use.Card.GetSkillName() == Name)
             {
                 player.AddMark("zhui_mark", -2);
+                room.DrawCards(player, 1, Name);
                 if (player.GetMark("zhui_mark") > 0)
                     room.SetPlayerStringMark(player, "zhui_mark", player.GetMark("zhui_mark").ToString());
                 else
@@ -5299,7 +5300,7 @@ namespace SanguoshaServer.Package
         {
             if (data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && base.Triggerable(player, room))
             {
-                if (triggerEvent == TriggerEvent.TargetChosen || (triggerEvent == TriggerEvent.CardFinished && player.Phase != PlayerPhase.NotActive && player.GetMark("zhui_mark") >= 2))
+                if (triggerEvent == TriggerEvent.TargetChosen || (triggerEvent == TriggerEvent.CardFinished && player.GetMark("zhui_mark") >= 2))
                     return new TriggerStruct(Name, player);
             }
             return new TriggerStruct();
@@ -5316,7 +5317,7 @@ namespace SanguoshaServer.Package
             }
             else
             {
-                WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@lueying", "@lueying", null, -1, HandlingMethod.MethodUse, false, info.SkillPosition);
+                room.AskForUseCard(player, RespondType.Skill, "@@lueying", "@lueying", null, -1, HandlingMethod.MethodUse, false, info.SkillPosition);
             }
             return false;
         }
@@ -5363,6 +5364,7 @@ namespace SanguoshaServer.Package
             if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Card.Name == Slash.ClassName && use.Card.GetSkillName() == Name)
             {
                 player.AddMark("zhui_mark", -2);
+                room.DrawCards(player, 1, Name);
                 if (player.GetMark("zhui_mark") > 0)
                     room.SetPlayerStringMark(player, "zhui_mark", player.GetMark("zhui_mark").ToString());
                 else
@@ -5371,9 +5373,9 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is CardUseStruct use && Engine.GetFunctionCard(use.Card.Name) is TrickCard && base.Triggerable(player, room))
+            if (data is CardUseStruct use && Engine.GetFunctionCard(use.Card.Name).IsNDTrick() && base.Triggerable(player, room))
             {
-                if (triggerEvent == TriggerEvent.TargetChosen || (triggerEvent == TriggerEvent.CardFinished && player.Phase != PlayerPhase.NotActive && player.GetMark("zhui_mark") >= 2))
+                if (triggerEvent == TriggerEvent.TargetChosen || (triggerEvent == TriggerEvent.CardFinished && player.GetMark("zhui_mark") >= 2))
                     return new TriggerStruct(Name, player);
             }
             return new TriggerStruct();
@@ -5390,7 +5392,7 @@ namespace SanguoshaServer.Package
             }
             else
             {
-                WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@yingwu", "@yingwu", null, -1, HandlingMethod.MethodUse, false, info.SkillPosition);
+                room.AskForUseCard(player, RespondType.Skill, "@@yingwu", "@yingwu", null, -1, HandlingMethod.MethodUse, false, info.SkillPosition);
             }
             return false;
         }
@@ -7046,8 +7048,8 @@ namespace SanguoshaServer.Package
                             string mark = "xianchou_" + index.ToString();
                             bool succe = room.ContainsTag(mark);
                             room.RemoveTag(mark);
-                            if (succe && player.Alive && player.IsWounded())
-                                room.Recover(player);
+                            if (succe && target.Alive) room.DrawCards(target, new DrawCardStruct(2, player, Name));
+                            if (succe && player.Alive && player.IsWounded()) room.Recover(player);
                         }
                     }
                 }

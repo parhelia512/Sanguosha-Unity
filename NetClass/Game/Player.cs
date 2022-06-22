@@ -500,7 +500,7 @@ namespace CommonClass.Game
                 value += add_num;
                 SetMark(mark, value);
             }
-            else if (add_num > 0)
+            else if (add_num != 0)
                 Marks.Add(mark, add_num);
         }
 
