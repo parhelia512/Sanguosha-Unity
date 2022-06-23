@@ -49,7 +49,7 @@ namespace SanguoshaServer.Package
                 new ZhuangrongHegemony(),
                 new ZhuangrongMax(),
                 new Zhuidu(),
-                new Xianxi(),
+                new Shigong(),
 
                 new Dujin(),
                 new AocaiHegemony(),
@@ -1848,14 +1848,14 @@ namespace SanguoshaServer.Package
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => selected.Count == 0 && RoomLogic.CanDiscard(room, player, player, to_select.Id);
     }
 
-    public class Xianxi : TriggerSkill
+    public class Shigong : TriggerSkill
     {
-        public Xianxi() : base("xianxi")
+        public Shigong() : base("shigong")
         {
             events.Add(TriggerEvent.Dying);
             skill_type = SkillType.Recover;
             frequency = Frequency.Limited;
-            limit_mark = "@xianxi";
+            limit_mark = "@shigong";
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -1893,7 +1893,7 @@ namespace SanguoshaServer.Package
                         skills.Add(skill);
                 }
                 skills.Add("recover");
-                string choice = room.AskForChoice(room.Current, Name, string.Join("+", skills), new List<string> { "@xianxi-choose:" + player.Name }, player);
+                string choice = room.AskForChoice(room.Current, Name, string.Join("+", skills), new List<string> { "@shigong-choose:" + player.Name }, player);
                 if (choice == "recover")
                 {
                     int count = 1 - player.Hp;
