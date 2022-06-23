@@ -48,6 +48,9 @@ namespace SanguoshaServer.Package
                 new Zundi(),
                 new YanjiaoSP(),
                 new Difei(),
+                new Hongyi(),
+                new HongyiEffect(),
+                new Quanfeng(),
 
                 new Zhaohuo(),
                 new Yixiang(),
@@ -182,6 +185,7 @@ namespace SanguoshaServer.Package
                 new ShangyiCCard(),
                 new DiaoduCard(),
                 new GongshunCard(),
+                new HongyiCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -215,6 +219,7 @@ namespace SanguoshaServer.Package
                 { "shidi", new List<string> { "#shidi" } },
                 { "qishe", new List<string> { "#qishe" } },
                 { "liegong_mobile", new List<string> { "#liegong_mobile-tar" } },
+                { "hongyi", new List<string> { "#hongyi" } },
             };
         }
     }
@@ -2037,6 +2042,195 @@ namespace SanguoshaServer.Package
                     if (!same && player.Alive && player.IsWounded())
                         room.Recover(player);
                 }
+            }
+
+            return false;
+        }
+    }
+
+    //meiyanyan
+    public class Hongyi : ZeroCardViewAsSkill
+    {
+        public Hongyi() : base("hongyi") { skill_type = SkillType.Wizzard; }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(HongyiCard.ClassName);
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(HongyiCard.ClassName) { Skill = Name };
+    }
+
+    public class HongyiCard : SkillCard
+    {
+        public static string ClassName = "HongyiCard";
+        public HongyiCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self;
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From, target = card_use.To[0];
+            player.SetTag("hongyi", target.Name);
+            target.AddMark("hongyi");
+            room.SetPlayerStringMark(target, "hongyi", string.Empty);
+        }
+    }
+
+    public class HongyiEffect : TriggerSkill
+    {
+        public HongyiEffect() : base("#hongyi")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TurnStart, TriggerEvent.DamageCaused, TriggerEvent.Death };
+            frequency = Frequency.Compulsory;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if ((triggerEvent == TriggerEvent.TurnStart || triggerEvent == TriggerEvent.Death) && player.ContainsTag("hongyi") && player.GetTag("hongyi") is string target_name)
+            {
+                Player target = room.FindPlayer(target_name);
+                if (target != null)
+                {
+                    target.AddMark("hongyi", -1);
+                    if (target.GetMark("hongyi") == 0) room.RemovePlayerStringMark(target, "hongyi");
+                }
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.DamageCaused && player.Alive && player.GetMark("hongyi") > 0)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            DamageStruct damage = (DamageStruct)data;
+            JudgeStruct judge = new JudgeStruct
+            {
+                Good = true,
+                PlayAnimation = false,
+                Who = player,
+                Reason = "hongyi"
+            };
+
+            room.Judge(ref judge);
+
+            WrappedCard.CardSuit suit = judge.JudgeSuit;
+            switch (suit)
+            {
+                case WrappedCard.CardSuit.Heart:
+                case WrappedCard.CardSuit.Diamond:
+                    {
+                        if (damage.To.Alive) room.DrawCards(damage.To, 1, "hongyi");
+                        break;
+                    }
+                case WrappedCard.CardSuit.Club:
+                case WrappedCard.CardSuit.Spade:
+                    {
+                        LogMessage log = new LogMessage
+                        {
+                            Type = "#ReduceDamage2",
+                            From = player.Name,
+                            To = new List<string> { damage.To.Name },
+                            Arg = "hongyi",
+                            Arg2 = "1"
+                        };
+                        room.SendLog(log);
+                        damage.Damage--;
+                        if (damage.Damage < 1) return true;
+                        data = damage;
+                        break;
+                    }
+            }
+            return false;
+        }
+    }
+
+    public class Quanfeng : TriggerSkill
+    {
+        public Quanfeng() : base("quanfeng")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.Death, TriggerEvent.Dying };
+            frequency = Frequency.Limited;
+            skill_type = SkillType.Recover;
+            limit_mark = "@quanfeng";
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.Death)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                    if (p != player && p.GetMark(limit_mark) > 0)
+                        triggers.Add(new TriggerStruct(Name, p));
+            }
+            else
+            {
+                if (base.Triggerable(player, room) && player.GetMark(limit_mark) > 0)
+                    triggers.Add(new TriggerStruct(Name, player));
+            }
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(ask_who, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                room.DoSuperLightbox(ask_who, info.SkillPosition, Name);
+                room.SetPlayerMark(ask_who, limit_mark, 0);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.Death)
+            {
+                List<string> skills = new List<string> ();
+                foreach (string skill_name in Engine.GetGeneralSkills(player.ActualGeneral1, room.Setting.GameMode, true))
+                {
+                    Skill s = Engine.GetSkill(skill_name);
+                    if (!s.LordSkill && s.SkillFrequency < Frequency.Limited)
+                        skills.Add(skill_name);                    
+                }
+                room.HandleAcquireDetachSkills(ask_who, "-hongyi", false);
+                if (ask_who.Alive && skills.Count > 0)
+                    room.HandleAcquireDetachSkills(ask_who, skills, true);
+
+                room.FilterCards(ask_who, ask_who.GetCards("he"), true);
+
+                if (ask_who.Alive)
+                {
+                    ask_who.MaxHp++;
+                    room.BroadcastProperty(ask_who, "MaxHp");
+
+                    LogMessage log = new LogMessage
+                    {
+                        Type = "$GainMaxHp",
+                        From = ask_who.Name,
+                        Arg = "1"
+                    };
+                    room.SendLog(log);
+
+                    room.RoomThread.Trigger(TriggerEvent.MaxHpChanged, room, ask_who);
+                    room.Recover(ask_who, 1);
+                }
+            }
+            else
+            {
+                ask_who.MaxHp += 2;
+                room.BroadcastProperty(ask_who, "MaxHp");
+
+                LogMessage log = new LogMessage
+                {
+                    Type = "$GainMaxHp",
+                    From = ask_who.Name,
+                    Arg = "2"
+                };
+                room.SendLog(log);
+
+                room.RoomThread.Trigger(TriggerEvent.MaxHpChanged, room, ask_who);
+                room.Recover(ask_who, 4);
             }
 
             return false;
