@@ -3114,16 +3114,20 @@ namespace SanguoshaServer.Package
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
+            int count = 0;
             foreach (int id in move.Card_ids)
             {
                 WrappedCard card = room.GetCard(id);
                 card.SetFlags("-tianren");
+                FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                if (!(fcard is EquipCard))
+                    count++;
             }
 
             room.SendCompulsoryTriggerLog(ask_who, Name);
             room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
-            ask_who.AddMark(Name);
-            if (ask_who.GetMark(Name) > ask_who.MaxHp)
+            ask_who.AddMark(Name, count);
+            if (ask_who.GetMark(Name) >= ask_who.MaxHp)
             {
                 ask_who.AddMark(Name, -ask_who.MaxHp);
                 ask_who.MaxHp++;
@@ -3149,23 +3153,43 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Pingxiang : ZeroCardViewAsSkill
+    public class Pingxiang : ViewAsSkill
     {
         public Pingxiang() : base("pingxiang")
         {
             limit_mark = "@pingxiang";
             frequency = Frequency.Limited;
         }
-
-        public override bool IsEnabledAtPlay(Room room, Player player)
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => false;
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position = null)
         {
-            return player.MaxHp >= 9 && player.GetMark(limit_mark) > 0;
+            switch (reason)
+            {
+                case CardUseReason.CARD_USE_REASON_PLAY when RoomLogic.PlayerHasSkill(room, invoker, Name):
+                    return invoker.MaxHp >= 9 && invoker.GetMark(limit_mark) > 0;
+                case CardUseReason.CARD_USE_REASON_RESPONSE_USE:
+                    return pattern == "@@pingxiang";
+            }
+            return false;
         }
-
-        public override WrappedCard ViewAs(Room room, Player player)
+        public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
         {
-            WrappedCard yy = new WrappedCard(PingxiangCard.ClassName) { Skill = Name };
-            return yy;
+            List<WrappedCard> results = new List<WrappedCard>();
+            if (player.GetMark(limit_mark) == 0)
+                results.Add(new WrappedCard(FireSlash.ClassName) { Skill = "_pingxiang" });
+            return results;
+        }
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (player.GetMark(limit_mark) > 0)
+            {
+                WrappedCard yy = new WrappedCard(PingxiangCard.ClassName) { Skill = Name, Mute = true };
+                return yy;
+            }
+            else if (cards.Count == 1)
+                return cards[0];
+
+            return null;
         }
     }
 
@@ -3174,76 +3198,33 @@ namespace SanguoshaServer.Package
         public static string ClassName = "PingxiangCard";
         public PingxiangCard() : base(ClassName)
         {
-            votes = true;
+            target_fixed = true;
         }
-
-        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
-        {
-            return targets.Count < 9 && to_select != Self;
-        }
-
-        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card)
-        {
-            if (targets.Count == 0 || (targets.Count > 1 && targets.Count != 9)) return false;
-            return true;
-        }
-
+        
         public override void OnUse(Room room, CardUseStruct card_use)
         {
             room.SetPlayerMark(card_use.From, "@pingxiang", 0);
             room.BroadcastSkillInvoke("pingxiang", card_use.From, card_use.Card.SkillPosition);
             room.DoSuperLightbox(card_use.From, card_use.Card.SkillPosition, "pingxiang");
-
-            List<Player> targets = new List<Player>();
-            if (card_use.To.Count == 1)
-            {
-                card_use.To[0].SetMark("pingxiang", 9);
-                targets.Add(card_use.To[0]);
-            }
-            else
-            {
-
-                for (int i = 0; i < card_use.To.Count; i++)
-                {
-                    int count = 1;
-                    Player p1 = card_use.To[i];
-                    if (targets.Contains(p1)) continue;
-                    for (int x = i + 1; x < card_use.To.Count; x++)
-                    {
-                        Player p2 = card_use.To[x];
-                        if (p2 == p1)
-                        {
-                            count++;
-                        }
-                    }
-
-                    p1.SetMark("pingxiang", count);
-                    targets.Add(p1);
-                }
-            }
-
-            card_use.To = targets;
-            card_use.Card.Mute = true;
+            
             base.OnUse(room, card_use);
         }
 
         public override void Use(Room room, CardUseStruct card_use)
         {
             room.LoseMaxHp(card_use.From, 9);
-            base.Use(room, card_use);
+
+            int count = 9;
+            while (card_use.From.Alive && count > 0)
+            {
+                WrappedCard card = room.AskForUseCard(card_use.From, RespondType.Skill, "@@pingxiang", "@pingxiang-slash:::" + count.ToString(), null, -1, HandlingMethod.MethodUse, false, card_use.Card.SkillPosition);
+                count--;
+                if (card == null)
+                    break;
+            }
 
             if (card_use.From.Alive)
                 room.HandleAcquireDetachSkills(card_use.From, "-jiufa", false);
-        }
-
-        public override void OnEffect(Room room, CardEffectStruct effect)
-        {
-            Player player = effect.From, target = effect.To;
-            int count = target.GetMark("pingxiang");
-            target.SetMark("pingxiang", 0);
-
-            if (player.Alive && target.Alive)
-                room.Damage(new DamageStruct("pingxiang", player, target, count));
         }
     }
 }
