@@ -69,6 +69,7 @@ namespace SanguoshaServer.Package
                 new JiufaResp(),
                 new Tianren(),
                 new Pingxiang(),
+                new PingxiangMax(),
             };
             skill_cards = new List<FunctionCard>
             {
@@ -102,6 +103,7 @@ namespace SanguoshaServer.Package
                 { "duorui", new List<string>{ "#duorui" } },
                 { "zhiti", new List<string>{ "#zhiti" } },
                 { "jiufa", new List<string>{ "#jiufa" } },
+                { "pingxiang", new List<string>{ "#pingxiang" } },
             };
         }
     }
@@ -3226,5 +3228,12 @@ namespace SanguoshaServer.Package
             if (card_use.From.Alive)
                 room.HandleAcquireDetachSkills(card_use.From, "-jiufa", false);
         }
+    }
+
+    public class PingxiangMax : MaxCardsSkill
+    {
+        protected string owner;
+        public PingxiangMax() : base("#pingxiang") { }
+        public override int GetFixed(Room room, Player target) => RoomLogic.PlayerHasShownSkill(room, target, "pingxiang") && target.GetMark("@pingxiang") == 0 ? target.MaxHp : -1;
     }
 }
