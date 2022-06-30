@@ -1595,12 +1595,12 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            player.SetFlags("hujia_from");
-            bool invoke = room.AskForSkillInvoke(player, Name, room.FindPlayer(info.SkillOwner));
-            player.SetFlags("-hujia_from");
+            ask_who.SetFlags("hujia_from");
+            bool invoke = room.AskForSkillInvoke(ask_who, Name, player);
+            ask_who.SetFlags("-hujia_from");
             if (invoke)
             {
-                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, info.SkillOwner);
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, info.SkillOwner);
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                 player.SetFlags(Name);
                 return info;
