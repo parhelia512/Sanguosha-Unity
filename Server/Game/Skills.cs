@@ -57,7 +57,7 @@ namespace SanguoshaServer.Game
 
         ConfirmDamage,    // confirm the damage's count and damage's nature
         Predamage,        // trigger the certain skill -- jueqing
-        DamageForseen,    // the first event in a damage -- kuangfeng dawu
+        DamageForseen,    // trigger the certain skill2 -- gangzhi_classic
         DamageCaused,     // the moment for -- qianxi..
         DamageInflicted,  // the moment for most of add damamge skills -- tianxiang..
         DamageDefined,   // the moment for reduce or prevent damage  -- kuanshi..

@@ -5791,20 +5791,22 @@ namespace SanguoshaServer.Game
             }
 
             // Predamage
-            if (RoomThread.Trigger(TriggerEvent.Predamage, this, damage_data.From, ref qdata))
+            if (damage_data.From != null && RoomThread.Trigger(TriggerEvent.Predamage, this, damage_data.From, ref qdata))
             {
                 RemoveQinggangTag(damage_data);
                 return;
             }
+            //Forseen
+            if (RoomThread.Trigger(TriggerEvent.DamageForseen, this, damage_data.To, ref qdata))
+            {
+                RemoveQinggangTag(damage_data);
+                return;
+            }
+
             int count = data.Damage;
             bool enter_stack = false;
             do
             {
-                if (RoomThread.Trigger(TriggerEvent.DamageForseen, this, damage_data.To, ref qdata))
-                {
-                    RemoveQinggangTag(damage_data);
-                    break;
-                }
                 if (damage_data.Chain && damage_data.Nature != DamageStruct.DamageNature.Normal)
                 {
                     DoChainedAnimation(damage_data.To, damage_data.Nature);
