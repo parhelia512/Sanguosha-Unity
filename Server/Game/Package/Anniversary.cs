@@ -260,6 +260,8 @@ namespace SanguoshaServer.Package
                 new YuanyuZYEffect(),
                 new Xiyan(),
                 new XiyanMax(),
+                new XiyanTar(),
+                new XiyanPro(),
                 new Chenjian(),
                 new Xixiu(),
                 new XixiuFix(),
@@ -364,7 +366,7 @@ namespace SanguoshaServer.Package
                 { "chongxing", new List<string>{ "#chongxing" } },
                 { "liunian", new List<string>{ "#liunian" } },
                 { "yuanyu_zy", new List<string>{ "#yuanyu_zy" } },
-                { "xiyan", new List<string>{ "#xiyan" } },
+                { "xiyan", new List<string>{ "#xiyan", "#xiyan-tar", "#xiyan-pro" } },
                 { "shuizheng", new List<string>{ "#shuizheng" } },
                 { "xixiu", new List<string>{ "#xixiu" } },
                 { "yijiao", new List<string>{ "#yijiao" } },
@@ -15507,6 +15509,18 @@ namespace SanguoshaServer.Package
     {
         public XiyanMax() : base("#xiyan") { }
         public override int GetExtra(Room room, Player target) => target.GetMark("xiyan") * 4;
+    }
+
+    public class XiyanTar : TargetModSkill
+    {
+        public XiyanTar() : base("#xiyan-tar", false) { pattern = "."; }
+        public override bool CheckSpecificAssignee(Room room, Player from, Player to, WrappedCard card, string pattern) => from.GetMark("xiyan") > 0;
+    }
+
+    public class XiyanPro : ProhibitSkill
+    {
+        public XiyanPro() : base("#xiyan-pro") { }
+        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null) => from != null && card != null && Engine.GetFunctionCard(card.Name) is BasicCard ? from.GetMark("xiyan") < 0 : false;
     }
 
     public class Chenjian : TriggerSkill
