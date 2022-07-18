@@ -82,6 +82,8 @@ namespace SanguoshaServer.Package
                 new Zhushi(),
                 new Choutao(),
                 new Xiangshu(),
+                new Caiyi(),
+                new Guili(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -209,6 +211,9 @@ namespace SanguoshaServer.Package
                 new Xunli(),
                 new Zhishi(),
                 new Lieyi(),
+                new Jinggong(),
+                new JinggongDamage(),
+                new Xiaojun(),
 
                 new Guolun(),
                 new Songsang(),
@@ -370,6 +375,7 @@ namespace SanguoshaServer.Package
                 { "shuizheng", new List<string>{ "#shuizheng" } },
                 { "xixiu", new List<string>{ "#xixiu" } },
                 { "yijiao", new List<string>{ "#yijiao" } },
+                { "jinggong", new List<string>{ "#jinggong" } },
             };
         }
     }
@@ -4376,6 +4382,374 @@ namespace SanguoshaServer.Package
 
             return false;
         }
+    }
+
+    public class Caiyi : TriggerSkill
+    {
+        public Caiyi() : base("caiyi")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.EventLoseSkill, TriggerEvent.EventAcquireSkill };
+            skill_type = SkillType.Wizzard;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventAcquireSkill && data is InfoStruct info && info.Info == Name)
+            {
+                room.SetTurnSkillState(player, Name, false, info.Head ? "head" : "deputy");
+            }
+            else if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct _info && _info.Info == Name)
+            {
+                room.RemoveTurnSkill(player);
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<string> choices = new List<string>();
+            List<Player> targets = new List<Player>();
+            if (player.GetMark(Name) == 0)
+            {
+                if (player.GetMark("caiyi_0") == 0)
+                    choices.Add("recover");
+                else if (player.GetMark("caiyi_3") == 0)
+                    choices.Add("random_0");
+                if (player.GetMark("caiyi_1") == 0)
+                    choices.Add("draw");
+                else if (!choices.Contains("random_0") && player.GetMark("caiyi_3") == 0)
+                    choices.Add("random_0");
+                if (player.GetMark("caiyi_2") == 0)
+                    choices.Add("reset");
+                else if (!choices.Contains("random_0") && player.GetMark("caiyi_3") == 0)
+                    choices.Add("random_0");
+
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    if ((p.IsWounded() && (choices.Contains("recover") || (choices.Contains("random_0") && player.GetMark("caiyi_0") == 1)))
+                        || choices.Contains("draw") || (choices.Contains("random_0") && player.GetMark("caiyi_1") == 1)
+                        || ((!p.FaceUp || p.Chained) && (choices.Contains("reset") || (choices.Contains("random_0") && player.GetMark("caiyi_2") == 1))))
+                        targets.Add(p);
+                }
+            }
+            else
+            {
+                if (player.GetMark("caiyi_4") == 0)
+                    choices.Add("damaged");
+                else if (player.GetMark("caiyi_7") == 0)
+                    choices.Add("random_1");
+                if (player.GetMark("caiyi_5") == 0)
+                    choices.Add("discard");
+                else if (!choices.Contains("random_1") && player.GetMark("caiyi_7") == 0)
+                    choices.Add("random_1");
+                if (player.GetMark("caiyi_6") == 0)
+                    choices.Add("facedown");
+                else if (!choices.Contains("random_1") && player.GetMark("caiyi_7") == 0)
+                    choices.Add("random_1");
+
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    if ((!p.IsNude() && RoomLogic.CanDiscard(room, p,p, "he") && (choices.Contains("discard") || (choices.Contains("random_1") && player.GetMark("caiyi_5") == 1)))
+                        || choices.Contains("damaged") || (choices.Contains("random_1") && player.GetMark("caiyi_4") == 1)
+                        || ((p.FaceUp || !p.Chained) && (choices.Contains("facedown") || (choices.Contains("random_1") && player.GetMark("caiyi_6") == 1))))
+                        targets.Add(p);
+                }
+            }
+            
+            if (targets.Count > 0)
+            {
+                Player target = room.AskForPlayerChosen(player, targets, Name, "@caiyi", true, true, info.SkillPosition);
+                if (target != null)
+                {
+                    room.SetTag(Name, target);
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    return info;
+                }
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.GetTag(Name) is Player target)
+            {
+                room.RemoveTag(Name);
+                List<string> choices = new List<string>();
+                List<string> descriptions = new List<string>();
+                bool random_1 = false;
+                bool random_2 = false;
+                bool random_3 = false;
+                int count = 0;
+                if (player.GetMark(Name) == 0)
+                {
+                    count = player.GetMark("caiyi_3") == 0 ? 1 : 0;
+                    if (player.GetMark("caiyi_0") == 0)
+                    {
+                        count++;
+                        if (target.IsWounded()) choices.Add("recover");
+                    }
+                    else if (player.GetMark("caiyi_3") == 0 && target.IsWounded())
+                    {
+                        random_1 = true;
+                        choices.Add("random_0");
+                    }
+                    if (player.GetMark("caiyi_1") == 0)
+                    {
+                        count++;
+                        choices.Add("draw");
+                    }
+                    else if (player.GetMark("caiyi_3") == 0)
+                    {
+                        random_2 = true;
+                        if (!choices.Contains("random_0")) choices.Add("random_0");
+                    }
+                    if (player.GetMark("caiyi_2") == 0)
+                    {
+                        count++;
+                        if (!target.FaceUp || target.Chained) choices.Add("reset");
+                    }
+                    else if (player.GetMark("caiyi_3") == 0 && (!target.FaceUp || target.Chained))
+                    {
+                        random_3 = true;
+                        if (!choices.Contains("random_0")) choices.Add("random_0");
+                    }
+                    descriptions.Add("@caiyi-choose:::" + count.ToString());
+                    if (choices.Contains("random_0"))
+                    {
+                        choices.Remove("random_0");
+                        choices.Insert(0, "random_0");
+                        string random = "@caiyi_random";
+                        if (random_1) random += "recover";
+                        if (random_2) random += "draw";
+                        if (random_3) random += "reset";
+                        descriptions.Add(random);
+                    }
+                }
+                else
+                {
+                    count = player.GetMark("caiyi_7") == 0 ? 1 : 0;
+                    if (player.GetMark("caiyi_4") == 0)
+                    {
+                        count++;
+                        choices.Add("damaged");
+                    }
+                    else if (player.GetMark("caiyi_7") == 0)
+                    {
+                        random_1 = true;
+                        choices.Add("random_1");
+                    }
+                    if (player.GetMark("caiyi_5") == 0)
+                    {
+                        count++;
+                        if (!target.IsNude() && RoomLogic.CanDiscard(room, target, target, "he")) choices.Add("discard");
+                    }
+                    else if (player.GetMark("caiyi_7") == 0 && !target.IsNude() && RoomLogic.CanDiscard(room, target, target, "he"))
+                    {
+                        random_1 = true;
+                        if (!choices.Contains("random_1")) choices.Add("random_0");
+                    }
+                    if (player.GetMark("caiyi_6") == 0)
+                    {
+                        count++;
+                        if (target.FaceUp || !target.Chained) choices.Add("facedown");
+                    }
+                    else if (player.GetMark("caiyi_7") == 0 && (target.FaceUp || !target.Chained))
+                    {
+                        random_1 = true;
+                        if (!choices.Contains("random_1")) choices.Add("random_0");
+                    }
+                    descriptions.Add("@caiyi-choose:::" + count.ToString());
+                    if (choices.Contains("random_1"))
+                    {
+                        choices.Remove("random_1");
+                        choices.Insert(0, "random_1");
+                        string random = "@caiyi_random";
+                        if (random_1) random += "damaged";
+                        if (random_2) random += "discard";
+                        if (random_3) random += "facedown";
+                        descriptions.Add(random);
+                    }
+                }
+
+                player.SetMark(Name, player.GetMark(Name) == 0 ? 1 : 0);
+                room.SetTurnSkillState(player, Name, player.GetMark(Name) == 0, info.SkillPosition);
+
+                if (choices.Count > 0)
+                {
+                    string choice = room.AskForChoice(target, Name, string.Join("+", choices), descriptions);
+                    switch (choice)
+                    {
+                        case "recover":
+                            player.AddMark("caiyi_0");
+                            {
+                                int re = Math.Min(count, target.GetLostHp());
+                                RecoverStruct recover = new RecoverStruct
+                                {
+                                    Who = player,
+                                    Recover = re
+                                };
+                                room.Recover(target, recover, true);
+                            }
+                            break;
+                        case "draw":
+                            player.AddMark("caiyi_1");
+                            room.DrawCards(target, new DrawCardStruct(count, player, Name));
+                            break;
+                        case "reset":
+                            player.AddMark("caiyi_2");
+                            if (target.Chained)
+                                room.SetPlayerChained(target, false, true);
+                            if (target.Alive && !target.FaceUp)
+                                room.TurnOver(target);
+                            break;
+                        case "random_0":
+                            player.AddMark("caiyi_3");
+                            {
+                                List<string> rands = new List<string>();
+                                if (random_1) rands.Add("recover");
+                                if (random_2) rands.Add("draw");
+                                if (random_3) rands.Add("reset");
+                                Shuffle.shuffle(ref rands);
+                                switch (rands[0])
+                                {
+                                    case "recover":
+                                        {
+                                            int re = Math.Min(count, target.GetLostHp());
+                                            RecoverStruct recover = new RecoverStruct
+                                            {
+                                                Who = player,
+                                                Recover = re
+                                            };
+                                            room.Recover(target, recover, true);
+                                        }
+                                        break;
+                                    case "draw":
+                                        room.DrawCards(target, new DrawCardStruct(count, player, Name));
+                                        break;
+                                    case "reset":
+                                        if (target.Chained)
+                                            room.SetPlayerChained(target, false, true);
+                                        if (target.Alive && !target.FaceUp)
+                                            room.TurnOver(target);
+                                        break;
+                                }
+                            }
+                            break;
+                        case "damaged":
+                            player.AddMark("caiyi_4");
+                            room.Damage(new DamageStruct(Name, player, target, count));
+                            break;
+                        case "discard":
+                            player.AddMark("caiyi_5");
+                            room.AskForDiscard(target, Name, count, count, false, true, string.Format("@caiyi-disacard:{0}::{1}", player.Name, count));
+                            break;
+                        case "facedown":
+                            player.AddMark("caiyi_6");
+                            if (target.FaceUp)
+                                room.TurnOver(target);
+                            if (target.Alive && target.Chained)
+                                room.SetPlayerChained(target, true, true);
+                            break;
+                        case "random_1":
+                            player.AddMark("caiyi_7");
+                            {
+                                List<string> rands = new List<string>();
+                                if (random_1) rands.Add("damaged");
+                                if (random_2) rands.Add("discard");
+                                if (random_3) rands.Add("facedown");
+                                Shuffle.shuffle(ref rands);
+                                switch (rands[0])
+                                {
+                                    case "damaged":
+                                        room.Damage(new DamageStruct(Name, player, target, count));
+                                        break;
+                                    case "discard":
+                                        room.AskForDiscard(target, Name, count, count, false, true, string.Format("@caiyi-disacard:{0}::{1}", player.Name, count));
+                                        break;
+                                    case "facedown":
+                                        if (target.FaceUp)
+                                            room.TurnOver(target);
+                                        if (target.Alive && target.Chained)
+                                            room.SetPlayerChained(target, true, true);
+                                        break;
+                                }
+                                break;
+                            }
+                    }
+                }
+            }
+            return false;
+        }
+    }
+
+    public class Guili : TriggerSkill
+    {
+        public Guili() : base("guili")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TurnStart, TriggerEvent.Damage, TriggerEvent.EventPhaseChanging, TriggerEvent.RoundStart };
+            skill_type = SkillType.Wizzard;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.Damage && player.ContainsTag(Name) && player.GetMark("guili_turn") == 0)
+                player.SetFlags(Name);
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.ContainsTag(Name))
+            {
+                player.AddMark("guili_turn");
+                if (player.GetMark("guili_turn") == 1 && !player.HasFlag(Name) && player.GetTag(Name) is List<string> target_names)
+                {
+                    List<Player> targets = new List<Player>();
+                    foreach (string player_name in target_names)
+                    {
+                        Player target = room.FindPlayer(player_name);
+                        if (target != null) targets.Add(target);
+                    }
+
+                    if (targets.Count > 0)
+                    {
+                        room.SortByActionOrder(ref targets);
+                        foreach (Player p in targets)
+                        {
+                            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
+                            room.GainAnExtraTurn(p);
+                        }
+                    }
+                }
+            }
+            else if (triggerEvent == TriggerEvent.RoundStart)
+                foreach (Player p in room.GetAlivePlayers())
+                    p.SetMark("guili_turn", 0);
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.TurnStart && base.Triggerable(player, room) && player.GetMark(Name) == 0)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@guili", true, true, info.SkillPosition);
+            if (target != null)
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.AddMark(Name);
+                List<string> names = target.ContainsTag(Name) ? (List<string>)target.GetTag(Name) : new List<string>();
+                names.Add(player.Name);
+                target.SetTag(Name, names);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info) => false;
     }
 
     public class Tunan : ViewAsSkill
@@ -12362,6 +12736,131 @@ namespace SanguoshaServer.Package
 
             if (ids.Count > 0)
                 room.MoveCards(new List<CardsMoveStruct> { new CardsMoveStruct(ids, null, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, null, "lieyi", null)) }, true);
+        }
+    }
+
+    public class Jinggong : OneCardViewAsSkill
+    {
+        public Jinggong() : base("jinggong")
+        {
+            response_or_use = true;
+            skill_type = SkillType.Attack;
+        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => Slash.IsAvailable(room, player);
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
+            => MatchSlash(respond) && room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE;
+        public override bool ViewFilter(Room room, WrappedCard card, Player player)
+        {
+            if (!(Engine.GetFunctionCard(card.Name) is EquipCard)) return false;
+            return true;
+        }
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            WrappedCard slash = new WrappedCard(Slash.ClassName)
+            {
+                Skill = Name,
+                ShowSkill = Name,
+                DistanceLimited = false
+            };
+            slash.AddSubCard(card);
+            slash = RoomLogic.ParseUseCard(room, slash);
+            return slash;
+        }
+    }
+
+    public class JinggongDamage : TriggerSkill
+    {
+        public JinggongDamage() : base("#jinggong")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardUsed };
+            skill_type = SkillType.Attack;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && use.Card.GetSkillName() == "jinggong" && use.To.Count == 1)
+                return new TriggerStruct(Name, player, use.To);
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player skill_target, ref object data, Player machao, TriggerStruct info)
+        {
+            if (data is CardUseStruct use)
+            {
+                int count = Math.Max(1, RoomLogic.DistanceTo(room, machao, skill_target));
+                if (count > 1)
+                {
+                    room.SendCompulsoryTriggerLog(machao, "jinggong");
+                    count--;
+                    LogMessage log = new LogMessage
+                    {
+                        Type = "#jinggong-damage",
+                        From = machao.Name,
+                        Arg = use.Card.Name,
+                        Arg2 = count.ToString()
+                    };
+                    room.SendLog(log);
+
+                    use.ExDamage += count;
+                    data = use;
+                }
+            }
+            return false;
+        }
+    }
+
+    public class Xiaojun : TriggerSkill
+    {
+        public Xiaojun() : base("xiaojun")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen };
+            skill_type = SkillType.Attack;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.TargetChosen && base.Triggerable(player, room) && data is CardUseStruct use
+                && !Engine.IsSkillCard(use.Card.Name) && use.To.Count == 1 && use.To[0].HandcardNum > 1 && RoomLogic.CanDiscard(room, player, use.To[0], "h"))
+                return new TriggerStruct(Name, player, use.To);
+
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player skill_target, ref object data, Player player, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, skill_target, info.SkillPosition))
+            {
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, skill_target.Name);
+                room.NotifySkillInvoked(player, Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player skill_target, ref object data, Player machao, TriggerStruct info)
+        {
+            List<string> patterns = new List<string>();
+            for (int i = 0; i < Math.Max(1, skill_target.HandcardNum / 2); i++)
+                patterns.Add("h^false^discard");
+            List<int> ids = room.AskForCardsChosen(machao, skill_target, patterns, Name);
+            room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, machao.Name, skill_target.Name, Name, string.Empty), skill_target, machao);
+            if (data is CardUseStruct use && machao.Alive && machao.HandcardNum > 1 && RoomLogic.CanDiscard(room, machao, machao, "h"))
+            {
+                bool discard = false;
+                foreach (int id in ids)
+                {
+                    if (room.GetCard(id).Suit == use.Card.Suit)
+                    {
+                        discard = true;
+                        break;
+                    }
+                }
+                if (discard)
+                    room.AskForDiscard(machao, Name, machao.HandcardNum / 2, machao.HandcardNum / 2, false, false, "@xiaojun", false, info.SkillPosition);
+            }
+
+            return false;
         }
     }
 
