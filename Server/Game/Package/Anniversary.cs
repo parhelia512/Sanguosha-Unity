@@ -14215,6 +14215,7 @@ namespace SanguoshaServer.Package
             room.Pindian(ref pd);
             if (!pd.Success)
             {
+                if (card_use.From.Alive) room.DrawCards(card_use.From, 2, "songshu");
                 if (target.Alive) room.DrawCards(target, new DrawCardStruct(2, card_use.From, "songshu"));
                 if (card_use.From.Alive) card_use.From.SetFlags("songshu");
             }
@@ -14241,7 +14242,7 @@ namespace SanguoshaServer.Package
         }
         public override bool OnPhaseChange(Room room, Player player, TriggerStruct info)
         {
-            List<int> card_ids = room.GetNCards(4), get = new List<int>(), give = new List<int>();
+            List<int> card_ids = room.GetNCards(4), get = new List<int>();
             int max = 0, min = 13;
             foreach (int id in card_ids)
             {
@@ -14258,12 +14259,12 @@ namespace SanguoshaServer.Package
             }
 
             card_ids.RemoveAll(t => get.Contains(t));
-            if (get.Count == 2 && Math.Abs(room.GetCard(get[0]).Number - room.GetCard(get[1]).Number) < room.AliveCount())
-                give = card_ids;
 
             if (get.Count > 0)
                 room.ObtainCard(player, ref get, new CardMoveReason(MoveReason.S_REASON_GOTCARD, player.Name, Name, string.Empty));
-            if (player.Alive && give.Count > 0)
+
+            bool throw_ids = true;
+            if (player.Alive && card_ids.Count > 0)
             {
                 List<Player> targets = new List<Player>();
                 int hand_min = 400;
@@ -14277,15 +14278,18 @@ namespace SanguoshaServer.Package
 
                 Player target = room.AskForPlayerChosen(player, targets, Name, "@sibian", true, true, info.SkillPosition);
                 if (target != null)
-                    room.ObtainCard(target, ref give, new CardMoveReason(MoveReason.S_REASON_PREVIEWGIVE, player.Name, target.Name, Name, string.Empty));
+                    room.ObtainCard(target, ref card_ids, new CardMoveReason(MoveReason.S_REASON_PREVIEWGIVE, player.Name, target.Name, Name, string.Empty));
+                else
+                    throw_ids = true;
+            }
+            else
+                throw_ids = true;
 
-                card_ids.RemoveAll(t => room.GetCardPlace(t) != Place.PlaceTable);
-                if (card_ids.Count > 0)
-                {
-                    CardsMoveStruct move = new CardsMoveStruct(card_ids, null, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, player.Name, Name, string.Empty));
-                    List<CardsMoveStruct> moves = new List<CardsMoveStruct> { move };
-                    room.MoveCardsAtomic(moves, true);
-                }
+            if (throw_ids && card_ids.Count > 0)
+            {
+                CardsMoveStruct move = new CardsMoveStruct(card_ids, null, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, player.Name, Name, string.Empty));
+                List<CardsMoveStruct> moves = new List<CardsMoveStruct> { move };
+                room.MoveCardsAtomic(moves, true);
             }
 
             return true;
@@ -15845,7 +15849,7 @@ namespace SanguoshaServer.Package
             {
                 foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
                 {
-                    if (p.GetMark(Name) > 0 && p.GetMark("liunian_invoke") == 0)
+                    if (p.GetMark(Name) > p.GetMark("liunian_invoke") && p.GetMark("liunian_invoke") < 2)
                         triggers.Add(new TriggerStruct(Name, p));
                 }
             }
@@ -15857,8 +15861,23 @@ namespace SanguoshaServer.Package
             room.SendCompulsoryTriggerLog(ask_who, Name);
             room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
             ask_who.AddMark("liunian_invoke");
-            room.LoseMaxHp(ask_who);
-            if (ask_who.Alive && ask_who.IsWounded())
+            
+            if (ask_who.GetMark("liunian_invoke") == 1)
+            {
+                ask_who.MaxHp++;
+                room.BroadcastProperty(ask_who, "MaxHp");
+
+                LogMessage log = new LogMessage
+                {
+                    Type = "$GainMaxHp",
+                    From = ask_who.Name,
+                    Arg = "1"
+                };
+                room.SendLog(log);
+
+                room.RoomThread.Trigger(TriggerEvent.MaxHpChanged, room, ask_who);
+            }
+            else if (ask_who.IsWounded())
                 room.Recover(ask_who);
 
             return false;
@@ -15868,7 +15887,7 @@ namespace SanguoshaServer.Package
     public class LiunianMax : MaxCardsSkill
     {
         public LiunianMax() : base("#liunian") { }
-        public override int GetExtra(Room room, Player target) => target.GetMark("liunian_invoke") > 0 ? 10 : 0;
+        public override int GetExtra(Room room, Player target) => target.GetMark("liunian_invoke") > 1 ? 10 : 0;
     }
 
     public class YuanyuZY : OneCardViewAsSkill

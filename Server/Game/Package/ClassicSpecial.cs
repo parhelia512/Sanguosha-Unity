@@ -7634,14 +7634,18 @@ namespace SanguoshaServer.Package
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             player.SetFlags(Name);
+            bool draw = false;
             foreach (int id in room.DrawPile)
             {
                 if (room.GetCard(id).Number == 6)
                 {
+                    draw = true;
                     room.ObtainCard(player, id, true);
                     break;
                 }
             }
+            if (!draw) room.DrawCards(player, 6, Name);
+
             return false;
         }
     }
