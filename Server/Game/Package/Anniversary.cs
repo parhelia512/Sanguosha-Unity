@@ -4390,6 +4390,7 @@ namespace SanguoshaServer.Package
         {
             events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.EventLoseSkill, TriggerEvent.EventAcquireSkill };
             skill_type = SkillType.Wizzard;
+            turn = true;
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
@@ -4482,6 +4483,7 @@ namespace SanguoshaServer.Package
                 room.RemoveTag(Name);
                 List<string> choices = new List<string>();
                 List<string> descriptions = new List<string>();
+                List<string> rands = new List<string>();
                 bool random_1 = false;
                 bool random_2 = false;
                 bool random_3 = false;
@@ -4519,16 +4521,24 @@ namespace SanguoshaServer.Package
                         random_3 = true;
                         if (!choices.Contains("random_0")) choices.Add("random_0");
                     }
-                    descriptions.Add("@caiyi-choose:::" + count.ToString());
+                    descriptions.Add(string.Format("@caiyi-choose:{0}::{1}", player.Name, count.ToString()));
+                    if (random_1) rands.Add("recover");
+                    if (random_2) rands.Add("draw");
+                    if (random_3) rands.Add("reset");
+
                     if (choices.Contains("random_0"))
                     {
                         choices.Remove("random_0");
-                        choices.Insert(0, "random_0");
-                        string random = "@caiyi_random";
-                        if (random_1) random += "recover";
-                        if (random_2) random += "draw";
-                        if (random_3) random += "reset";
-                        descriptions.Add(random);
+                        if (rands.Count > 1)
+                        {
+                            choices.Insert(0, "random_0");
+                            string random = "@caiyi_";
+                            foreach (string choice in rands)
+                                random += choice;
+                            descriptions.Add(random);
+                        }
+                        else
+                            choices.Add(rands[0]);
                     }
                 }
                 else
@@ -4551,8 +4561,8 @@ namespace SanguoshaServer.Package
                     }
                     else if (player.GetMark("caiyi_7") == 0 && !target.IsNude() && RoomLogic.CanDiscard(room, target, target, "he"))
                     {
-                        random_1 = true;
-                        if (!choices.Contains("random_1")) choices.Add("random_0");
+                        random_2 = true;
+                        if (!choices.Contains("random_1")) choices.Add("random_1");
                     }
                     if (player.GetMark("caiyi_6") == 0)
                     {
@@ -4561,24 +4571,32 @@ namespace SanguoshaServer.Package
                     }
                     else if (player.GetMark("caiyi_7") == 0 && (target.FaceUp || !target.Chained))
                     {
-                        random_1 = true;
-                        if (!choices.Contains("random_1")) choices.Add("random_0");
+                        random_3 = true;
+                        if (!choices.Contains("random_1")) choices.Add("random_1");
                     }
-                    descriptions.Add("@caiyi-choose:::" + count.ToString());
+                    descriptions.Add(string.Format("@caiyi-choose:{0}::{1}", player.Name, count.ToString()));
+                    if (random_1) rands.Add("damaged");
+                    if (random_2) rands.Add("discard");
+                    if (random_3) rands.Add("facedown");
+
                     if (choices.Contains("random_1"))
                     {
                         choices.Remove("random_1");
-                        choices.Insert(0, "random_1");
-                        string random = "@caiyi_random";
-                        if (random_1) random += "damaged";
-                        if (random_2) random += "discard";
-                        if (random_3) random += "facedown";
-                        descriptions.Add(random);
+                        if (rands.Count > 1)
+                        {
+                            choices.Insert(0, "random_1");
+                            string random = "@caiyi_";
+                            foreach (string choice in rands)
+                                random += choice;
+                            descriptions.Add(random);
+                        }
+                        else
+                            choices.Add(rands[0]);
                     }
                 }
-
-                player.SetMark(Name, player.GetMark(Name) == 0 ? 1 : 0);
-                room.SetTurnSkillState(player, Name, player.GetMark(Name) == 0, info.SkillPosition);
+                int mark = player.GetMark(Name) == 0 ? 1 : 0;
+                player.SetMark(Name, mark);
+                room.SetTurnSkillState(player, Name, mark == 1, info.SkillPosition);
 
                 if (choices.Count > 0)
                 {
@@ -4611,10 +4629,6 @@ namespace SanguoshaServer.Package
                         case "random_0":
                             player.AddMark("caiyi_3");
                             {
-                                List<string> rands = new List<string>();
-                                if (random_1) rands.Add("recover");
-                                if (random_2) rands.Add("draw");
-                                if (random_3) rands.Add("reset");
                                 Shuffle.shuffle(ref rands);
                                 switch (rands[0])
                                 {
@@ -4653,16 +4667,12 @@ namespace SanguoshaServer.Package
                             player.AddMark("caiyi_6");
                             if (target.FaceUp)
                                 room.TurnOver(target);
-                            if (target.Alive && target.Chained)
+                            if (target.Alive && !target.Chained)
                                 room.SetPlayerChained(target, true, true);
                             break;
                         case "random_1":
                             player.AddMark("caiyi_7");
                             {
-                                List<string> rands = new List<string>();
-                                if (random_1) rands.Add("damaged");
-                                if (random_2) rands.Add("discard");
-                                if (random_3) rands.Add("facedown");
                                 Shuffle.shuffle(ref rands);
                                 switch (rands[0])
                                 {
@@ -4675,7 +4685,7 @@ namespace SanguoshaServer.Package
                                     case "facedown":
                                         if (target.FaceUp)
                                             room.TurnOver(target);
-                                        if (target.Alive && target.Chained)
+                                        if (target.Alive && !target.Chained)
                                             room.SetPlayerChained(target, true, true);
                                         break;
                                 }
@@ -4708,7 +4718,7 @@ namespace SanguoshaServer.Package
                     foreach (string player_name in target_names)
                     {
                         Player target = room.FindPlayer(player_name);
-                        if (target != null) targets.Add(target);
+                        if (target != null && RoomLogic.PlayerHasSkill(room, target, Name)) targets.Add(target);
                     }
 
                     if (targets.Count > 0)
@@ -4717,6 +4727,12 @@ namespace SanguoshaServer.Package
                         foreach (Player p in targets)
                         {
                             room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
+                            LogMessage log = new LogMessage
+                            {
+                                Type = "#guili",
+                                From = p.Name
+                            };
+                            room.SendLog(log);
                             room.GainAnExtraTurn(p);
                         }
                     }
@@ -12821,7 +12837,7 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (triggerEvent == TriggerEvent.TargetChosen && base.Triggerable(player, room) && data is CardUseStruct use
-                && !Engine.IsSkillCard(use.Card.Name) && use.To.Count == 1 && use.To[0].HandcardNum > 1 && RoomLogic.CanDiscard(room, player, use.To[0], "h"))
+                && !Engine.IsSkillCard(use.Card.Name) && use.To.Count == 1 && player != use.To[0] && use.To[0].HandcardNum > 1 && RoomLogic.CanDiscard(room, player, use.To[0], "h"))
                 return new TriggerStruct(Name, player, use.To);
 
             return new TriggerStruct();
