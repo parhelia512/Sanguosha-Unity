@@ -4845,15 +4845,11 @@ namespace SanguoshaServer.Package
         {
             CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
             List<int> cards = new List<int>();
-            if (move.From != null && base.Triggerable(move.From, room)
-                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && move.To_place == Place.DiscardPile)
+            for (int i = 0; i < move.Card_ids.Count; i++)
             {
-                for (int i = 0; i < move.Card_ids.Count; i++)
-                {
-                    int card_id = move.Card_ids[i];
-                    if (room.GetCardPlace(card_id) == Place.DiscardPile && move.From_places[i] == Place.PlaceTable && room.GetCard(card_id).HasFlag(Name))
-                        cards.Add(card_id);
-                }
+                int card_id = move.Card_ids[i];
+                if (room.GetCardPlace(card_id) == Place.DiscardPile && move.From_places[i] == Place.PlaceTable && room.GetCard(card_id).HasFlag(Name))
+                    cards.Add(card_id);
             }
 
             List<CardsMoveStruct> lirangs = new List<CardsMoveStruct>();
