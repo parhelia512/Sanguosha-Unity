@@ -84,7 +84,7 @@ namespace SanguoshaServer.Package
                 new Xiangshu(),
                 new Caiyi(),
                 new Guili(),
-                new Dezhao(),
+                new Deshao(),
                 new Mingfa(),
 
                 new Tunan(),
@@ -4773,9 +4773,9 @@ namespace SanguoshaServer.Package
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info) => false;
     }
 
-    public class Dezhao : TriggerSkill
+    public class Deshao : TriggerSkill
     {
-        public Dezhao() : base("dezhao")
+        public Deshao() : base("deshao")
         {
             events = new List<TriggerEvent> { TriggerEvent.TargetConfirmed, TriggerEvent.EventPhaseChanging };
             skill_type = SkillType.Replenish;
@@ -13086,7 +13086,7 @@ namespace SanguoshaServer.Package
             {
                 if (player.GetMark(Name) == 0)
                 {
-                    room.DrawCards(player, 1, Name);
+                    room.DrawCards(player, count, Name);
                 }
                 else if (!player.IsNude() && RoomLogic.CanDiscard(room, player, player, "he"))
                 {
