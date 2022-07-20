@@ -4461,7 +4461,7 @@ namespace SanguoshaServer.Package
 
                 foreach (Player p in room.GetAlivePlayers())
                 {
-                    if ((!p.IsNude() && RoomLogic.CanDiscard(room, p,p, "he") && (choices.Contains("discard") || (choices.Contains("random_1") && player.GetMark("caiyi_5") == 1)))
+                    if ((!p.IsNude() && RoomLogic.CanDiscard(room, p, p, "he") && (choices.Contains("discard") || (choices.Contains("random_1") && player.GetMark("caiyi_5") == 1)))
                         || choices.Contains("damaged") || (choices.Contains("random_1") && player.GetMark("caiyi_4") == 1)
                         || ((p.FaceUp || !p.Chained) && (choices.Contains("facedown") || (choices.Contains("random_1") && player.GetMark("caiyi_6") == 1))))
                         targets.Add(p);
@@ -4584,6 +4584,28 @@ namespace SanguoshaServer.Package
                     if (random_2) rands.Add("discard");
                     if (random_3) rands.Add("facedown");
 
+                    //如果可选项>1，在可弃牌数不满足要求时，无法选择该选项
+                    if (choices.Count > 1 && choices.Contains("discard"))
+                    {
+                        int dis = 0;
+                        foreach (int id in target.GetCards("he"))
+                            if (RoomLogic.CanDiscard(room, target, target, id)) dis++;
+
+                        if (dis < count) choices.Remove("discard");
+                    }
+                    if (rands.Contains("discard") && (choices.Count > 1 || rands.Count > 1))
+                    {
+                        int dis = 0;
+                        foreach (int id in target.GetCards("he"))
+                            if (RoomLogic.CanDiscard(room, target, target, id)) dis++;
+
+                        if (dis < count)
+                        {
+                            rands.Remove("discard");
+                            if (rands.Count == 0) choices.Remove("random_1");
+                        }
+                    }
+
                     if (choices.Contains("random_1"))
                     {
                         choices.Remove("random_1");
@@ -4605,7 +4627,7 @@ namespace SanguoshaServer.Package
 
                 if (choices.Count > 0)
                 {
-                    string choice = room.AskForChoice(target, Name, string.Join("+", choices), descriptions);
+                    string choice = room.AskForChoice(target, Name, string.Join("+", choices), descriptions, count);
                     switch (choice)
                     {
                         case "recover":
@@ -13184,8 +13206,9 @@ namespace SanguoshaServer.Package
                             desc.Add("@tuoxian-discard:::" + count.ToString());
                         }
                     }
-
+                    target.SetMark("tuoxian_count", count);
                     string choice = room.AskForChoice(target, Name, string.Join("+", choices), desc, player);
+                    target.SetMark("tuoxian_count", 0);
                     if (choice == "invalid")
                     {
                         player.SetFlags("piaoping");
