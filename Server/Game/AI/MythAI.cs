@@ -18,13 +18,13 @@ namespace SanguoshaServer.AI
                 new WumouAI(),
                 new CuikeAI(),
                 new ShenfuAI(),
+                new ShouliAI(),
             };
 
             use_cards = new List<UseCard>
             {
                 new PoxiCardAI(),
                 new ZhanhuoCardAI(),
-                new PingxiangCardAI(),
             };
         }
     }
@@ -240,20 +240,16 @@ namespace SanguoshaServer.AI
             }
         }
     }
-
-    public class PingxiangCardAI : UseCard
+    
+    public class ShouliAI : SkillEvent
     {
-        public PingxiangCardAI() : base(PingxiangCard.ClassName) { }
-
-        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        public ShouliAI() : base("shouli") { }
+        public override void DamageEffect(TrustedAI ai, ref DamageStruct damage, DamageStruct.DamageStep step)
         {
-            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            if (damage.To.HasFlag(Name) || damage.To.HasFlag("shouli_from"))
             {
-                foreach (Player p in use.To)
-                {
-                    if (ai.GetPlayerTendency(p) != "unknown")
-                        ai.UpdatePlayerRelation(player, p, false);
-                }
+                damage.Damage++;
+                damage.Nature = DamageStruct.DamageNature.Thunder;
             }
         }
     }
