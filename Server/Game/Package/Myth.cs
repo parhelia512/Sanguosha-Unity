@@ -3248,8 +3248,28 @@ namespace SanguoshaServer.Package
         {
             view_as_skill = new ShouliVS();
             skill_type = SkillType.Wizzard;
-            events = new List<TriggerEvent> { TriggerEvent.GameStart, TriggerEvent.DamageInflicted, TriggerEvent.CardUsed };
+            events = new List<TriggerEvent> { TriggerEvent.GameStart, TriggerEvent.DamageInflicted, TriggerEvent.CardUsed, TriggerEvent.CardsMoveOneTime };
             frequency = Frequency.Compulsory;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && (move.From_places.Contains(Place.PlaceEquip) || move.To_place == Place.PlaceEquip))
+            {
+                List<int> ids = new List<int>();
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    if (p.GetDefensiveHorse()) ids.Add(p.DefensiveHorse.Key);
+                    if (p.GetOffensiveHorse()) ids.Add(p.OffensiveHorse.Key);
+                }
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    List<int> _ids = new List<int>(ids);
+                    _ids.Remove(p.DefensiveHorse.Key);
+                    _ids.Remove(p.OffensiveHorse.Key);
+                    p.Piles["#shouli"] = ids;
+                }
+            }
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -3329,37 +3349,34 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class ShouliVS : ZeroCardViewAsSkill
+    public class ShouliVS : OneCardViewAsSkill
     {
-        public ShouliVS() : base("shouli") { }
-        public override bool IsEnabledAtPlay(Room room, Player player)
+        public ShouliVS() : base("shouli") { expand_pile = "#shouli"; }
+        public override bool ViewFilter(Room room, WrappedCard to_select, Player player)
         {
-            if (Slash.IsAvailable(room, player))
+            RoomState state = room.GetRoomState();
+            if (player.GetPile(expand_pile).Contains(to_select.Id) || room.GetCardPlace(to_select.Id) == Place.PlaceEquip)
             {
-                foreach (Player p in room.GetAlivePlayers())
-                    if (p.GetOffensiveHorse() && (p != player || !RoomLogic.IsCardLimited(room, player, room.GetCard(p.OffensiveHorse.Key), HandlingMethod.MethodUse, room.GetCardPlace(p.OffensiveHorse.Key) == Place.PlaceHand)))
-                        return true;
-            }
-            return false;
-        }
-        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
-        {
-            if (MatchSlash(respond) || MatchJink(respond))
-            {
-                HandlingMethod method = room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE ? HandlingMethod.MethodUse : HandlingMethod.MethodResponse;
-                foreach (Player p in room.GetAlivePlayers())
+                FunctionCard fcard = Engine.GetFunctionCard(to_select.Name);
+                if (state.GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_PLAY)
                 {
-                    if (MatchSlash(respond) && p.GetOffensiveHorse() && (p != player || !RoomLogic.IsCardLimited(room, player, room.GetCard(p.OffensiveHorse.Key), method, room.GetCardPlace(p.OffensiveHorse.Key) == Place.PlaceHand)))
+                    return fcard is OffensiveHorse && !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse, false);
+                }
+                else
+                {
+                    HandlingMethod method = state.GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE ? HandlingMethod.MethodUse : HandlingMethod.MethodResponse;
+                    string pattern = state.GetCurrentCardUsePattern(player);
+                    if (fcard is OffensiveHorse && !RoomLogic.IsCardLimited(room, player, to_select, method, false))
                     {
                         WrappedCard slash = new WrappedCard(Slash.ClassName);
-                        slash.AddSubCard(p.OffensiveHorse.Key);
+                        slash.AddSubCard(to_select);
                         slash = RoomLogic.ParseUseCard(room, slash);
                         if (Engine.MatchExpPattern(room, pattern, player, slash)) return true;
                     }
-                    else if (MatchJink(respond) && p.GetDefensiveHorse() && (p != player || !RoomLogic.IsCardLimited(room, player, room.GetCard(p.DefensiveHorse.Key), method, room.GetCardPlace(p.DefensiveHorse.Key) == Place.PlaceHand)))
+                    else if (fcard is DefensiveHorse && !RoomLogic.IsCardLimited(room, player, to_select, method, false))
                     {
                         WrappedCard jink = new WrappedCard(Jink.ClassName);
-                        jink.AddSubCard(p.DefensiveHorse.Key);
+                        jink.AddSubCard(to_select);
                         jink = RoomLogic.ParseUseCard(room, jink);
                         if (Engine.MatchExpPattern(room, pattern, player, jink)) return true;
                     }
@@ -3367,7 +3384,28 @@ namespace SanguoshaServer.Package
             }
             return false;
         }
-        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(ShouliCard.ClassName) { Mute = true };
+        public override bool IsEnabledAtPlay(Room room, Player player)
+        {
+            List<int> ids = player.GetPile(expand_pile);
+            if (ids.Count > 0)
+            {
+                foreach (int id in ids)
+                {
+                    WrappedCard slash = new WrappedCard(Slash.ClassName);
+                    slash.AddSubCard(id);
+                    slash = RoomLogic.ParseUseCard(room, slash);
+                    if (Slash.IsAvailable(room, player, slash)) return true;
+                }
+            }
+            return false;
+        }
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern) => MatchSlash(respond) || MatchJink(respond);
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            WrappedCard sl = new WrappedCard(ShouliCard.ClassName);
+            sl.AddSubCard(card);
+            return sl;
+        }
     }
 
     public class ShouliCard : SkillCard
@@ -3379,12 +3417,13 @@ namespace SanguoshaServer.Package
         public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
         {
             RoomState state = room.GetRoomState();
-            string pattern = state.GetCurrentCardUsePattern(Self);
-            if (state.GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_PLAY || (state.GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE && !(pattern.Contains("Jink") || pattern.Contains("jink"))))
+            if (Engine.GetFunctionCard(room.GetCard(card.GetEffectiveId()).Name) is OffensiveHorse
+                && (state.GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_PLAY || state.GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE))
             {
                 WrappedCard slash = new WrappedCard(Slash.ClassName);
-                FunctionCard fcard = Slash.Instance;
-                return fcard.TargetFilter(room, targets, to_select, Self, slash);
+                slash.AddSubCard(card);
+                slash = RoomLogic.ParseUseCard(room, slash);
+                return Slash.Instance.TargetFilter(room, targets, to_select, Self, slash);
             }
 
             return false;
@@ -3393,8 +3432,8 @@ namespace SanguoshaServer.Package
         public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card)
         {
             RoomState state = room.GetRoomState();
-            string pattern = state.GetCurrentCardUsePattern(Self);
-            if (state.GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_PLAY || (state.GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE && !(pattern.Contains("Jink") || pattern.Contains("jink"))))
+            if (Engine.GetFunctionCard(room.GetCard(card.GetEffectiveId()).Name) is OffensiveHorse
+                 && (state.GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_PLAY || state.GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE))
                 return targets.Count > 0;
 
             return true;
@@ -3403,110 +3442,42 @@ namespace SanguoshaServer.Package
         public override WrappedCard Validate(Room room, CardUseStruct use)
         {
             Player player = use.From;
-            List<Player> targets = new List<Player>();
-            WrappedCard card = null;
-            string pattern = room.GetRoomState().GetCurrentCardUsePattern(player);
-            foreach (Player p in room.GetAlivePlayers())
-            {
-                if (p.GetOffensiveHorse() && (p != player || !RoomLogic.IsCardLimited(room, player, room.GetCard(p.OffensiveHorse.Key), HandlingMethod.MethodUse, room.GetCardPlace(p.OffensiveHorse.Key) == Place.PlaceHand)))
-                {
-                    WrappedCard slash = new WrappedCard(Slash.ClassName);
-                    slash.AddSubCard(p.OffensiveHorse.Key);
-                    slash = RoomLogic.ParseUseCard(room, slash);
-                    if (Engine.MatchExpPattern(room, pattern, player, slash)) targets.Add(p);
-                }
-            }
-            if (targets.Count > 0)
-            {
-                Player target = room.AskForPlayerChosen(player, targets, "shouli", "@shouli-slash", false, true, use.Card.SkillPosition);
-                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, Name, use.Card.SkillPosition);
-                room.BroadcastSkillInvoke("shouli", "male", 2, gsk.General, gsk.SkinId);
+            Player target = room.GetCardOwner(use.Card.GetEffectiveId());
+            GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, Name, use.Card.SkillPosition);
+            room.BroadcastSkillInvoke("shouli", "male", 2, gsk.General, gsk.SkinId);
 
-                player.SetFlags("shouli_from");
-                target.SetFlags("shouli");
-                card = new WrappedCard(Slash.ClassName) { Skill = "_shouli" };
-                card.AddSubCard(target.OffensiveHorse.Key);
-                card = RoomLogic.ParseUseCard(room, card);
-            }
+            player.SetFlags("shouli_from");
+            target.SetFlags("shouli");
+            WrappedCard card = new WrappedCard(Slash.ClassName) { Skill = "_shouli" };
+            card.AddSubCard(use.Card);
+            card = RoomLogic.ParseUseCard(room, card);
+
             return card;
         }
         
         public override WrappedCard ValidateInResponse(Room room, Player player, WrappedCard card)
         {
-            List<Player> targets = new List<Player>();
-            WrappedCard shouli = null;
-            string pattern = room.GetRoomState().GetCurrentCardUsePattern(player);
-            bool _slash = false, _jink = false;
-            foreach (Player p in room.GetAlivePlayers())
+            Player target = room.GetCardOwner(card.GetEffectiveId());
+            GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, Name, card.SkillPosition);
+            room.BroadcastSkillInvoke("shouli", "male", 2, gsk.General, gsk.SkinId);
+
+            player.SetFlags("shouli_from");
+            target.SetFlags("shouli");
+
+            if (Engine.GetFunctionCard(room.GetCard(card.GetEffectiveId()).Name) is OffensiveHorse)
             {
-                if (p.GetOffensiveHorse() && (p != player || !RoomLogic.IsCardLimited(room, player, room.GetCard(p.OffensiveHorse.Key), HandlingMethod.MethodResponse, room.GetCardPlace(p.OffensiveHorse.Key) == Place.PlaceHand)))
-                {
-                    WrappedCard slash = new WrappedCard(Slash.ClassName);
-                    slash.AddSubCard(p.OffensiveHorse.Key);
-                    slash = RoomLogic.ParseUseCard(room, slash);
-                    if (Engine.MatchExpPattern(room, pattern, player, slash))
-                    {
-                        _slash = true;
-                        targets.Add(p);
-                    }
-                }
-                else if (p.GetDefensiveHorse() && (p != player || !RoomLogic.IsCardLimited(room, player, room.GetCard(p.DefensiveHorse.Key), HandlingMethod.MethodResponse, room.GetCardPlace(p.DefensiveHorse.Key) == Place.PlaceHand)))
-                {
-                    WrappedCard jink = new WrappedCard(Jink.ClassName);
-                    jink.AddSubCard(p.DefensiveHorse.Key);
-                    jink = RoomLogic.ParseUseCard(room, jink);
-                    if (Engine.MatchExpPattern(room, pattern, player, jink))
-                    {
-                        _jink = true;
-                        targets.Add(p);
-                    }
-                }
+                WrappedCard shouli = new WrappedCard(Slash.ClassName) { Skill = "_shouli" };
+                shouli.AddSubCard(card);
+                shouli = RoomLogic.ParseUseCard(room, shouli);
+                return shouli;
             }
-            if (targets.Count > 0)
+            else
             {
-                string prompt = "@shouli-";
-                if (_slash) prompt += "slash";
-                if (_jink) prompt += "jink";
-                Player target = room.AskForPlayerChosen(player, targets, "shouli", prompt, false, true, card.SkillPosition);
-                player.SetFlags("shouli_from");
-                target.SetFlags("shouli");
-
-                bool use_slash = _slash && target.GetOffensiveHorse();
-                if (use_slash && _jink && target.GetDefensiveHorse())
-                {
-                    WrappedCard slash = new WrappedCard(Slash.ClassName);
-                    slash.AddSubCard(target.OffensiveHorse.Key);
-                    slash = RoomLogic.ParseUseCard(room, slash);
-
-                    WrappedCard jink = new WrappedCard(Jink.ClassName);
-                    jink.AddSubCard(target.DefensiveHorse.Key);
-                    jink = RoomLogic.ParseUseCard(room, jink);
-                    if (Engine.MatchExpPattern(room, pattern, player, slash) && Engine.MatchExpPattern(room, pattern, player, jink))
-                    {
-                        List<int> disable = target.GetEquips();
-                        disable.Remove(target.OffensiveHorse.Key);
-                        disable.Remove(target.DefensiveHorse.Key);
-                        int id = room.AskForCardChosen(player, target, "e", "shouli", false, HandlingMethod.MethodUse, disable);
-                        use_slash = target.OffensiveHorse.Key == id;
-                    }
-                }
-
-                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, Name, card.SkillPosition);
-                room.BroadcastSkillInvoke("shouli", "male", 2, gsk.General, gsk.SkinId);
-                if (use_slash)
-                {
-                    shouli = new WrappedCard(Slash.ClassName) { Skill = "_shouli" };
-                    shouli.AddSubCard(target.OffensiveHorse.Key);
-                    shouli = RoomLogic.ParseUseCard(room, shouli);
-                }
-                else
-                {
-                    shouli = new WrappedCard(Jink.ClassName) { Skill = "_shouli" };
-                    shouli.AddSubCard(target.DefensiveHorse.Key);
-                    shouli = RoomLogic.ParseUseCard(room, shouli);
-                }
+                WrappedCard shouli = new WrappedCard(Jink.ClassName) { Skill = "_shouli" };
+                shouli.AddSubCard(card);
+                shouli = RoomLogic.ParseUseCard(room, shouli);
+                return shouli;
             }
-            return shouli;
         }
     }
 
