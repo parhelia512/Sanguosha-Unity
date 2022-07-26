@@ -2,6 +2,7 @@
 using CommonClass.Game;
 using CommonClassLibrary;
 using SanguoshaServer.Game;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
@@ -3523,14 +3524,7 @@ namespace SanguoshaServer.Package
                     }
                 }
                 if (!has)
-                {
-                    foreach (Player p in room.GetAlivePlayers())
-                    {
-                        foreach (int id in p.GetEquips())
-                            if ((int)room.GetCard(id).Suit == suit)
-                                return new TriggerStruct(Name, player);
-                    }
-                }
+                    return new TriggerStruct(Name, player);
             }
             return new TriggerStruct();
         }
@@ -3560,6 +3554,7 @@ namespace SanguoshaServer.Package
                     if (room.GetCard(id).Suit == suit)
                         count++;
             }
+            count = Math.Max(1, count);
             room.DrawCards(player, count, Name);
             return false;
         }
