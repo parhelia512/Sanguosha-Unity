@@ -3268,7 +3268,7 @@ namespace SanguoshaServer.Package
                     List<int> _ids = new List<int>(ids);
                     _ids.Remove(p.DefensiveHorse.Key);
                     _ids.Remove(p.OffensiveHorse.Key);
-                    p.Piles["#shouli"] = ids;
+                    p.Piles["#shouli"] = _ids;
                 }
             }
         }
@@ -3297,6 +3297,8 @@ namespace SanguoshaServer.Package
                 room.SendCompulsoryTriggerLog(ask_who, Name);
                 GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
                 room.BroadcastSkillInvoke(Name, "male", 1, gsk.General, gsk.SkinId);
+                foreach (Player p in room.GetOtherPlayers(player))
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
                 Player next = ask_who;
                 while (true)
                 {
