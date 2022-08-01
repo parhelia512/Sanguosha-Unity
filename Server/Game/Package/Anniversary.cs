@@ -109,6 +109,9 @@ namespace SanguoshaServer.Package
                 new Mingluan(),
                 new Jianliang(),
                 new Weimeng(),
+                new Zhubi(),
+                new Liuzhuan(),
+                new LiuzhuanPro(),
 
                 new Jiedao(),
                 new JiedaoDis(),
@@ -381,6 +384,7 @@ namespace SanguoshaServer.Package
                 { "xixiu", new List<string>{ "#xixiu" } },
                 { "yijiao", new List<string>{ "#yijiao" } },
                 { "jinggong", new List<string>{ "#jinggong" } },
+                { "liuzhuan", new List<string>{ "#liuzhuan" } },
             };
         }
     }
@@ -6634,6 +6638,194 @@ namespace SanguoshaServer.Package
                     }
                 }
             }
+        }
+    }
+
+    public class Zhubi : TriggerSkill
+    {
+        public Zhubi() : base("zhubi")
+        {
+            events.Add(TriggerEvent.CardsMoveOneTime);
+            skill_type = SkillType.Wizzard;
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (data is CardsMoveOneTimeStruct move && move.To_place == Place.DiscardPile && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
+            {
+                bool diamond = false;
+                foreach (int id in move.Card_ids)
+                {
+                    if (room.GetCard(id).Suit == WrappedCard.CardSuit.Diamond)
+                    {
+                        diamond = true;
+                        break;
+                    }
+                }
+                if (diamond)
+                {
+                    foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                        triggers.Add(new TriggerStruct(Name, p));
+                }
+            }
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(ask_who, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int card_id = -1;
+            foreach (int id in room.DiscardPile)
+            {
+                if (room.GetCard(id).Name == ExNihilo.ClassName)
+                {
+                    card_id = id;
+                    break;
+                }
+            }
+            if (card_id == -1)
+            {
+                foreach (int id in room.DrawPile)
+                {
+                    if (room.GetCard(id).Name == ExNihilo.ClassName)
+                    {
+                        card_id = id;
+                        break;
+                    }
+                }
+            }
+            if (card_id >= 0)
+            {
+                room.MoveCardTo(room.GetCard(card_id), null, Place.PlaceTable, new CardMoveReason(MoveReason.S_REASON_SHOW, ask_who.Name, Name, string.Empty), true);
+
+                CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_PUT, ask_who.Name, Name, string.Empty);
+                CardsMoveStruct move = new CardsMoveStruct(new List<int> { card_id }, null, Place.DrawPile, reason)
+                {
+                    To_pile_name = string.Empty,
+                    From = string.Empty,
+                    From_place = Place.PlaceTable,
+                };
+                List<CardsMoveStruct> moves = new List<CardsMoveStruct> { move };
+                room.MoveCardsAtomic(moves, true);
+            }
+
+            return false;
+        }
+    }
+
+    public class Liuzhuan : TriggerSkill
+    {
+        public Liuzhuan() : base("liuzhuan")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime, TriggerEvent.EventPhaseChanging };
+            skill_type = SkillType.Replenish;
+            frequency = Frequency.Compulsory;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move)
+            {
+                if (move.To != null && move.To.Phase != PlayerPhase.NotActive && move.To.Phase != PlayerPhase.Draw && move.To_place == Place.PlaceHand)
+                {
+                    List<int> ids = room.ContainsTag(Name) ? (List<int>)room.GetTag(Name) : new List<int>();
+                    foreach (int id in move.Card_ids)
+                        if (!ids.Contains(id)) ids.Add(id);
+
+                    room.SetTag(Name, ids);
+                }
+                else if (move.From != null && move.From.Phase != PlayerPhase.NotActive && move.From_places.Contains(Place.PlaceHand) && room.ContainsTag(Name) && room.GetTag(Name) is List<int> _ids)
+                {
+                    List<int> same = _ids.FindAll(t => move.Card_ids.Contains(t));
+                    _ids.RemoveAll(t => move.Card_ids.Contains(t));
+                    room.SetTag(Name, _ids);
+
+                    if (same.Count > 0 && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
+                    {
+                        List<int> skill = room.ContainsTag("liuzhuan_discard") ? (List<int>)room.GetTag("liuzhuan_discard") : new List<int>();
+                        foreach (int id in same)
+                            if (!skill.Contains(id))
+                                skill.Add(id);
+
+                        room.SetTag("liuzhuan_discard", skill);
+                    }
+                }
+                else if (move.To_place != Place.DiscardPile && room.ContainsTag("liuzhuan_discard") && room.GetTag("liuzhuan_discard") is List<int> ids)
+                {
+                    ids.RemoveAll(t => move.Card_ids.Contains(t));
+                    if (ids.Count > 0)
+                        room.SetTag("liuzhuan_discard", ids);
+                    else
+                        room.RemoveTag("liuzhuan_discard");
+                }
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                room.RemoveTag(Name);
+                room.RemoveTag("liuzhuan_discard");
+            }
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.To_place == Place.DiscardPile
+                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && room.ContainsTag("liuzhuan_discard") && room.GetTag("liuzhuan_discard") is List<int> ids)
+            {
+                List<int> same = ids.FindAll(t => move.Card_ids.Contains(t) && room.GetCardPlace(t) == Place.DiscardPile);
+                if (same.Count > 0)
+                {
+                    foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                        if (p.Phase == PlayerPhase.NotActive)
+                            triggers.Add(new TriggerStruct(Name, p));
+                }
+            }
+            return triggers;
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardsMoveOneTimeStruct move && room.GetTag("liuzhuan_discard") is List<int> ids)
+            {
+                List<int> same = ids.FindAll(t => move.Card_ids.Contains(t) && room.GetCardPlace(t) == Place.DiscardPile);
+                ids.RemoveAll(t => move.Card_ids.Contains(t));
+                if (ids.Count > 0)
+                    room.SetTag("liuzhuan_discard", ids);
+                else
+                    room.RemoveTag("liuzhuan_discard");
+                if (same.Count > 0)
+                {
+                    room.SendCompulsoryTriggerLog(ask_who, Name);
+                    room.ObtainCard(ask_who, ref same, new CardMoveReason(MoveReason.S_REASON_RECYCLE, ask_who.Name, Name, string.Empty), true);
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class LiuzhuanPro : ProhibitSkill
+    {
+        public LiuzhuanPro() : base("#liuzhuan") { }
+        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null)
+        {
+            if (from != null && from.Phase != PlayerPhase.NotActive && from != to && to != null && RoomLogic.PlayerHasShownSkill(room, to, "liuzhuan") && card.SubCards.Count > 0
+                && room.ContainsTag("liuzhuan") && room.GetTag("liuzhuan") is List<int> ids)
+            {
+                List<int> same = card.SubCards.FindAll(t => ids.Contains(t));
+                return same.Count > 0;
+            }
+            return false;
         }
     }
 
