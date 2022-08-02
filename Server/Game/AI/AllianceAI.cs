@@ -860,6 +860,7 @@ namespace SanguoshaServer.AI
             { "@zhongyong-slash", "zhongyong" },
             { "@sheque-slash", "sheque" },
             { "@fangong-slash", "fangong" },
+            { "@yingshi-slash", "yingshi" },
         };
 
         public override CardUseStruct AskForUseCard(string pattern, string prompt, FunctionCard.HandlingMethod method)

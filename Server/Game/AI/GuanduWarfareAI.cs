@@ -755,6 +755,7 @@ namespace SanguoshaServer.AI
             { "@tiaoxin-slash", "tiaoxin" },
             { "@luanwu-slash", "luanwu" },
             { "@yuanlue", "yuanlue" },
+            { "@yingshi-slash", "yingshi" },
         };
 
         public override CardUseStruct AskForUseCard(string pattern, string prompt, FunctionCard.HandlingMethod method)

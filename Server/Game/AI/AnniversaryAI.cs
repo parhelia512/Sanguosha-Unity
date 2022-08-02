@@ -141,6 +141,7 @@ namespace SanguoshaServer.AI
                 new WeimengCardAI(),
                 new MouzhuCardAI(),
                 new XiaowuCardAI(),
+                new YingshiCardAI(),
             };
         }
     }
@@ -399,34 +400,104 @@ namespace SanguoshaServer.AI
     {
         public YingshiAI() : base("yingshi")
         {
-            key = new List<string> { "playerChosen:hongde" };
         }
-        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
-            if (triggerEvent == TriggerEvent.ChoiceMade && data is string choice)
-            {
-                string[] choices = choice.Split(':');
-                if (choices[1] == Name)
-                {
-                    Room room = ai.Room;
-                    Player target = room.FindPlayer(choices[2]);
+            Room room = ai.Room;
 
-                    if (ai.GetPlayerTendency(target) != "unknown")
-                        ai.UpdatePlayerRelation(player, target, false);
+            CardUseStruct use = new CardUseStruct(null, player, new List<Player>());
+
+            if (player.HasFlag("yingshi_slasher"))
+            {
+                List<Player> targets = new List<Player>();
+                foreach (Player p in room.GetOtherPlayers(player))
+                    if (p.HasFlag("SlashAssignee")) targets.Add(p);
+
+                List<ScoreStruct> values = ai.CaculateSlashIncome(player, null, targets);
+                if (values.Count > 0 && values[0].Score > 0)
+                {
+                    use.Card = values[0].Card;
+                    use.To = values[0].Players;
                 }
             }
-        }
-        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
-        {
-            List<Player> enemies = ai.GetPrioEnemies();
-            if (ai.GetEnemies(player).Count <= 1 && ai.GetOverflow(player) == 0) return new List<Player>();
-            if (enemies.Count > 0)
+            else
             {
-                ai.SortByDefense(ref enemies, false);
-                return new List<Player> { enemies[0] };
+                List<Player> enemies = ai.GetEnemies(player);
+                if (enemies.Count > 0)
+                {
+                    ai.SortByDefense(ref enemies, false);
+                    Player from = null;
+                    List<Player> friends = ai.FriendNoSelf;
+                    ai.SortByHandcards(ref friends);
+                    if (friends.Count > 0)
+                    {
+                        foreach (Player p in friends)
+                        {
+                            if (ai.HasSkill("wushuang|tieqi_jx|liegong_jx|duanbing_jx|pojun|jianchu|moukui"))
+                            {
+                                from = p;
+                                break;
+                            }
+                        }
+                    }
+                    if (from == null)
+                    {
+                        List<WrappedCard> slashes = ai.GetCards(Slash.ClassName, player);
+                        if (slashes.Count > 0)
+                        {
+                            foreach (Player p in enemies)
+                            {
+                                List<ScoreStruct> values = ai.CaculateSlashIncome(player, slashes, enemies);
+                                if (values.Count > 0 && values[0].Score > 0)
+                                {
+                                    List<int> ids = player.GetCards("h");
+                                    ai.SortByUseValue(ref ids, false);
+                                    ids.RemoveAll(t => values[0].Card.SubCards.Contains(t));
+                                    use.Card = new WrappedCard(YingshiCard.ClassName) { Skill = Name };
+                                    use.Card.AddSubCard(ids[0]);
+                                    use.To.Add(player);
+                                    use.To.Add(values[0].Players[0]);
+                                }
+                            }
+                        }
+                        else
+                        {
+                            if (friends.Count > 0)
+                            {
+                                List<int> ids = player.GetCards("h");
+                                ai.SortByUseValue(ref ids, false);
+                                use.Card = new WrappedCard(YingshiCard.ClassName) { Skill = Name };
+                                use.Card.AddSubCard(ids[0]);
+                                use.To.Add(friends[0]);
+                                use.To.Add(enemies[0]);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        List<int> ids = player.GetCards("h");
+                        ai.SortByUseValue(ref ids, false);
+                        use.Card = new WrappedCard(YingshiCard.ClassName) { Skill = Name };
+                        use.Card.AddSubCard(ids[0]);
+                        use.To.Add(from);
+                        use.To.Add(enemies[0]);
+                    }
+                }
             }
+            return use;
+        }
+    }
 
-            return new List<Player>();
+    public class YingshiCardAI : UseCard
+    {
+        public YingshiCardAI() : base(YingshiCard.ClassName) { }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            {
+                if (ai.GetPlayerTendency(use.To[0]) != "unknown") ai.UpdatePlayerRelation(player, use.To[0], true);
+                if (ai.GetPlayerTendency(use.To[1]) != "unknown") ai.UpdatePlayerRelation(player, use.To[1], false);
+            }
         }
     }
 

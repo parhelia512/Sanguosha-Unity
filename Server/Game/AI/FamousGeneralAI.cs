@@ -3767,17 +3767,14 @@ namespace SanguoshaServer.AI
                 }
                 else
                 {
+                    /*
                     if (ai.IsCardEffect(use.Card, player, use.From) && !ai.IsCancelTarget(use.Card, player, use.From))
                     {
                         if (ai.SlashIsEffective(use.Card, use.From, player).Score < -4)
                         {
-                            foreach (int id in player.GetCards("h"))
-                            {
-                                if (room.GetCard(id).Name == Jink.ClassName)
-                                    return new List<int> { id };
-                            }
                         }
                     }
+                    */
                 }
             }
 

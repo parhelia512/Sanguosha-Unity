@@ -8115,7 +8115,6 @@ namespace SanguoshaServer.Game
 
         public void ShowCards(Player player, List<int> card_ids, string reason, Player only_viewer = null)
         {
-
             List<string> show_arg = new List<string> { player.Name, JsonUntity.Object2Json(card_ids), reason };
             
             if (only_viewer != null)
