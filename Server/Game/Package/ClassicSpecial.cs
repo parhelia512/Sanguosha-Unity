@@ -5310,7 +5310,7 @@ namespace SanguoshaServer.Package
                     List<Player> targets = new List<Player>();
                     foreach (Player p in use.To)
                     {
-                        if (RoomLogic.DistanceTo(room, player, p) == 1 && (p.HasEquip() || (p.IsKongcheng() && RoomLogic.CanDiscard(room, p, p, "h"))))
+                        if (RoomLogic.DistanceTo(room, player, p) == 1 && (p.HasEquip() || (!p.IsKongcheng() && RoomLogic.CanDiscard(room, p, p, "h"))))
                             targets.Add(p);                            
                     }
 
@@ -5328,7 +5328,8 @@ namespace SanguoshaServer.Package
             room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, machao.Name, skill_target.Name);
 
             bool recast = false;
-            if (!room.AskForDiscard(skill_target, Name, 1, 1, skill_target.HasEquip(), true, "@shichou:" + machao.Name, false))
+            string prompt = skill_target.HasEquip() ? "@zhuiji:" + machao.Name : "@zhuiji-discard:" + machao.Name;
+            if (!room.AskForDiscard(skill_target, Name, 1, 1, skill_target.HasEquip(), true, prompt, false))
                 recast = true;
 
             if (recast && skill_target.HasEquip())

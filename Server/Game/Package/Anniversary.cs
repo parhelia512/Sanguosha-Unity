@@ -5075,7 +5075,7 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triiggers = new List<TriggerStruct>();
-            if (triggerEvent == TriggerEvent.CardFinished && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name))
+            if (triggerEvent == TriggerEvent.CardFinished && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name) && use.Card.Name != Jink.ClassName)
             {
                 string card_name = use.Card.Name.Contains(Slash.ClassName) ? Slash.ClassName : use.Card.Name;
                 foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
@@ -5097,7 +5097,7 @@ namespace SanguoshaServer.Package
             return triiggers;
         }
 
-        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player _, ref object data, Player player, TriggerStruct info)
         {
             if (data is CardUseStruct use)
             {
@@ -5171,7 +5171,18 @@ namespace SanguoshaServer.Package
     public class FupingVS : ViewAsSkill
     {
         public FupingVS() : base("fuping") { response_or_use = true; }
-        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => selected.Count == 0 && !(Engine.GetFunctionCard(to_select.Name) is BasicCard);
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
+        {
+            if (selected.Count == 0 && !(Engine.GetFunctionCard(to_select.Name) is BasicCard))
+            {
+                if (room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_PLAY || room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE)
+                    return !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse, room.GetCardPlace(to_select.Id) == Place.PlaceHand);
+                else
+                    return !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodResponse, room.GetCardPlace(to_select.Id) == Place.PlaceHand);
+            }
+            return false;
+        }
+
         public override bool IsEnabledAtPlay(Room room, Player player)
         {
             if (player.ContainsTag(Name) && player.GetTag(Name) is List<string> cards)
@@ -5205,38 +5216,19 @@ namespace SanguoshaServer.Package
         public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
         {
             List<WrappedCard> result = new List<WrappedCard>();
-            if (player.ContainsTag(Name) && player.GetTag(Name) is List<string> all)
+            if (cards.Count == 1 && player.ContainsTag(Name) && player.GetTag(Name) is List<string> all)
             {
-                bool resp = room.GetRoomState().GetCurrentCardUseReason() != CardUseReason.CARD_USE_REASON_PLAY;
-                foreach (string card in all)
+                if (room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_PLAY)
                 {
-                    string flag = string.Format("{0}_{1}", Name, card);
-                    if (!player.HasFlag(flag))
+                    foreach (string card in all)
                     {
-                        WrappedCard wrapped = new WrappedCard(card) { Skill = Name };
-                        wrapped.AddSubCards(cards);
-                        wrapped = RoomLogic.ParseUseCard(room, wrapped);
-                        if (resp)
+                        string flag = string.Format("{0}_{1}", Name, card);
+                        if (!player.HasFlag(flag))
                         {
-                            if (Engine.MatchExpPattern(room, room.GetRoomState().GetCurrentCardUsePattern(player), player, wrapped))
-                                result.Add(wrapped);
-                            if (card == Slash.ClassName)
-                            {
-                                WrappedCard fire = new WrappedCard(FireSlash.ClassName) { Skill = Name };
-                                fire.AddSubCards(cards);
-                                fire = RoomLogic.ParseUseCard(room, fire);
-                                if (Engine.MatchExpPattern(room, room.GetRoomState().GetCurrentCardUsePattern(player), player, fire))
-                                    result.Add(fire);
+                            WrappedCard wrapped = new WrappedCard(card) { Skill = Name };
+                            wrapped.AddSubCards(cards);
+                            wrapped = RoomLogic.ParseUseCard(room, wrapped);
 
-                                WrappedCard thunder = new WrappedCard(ThunderSlash.ClassName) { Skill = Name };
-                                thunder.AddSubCards(cards);
-                                thunder = RoomLogic.ParseUseCard(room, thunder);
-                                if (Engine.MatchExpPattern(room, room.GetRoomState().GetCurrentCardUsePattern(player), player, thunder))
-                                    result.Add(thunder);
-                            }
-                        }
-                        else
-                        {
                             result.Add(wrapped);
                             if (card == Slash.ClassName)
                             {
@@ -5250,6 +5242,38 @@ namespace SanguoshaServer.Package
                                 result.Add(thunder);
                             }
                         }
+                    }
+                }
+                else
+                {
+                    if (all.Contains(Slash.ClassName) && !player.HasFlag("fuping_Slash"))
+                    {
+                        WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = Name };
+                        slash.AddSubCards(cards);
+                        slash = RoomLogic.ParseUseCard(room, slash);
+                        WrappedCard fire = new WrappedCard(FireSlash.ClassName) { Skill = Name };
+                        fire.AddSubCards(cards);
+                        fire = RoomLogic.ParseUseCard(room, fire);
+                        WrappedCard thunder = new WrappedCard(ThunderSlash.ClassName) { Skill = Name };
+                        thunder.AddSubCards(cards);
+                        thunder = RoomLogic.ParseUseCard(room, thunder);
+                        result.Add(slash);
+                        result.Add(fire);
+                        result.Add(thunder);
+                    }
+                    if (all.Contains(Analeptic.ClassName) && !player.HasFlag("fuping_Analeptic"))
+                    {
+                        WrappedCard thunder = new WrappedCard(Analeptic.ClassName) { Skill = Name };
+                        thunder.AddSubCards(cards);
+                        thunder = RoomLogic.ParseUseCard(room, thunder);
+                        result.Add(thunder);
+                    }
+                    if (all.Contains(Peach.ClassName) && !player.HasFlag("fuping_Peach"))
+                    {
+                        WrappedCard thunder = new WrappedCard(Peach.ClassName) { Skill = Name };
+                        thunder.AddSubCards(cards);
+                        thunder = RoomLogic.ParseUseCard(room, thunder);
+                        result.Add(thunder);
                     }
                 }
             }
