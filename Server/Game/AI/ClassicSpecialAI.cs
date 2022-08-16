@@ -51,6 +51,7 @@ namespace SanguoshaServer.AI
                 new CanshiAI(),
                 new BingzhaoAI(),
                 new ShichouAI(),
+                new ZhuijiAI(),
                 new QiaomengAI(),
                 new JiqiaoAI(),
                 new JiaoziAI(),
@@ -4319,13 +4320,43 @@ namespace SanguoshaServer.AI
                 {
                     List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { use.Card }, new List<Player> { p }, false);
                     if (scores.Count > 0 && scores[0].Score > 0)
+                    {
                         players.Add(p);
+                        if (players.Count > player.GetLostHp() + 1)
+                            break;
+                    }
                 }
 
                 return players;
             }
 
             return new List<Player>();
+        }
+    }
+
+    public class ZhuijiAI : SkillEvent
+    {
+        public ZhuijiAI() : base("zhuiji") { }
+        public override List<int> OnDiscard(TrustedAI ai, Player player, List<int> ids, int min, int max, bool option)
+        {
+            List<int> result = new List<int>();
+            if (!player.IsNude() && player.GetEquips().Count > 2 || player.GetEquips().Count == 0)
+            {
+                Room room = ai.Room;
+                List<int> cards = new List<int>();
+                foreach (int id in player.GetCards("he"))
+                {
+                    if (RoomLogic.CanDiscard(room, player, player, id))
+                        cards.Add(id);
+                }
+
+                if (cards.Count > 0)
+                {
+                    ai.SortByKeepValue(ref cards, false);
+                    result.Add(cards[0]);
+                }
+            }
+            return result;
         }
     }
 

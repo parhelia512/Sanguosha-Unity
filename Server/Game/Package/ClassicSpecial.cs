@@ -103,6 +103,7 @@ namespace SanguoshaServer.Package
                 new LinglongMax(),
                 new LinglongFix(),
                 new Zhuiji(),
+                new ZhuijiDistance(),
                 new Shichou(),
                 new Fuqi(),
                 new Jiaozi(),
@@ -386,6 +387,7 @@ namespace SanguoshaServer.Package
                 { "zhouxuan_zh", new List<string>{ "#zhouxuan_zh" } },
                 { "juguan", new List<string>{ "#juguan" } },
                 { "fengji_sp", new List<string>{ "#fengji_sp" } },
+                { "zhuiji", new List<string>{ "#zhuiji" } },
             };
         }
     }
@@ -5289,9 +5291,78 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Zhuiji : DistanceSkill
+    public class Zhuiji : TriggerSkill
     {
-        public Zhuiji() : base("zhuiji") { }
+        public Zhuiji() : base("zhuiji")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen };
+            skill_type = SkillType.Attack;
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.TargetChosen && base.Triggerable(player, room) && data is CardUseStruct use && use.Card != null)
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                if (fcard is Slash)
+                {
+                    List<Player> targets = new List<Player>();
+                    foreach (Player p in use.To)
+                    {
+                        if (RoomLogic.DistanceTo(room, player, p) == 1 && (p.HasEquip() || (p.IsKongcheng() && RoomLogic.CanDiscard(room, p, p, "h"))))
+                            targets.Add(p);                            
+                    }
+
+                    if (targets.Count > 0)
+                        return new TriggerStruct(Name, player, targets);
+                }
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player skill_target, ref object data, Player machao, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(machao, Name);
+            room.BroadcastSkillInvoke(Name, machao, info.SkillPosition);
+            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, machao.Name, skill_target.Name);
+
+            bool recast = false;
+            if (!room.AskForDiscard(skill_target, Name, 1, 1, skill_target.HasEquip(), true, "@shichou:" + machao.Name, false))
+                recast = true;
+
+            if (recast && skill_target.HasEquip())
+            {
+                List<int> ids = skill_target.GetEquips();
+                CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_RECAST, skill_target.Name, Name, string.Empty);
+                CardsMoveStruct move = new CardsMoveStruct(ids, skill_target, Place.PlaceTable, reason)
+                {
+                    To_pile_name = string.Empty,
+                    From = skill_target.Name
+                };
+                List<CardsMoveStruct> moves = new List<CardsMoveStruct> { move };
+                room.MoveCardsAtomic(moves, true);
+                room.BroadcastSkillInvoke("@recast", skill_target.IsMale() ? "male" : "female", -1);
+
+                int count = ids.Count;
+                List<int> table_cardids = room.GetCardIdsOnTable(ids);
+                if (table_cardids.Count > 0)
+                {
+                    CardsMoveStruct move2 = new CardsMoveStruct(table_cardids, skill_target, null, Place.PlaceTable, Place.DiscardPile, reason);
+                    room.MoveCardsAtomic(new List<CardsMoveStruct>() { move2 }, true);
+                }
+
+                if (skill_target.Alive)
+                    room.DrawCards(skill_target, count, "recast");
+            }
+
+            return false;
+        }
+    }
+
+    public class ZhuijiDistance : DistanceSkill
+    {
+        public ZhuijiDistance() : base("#zhuiji") { }
 
         public override int GetFixed(Room room, Player from, Player to)
         {
@@ -5338,8 +5409,8 @@ namespace SanguoshaServer.Package
             if (targets.Count > 0)
             {
                 room.SetTag("extra_target_skill", data);                   //for AI
-                List<Player> players = room.AskForPlayersChosen(player, targets, Name, 0, Math.Max(1, player.GetLostHp()),
-                    string.Format("@extra_targets1:::{0}:{1}", use.Card.Name, Math.Max(1, player.GetLostHp())), true, info.SkillPosition);
+                List<Player> players = room.AskForPlayersChosen(player, targets, Name, 0, player.GetLostHp() + 1,
+                    string.Format("@extra_targets1:::{0}:{1}", use.Card.Name, player.GetLostHp() + 1), true, info.SkillPosition);
                 room.RemoveTag("extra_target_skill");
                 if (players.Count > 0)
                 {

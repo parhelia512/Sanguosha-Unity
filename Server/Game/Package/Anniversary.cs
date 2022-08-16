@@ -86,6 +86,9 @@ namespace SanguoshaServer.Package
                 new Guili(),
                 new Deshao(),
                 new Mingfa(),
+                new Fuping(),
+                new FupingTar(),
+                new Weilie(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -328,6 +331,7 @@ namespace SanguoshaServer.Package
                 new YijiaoCard(),
                 new LieyiCard(),
                 new YingshiCard(),
+                new WeilieCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -386,6 +390,7 @@ namespace SanguoshaServer.Package
                 { "yijiao", new List<string>{ "#yijiao" } },
                 { "jinggong", new List<string>{ "#jinggong" } },
                 { "liuzhuan", new List<string>{ "#liuzhuan" } },
+                { "fuping", new List<string>{ "#fuping" } },
             };
         }
     }
@@ -5041,6 +5046,283 @@ namespace SanguoshaServer.Package
                 }
             }
             return false;
+        }
+    }
+
+    public class Fuping : TriggerSkill
+    {
+        public Fuping() : base("fuping")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardFinished, TriggerEvent.EventPhaseChanging, TriggerEvent.CardUsedAnnounced, TriggerEvent.CardResponded };
+            skill_type = SkillType.Wizzard;
+            view_as_skill = new FupingVS();
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Card.GetSkillName() == Name)
+            {
+                string flag = string.Format("{0}_{1}", Name, use.Card.Name.Contains(Slash.ClassName) ? Slash.ClassName : use.Card.Name);
+                player.SetFlags(flag);
+            }
+            else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Card.GetSkillName() == Name)
+            {
+                string flag = string.Format("{0}_{1}", Name, resp.Card.Name.Contains(Slash.ClassName) ? Slash.ClassName : resp.Card.Name);
+                player.SetFlags(flag);
+            }
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triiggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.CardFinished && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name))
+            {
+                string card_name = use.Card.Name.Contains(Slash.ClassName) ? Slash.ClassName : use.Card.Name;
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                {
+                    if (p != player && use.To.Contains(p) && (!p.ContainsTag(Name) || (p.GetTag(Name) is List<string> cards && !cards.Contains(card_name))))
+                    {
+                        for (int i = 0; i <5; i++)
+                        {
+                            if (!p.EquipIsBaned(i))
+                            {
+                                triiggers.Add(new TriggerStruct(Name, p));
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return triiggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardUseStruct use)
+            {
+                string card_name = use.Card.Name.Contains(Slash.ClassName) ? Slash.ClassName : use.Card.Name;
+                List<string> choices = new List<string>();
+                for (int i = 0; i < 5; i++)
+                {
+                    if (!player.EquipIsBaned(i))
+                    {
+                        switch (i)
+                        {
+                            case 0:
+                                choices.Add("Weapon");
+                                break;
+                            case 1:
+                                choices.Add("Armor");
+                                break;
+                            case 2:
+                                choices.Add("DefensiveHorse");
+                                break;
+                            case 3:
+                                choices.Add("OffensiveHorse");
+                                break;
+                            case 4:
+                                choices.Add("Treasure");
+                                break;
+                        }
+                    }
+                }
+                choices.Add("cancel");
+                string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@fuping:::" + card_name });
+                if (choice != "cancel")
+                {
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    room.NotifySkillInvoked(player, Name);
+                    int index = -1;
+                    switch (choice)
+                    {
+                        case "Weapon":
+                            index = 0;
+                            break;
+                        case "Armor":
+                            index = 1;
+                            break;
+                        case "DefensiveHorse":
+                            index = 2;
+                            break;
+                        case "OffensiveHorse":
+                            index = 3;
+                            break;
+                        case "Treasure":
+                            index = 4;
+                            break;
+                    }
+                    room.AbolisheEquip(player, index, Name);
+                    if (player.Alive)
+                    {
+                        List<string> cards = player.ContainsTag(Name) ? (List<string>)player.GetTag(Name) : new List<string>();
+                        cards.Add(card_name);
+                        player.SetTag(Name, cards);
+                        return info;
+                    }
+                }
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info) => false;
+    }
+
+    public class FupingVS : ViewAsSkill
+    {
+        public FupingVS() : base("fuping") { response_or_use = true; }
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => selected.Count == 0 && !(Engine.GetFunctionCard(to_select.Name) is BasicCard);
+        public override bool IsEnabledAtPlay(Room room, Player player)
+        {
+            if (player.ContainsTag(Name) && player.GetTag(Name) is List<string> cards)
+            {
+                foreach (string card in cards)
+                {
+                    string flag = string.Format("{0}_{1}", Name, card);
+                    if (!player.HasFlag(flag))
+                        return true;
+                }
+            }
+            return false;
+        }
+
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
+        {
+            if (player.ContainsTag(Name) && player.GetTag(Name) is List<string> cards)
+            {
+                if (MatchSlash(respond) && cards.Contains(Slash.ClassName) && !player.HasFlag("fuping_Slash"))
+                    return true;
+
+                if (MatchAnaleptic(respond) && cards.Contains(Analeptic.ClassName) && !player.HasFlag("fuping_Analeptic"))
+                    return true;
+
+                if (MatchPeach(respond) && cards.Contains(Peach.ClassName) && !player.HasFlag("fuping_Peach"))
+                    return true;
+            }
+            return false;
+        }
+
+        public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
+        {
+            List<WrappedCard> result = new List<WrappedCard>();
+            if (player.ContainsTag(Name) && player.GetTag(Name) is List<string> all)
+            {
+                bool resp = room.GetRoomState().GetCurrentCardUseReason() != CardUseReason.CARD_USE_REASON_PLAY;
+                foreach (string card in all)
+                {
+                    string flag = string.Format("{0}_{1}", Name, card);
+                    if (!player.HasFlag(flag))
+                    {
+                        WrappedCard wrapped = new WrappedCard(card) { Skill = Name };
+                        wrapped.AddSubCards(cards);
+                        wrapped = RoomLogic.ParseUseCard(room, wrapped);
+                        if (resp)
+                        {
+                            if (Engine.MatchExpPattern(room, room.GetRoomState().GetCurrentCardUsePattern(player), player, wrapped))
+                                result.Add(wrapped);
+                            if (card == Slash.ClassName)
+                            {
+                                WrappedCard fire = new WrappedCard(FireSlash.ClassName) { Skill = Name };
+                                fire.AddSubCards(cards);
+                                fire = RoomLogic.ParseUseCard(room, fire);
+                                if (Engine.MatchExpPattern(room, room.GetRoomState().GetCurrentCardUsePattern(player), player, fire))
+                                    result.Add(fire);
+
+                                WrappedCard thunder = new WrappedCard(ThunderSlash.ClassName) { Skill = Name };
+                                thunder.AddSubCards(cards);
+                                thunder = RoomLogic.ParseUseCard(room, thunder);
+                                if (Engine.MatchExpPattern(room, room.GetRoomState().GetCurrentCardUsePattern(player), player, thunder))
+                                    result.Add(thunder);
+                            }
+                        }
+                        else
+                        {
+                            result.Add(wrapped);
+                            if (card == Slash.ClassName)
+                            {
+                                WrappedCard fire = new WrappedCard(FireSlash.ClassName) { Skill = Name };
+                                fire.AddSubCards(cards);
+                                fire = RoomLogic.ParseUseCard(room, fire);
+                                WrappedCard thunder = new WrappedCard(ThunderSlash.ClassName) { Skill = Name };
+                                thunder.AddSubCards(cards);
+                                thunder = RoomLogic.ParseUseCard(room, thunder);
+                                result.Add(fire);
+                                result.Add(thunder);
+                            }
+                        }
+                    }
+                }
+            }
+            return result;
+        }
+
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count > 0 && cards[0].IsVirtualCard())
+                return cards[0];
+            return null;
+        }
+    }
+
+    public class FupingTar : TargetModSkill
+    {
+        public FupingTar() : base("#fuping", false) { pattern = "."; }
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern)
+        {
+            if (RoomLogic.PlayerHasSkill(room, from, "fuping"))
+            {
+                bool invoke = true;
+                for (int i = 0; i < 5; i++)
+                {
+                    if (!from.EquipIsBaned(i))
+                    {
+                        invoke = false;
+                        break;
+                    }
+                }
+                return invoke;
+            }
+            return false;
+        }
+    }
+
+    public class Weilie : OneCardViewAsSkill
+    {
+        public Weilie() : base("weilie") { }
+
+        public override bool IsEnabledAtPlay(Room room, Player player)
+        {
+            int count = player.ContainsTag("fuping") ? ((List<string>)player.GetTag("fuping")).Count : 0;
+            return player.GetMark(Name) < 1 + count;
+        }
+
+        public override bool ViewFilter(Room room, WrappedCard to_select, Player player) => RoomLogic.CanDiscard(room, player, player, to_select.Id);
+
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            WrappedCard wl = new WrappedCard(WeilieCard.ClassName) { Skill = Name };
+            wl.AddSubCard(card);
+            return wl;
+        }
+    }
+
+    public class WeilieCard : SkillCard
+    {
+        public static string ClassName = "WeilieCard";
+        public WeilieCard() : base(ClassName) { will_throw = true; }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select.IsWounded();
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From, target = card_use.To[0];
+            player.AddMark("weilie");
+            RecoverStruct recover = new RecoverStruct
+            {
+                Who = player,
+                Recover = 1
+            };
+            room.Recover(target, recover, true);
+            if (target.Alive && target.IsWounded())
+                room.DrawCards(target, new DrawCardStruct(1, player, "weilie"));
         }
     }
 
