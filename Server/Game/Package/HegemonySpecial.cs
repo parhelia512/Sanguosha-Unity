@@ -1990,8 +1990,8 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is DamageStruct damage && damage.Card != null && base.Triggerable(player, room) && ((player.GetMark("yaowu_hegemonu") == 0 && !WrappedCard.IsRed(damage.Card.Suit))
-                || (player.GetMark("yaowu_hegemonu") == 0 && !WrappedCard.IsBlack(damage.Card.Suit) && damage.From != null && damage.From.Alive)))
+            if (data is DamageStruct damage && damage.Card != null && base.Triggerable(player, room) && ((player.GetMark("yaowu_hegemony") > 0 && !WrappedCard.IsRed(damage.Card.Suit))
+                || (player.GetMark("yaowu_hegemony") == 0 && !WrappedCard.IsBlack(damage.Card.Suit) && damage.From != null && damage.From.Alive)))
                 return new TriggerStruct(Name, player);
 
             return new TriggerStruct();
@@ -2011,9 +2011,9 @@ namespace SanguoshaServer.Package
             {
                 room.SendCompulsoryTriggerLog(player, Name);
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
-                if (player.GetMark("yaowu_hegemonu") == 0 && !WrappedCard.IsBlack(damage.Card.Suit) && damage.From != null && damage.From.Alive)
+                if (player.GetMark("yaowu_hegemony") == 0 && !WrappedCard.IsBlack(damage.Card.Suit) && damage.From != null && damage.From.Alive)
                     room.DrawCards(damage.From, 1, Name);
-                else if (player.Alive && player.GetMark("yaowu_hegemonu") == 0 && !WrappedCard.IsRed(damage.Card.Suit))
+                else if (player.Alive && player.GetMark("yaowu_hegemony") == 0 && !WrappedCard.IsRed(damage.Card.Suit))
                     room.DrawCards(player, 1, Name);
             }
 
