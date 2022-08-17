@@ -4900,31 +4900,36 @@ namespace SanguoshaServer.AI
 
         public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
         {
-            ai.Number[Name] = -1;
-            Player target = null;
-            Room room = ai.Room;
-            foreach (Player p in room.GetOtherPlayers(player))
+            if (ai.WillShowForAttack())
             {
-                if (p.HasFlag("moukui_target"))
+                ai.Number[Name] = -1;
+                Player target = null;
+                Room room = ai.Room;
+                foreach (Player p in room.GetOtherPlayers(player))
                 {
-                    target = p;
-                    break;
-                }
-            }
-
-            if (ai.IsEnemy(target) && choice.Contains("discard") && data is CardUseStruct use)
-            {
-                if (target.GetArmor() && (!ai.IsCardEffect(use.Card, target, player) || target.HasArmor(EightDiagram.ClassName)) && RoomLogic.CanDiscard(room, player, target, target.Armor.Key))
-                {
-                    ai.Number[Name] = target.Armor.Key;
-                    return "discard";
+                    if (p.HasFlag("moukui_target"))
+                    {
+                        target = p;
+                        break;
+                    }
                 }
 
-                if (!ai.IsLackCard(target, Jink.ClassName))
-                    return "discard";
-            }
+                if (ai.IsEnemy(target) && choice.Contains("discard") && data is CardUseStruct use)
+                {
+                    if (target.GetArmor() && (!ai.IsCardEffect(use.Card, target, player) || target.HasArmor(EightDiagram.ClassName)) && RoomLogic.CanDiscard(room, player, target, target.Armor.Key))
+                    {
+                        ai.Number[Name] = target.Armor.Key;
+                        return "discard";
+                    }
 
-            return "draw";
+                    if (!ai.IsLackCard(target, Jink.ClassName))
+                        return "discard";
+                }
+
+                return "draw";
+            }
+            else
+                return "cancel";
         }
 
         public override List<int> OnCardsChosen(TrustedAI ai, Player from, Player to, string flags, int min, int max, List<int> disable_ids)

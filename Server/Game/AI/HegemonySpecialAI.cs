@@ -34,6 +34,8 @@ namespace SanguoshaServer.AI
                 new WukuHegemonyAI(),
                 new XisheAI(),
                 new GuowuHegemonyAI(),
+                new ShiyongAI(),
+                new YaowuHegemonyAI(),
 
                 new DujinAI(),
                 new AocaiHegemonyAI(),
@@ -789,6 +791,18 @@ namespace SanguoshaServer.AI
         }
 
         public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => ai.WillShowForAttack();
+    }
+
+    public class YaowuHegemonyAI : SkillEvent
+    {
+        public YaowuHegemonyAI() : base("yaowu_hegemony") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => player.Hp <= 2;
+    }
+
+    public class ShiyongAI : SkillEvent
+    {
+        public ShiyongAI() : base("shiyong") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => ai.WillShowForMasochism();
     }
 
     public class DujinAI : SkillEvent
