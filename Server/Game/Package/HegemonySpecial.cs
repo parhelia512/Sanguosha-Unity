@@ -25,6 +25,9 @@ namespace SanguoshaServer.Package
                 new JuejueEffect(),
                 new Fangyuan(),
                 new FangyuanMax(),
+                new DeshaoHegemony(),
+                new MingfaHegemony(),
+                new MingfaEffect(),
 
                 new Tunchu(),
                 new TunchuAdd(),
@@ -73,6 +76,7 @@ namespace SanguoshaServer.Package
                 new DuwuHegemonyCard(),
                 new JuejueCard(),
                 new DiaoguiCard(),
+                new MingfaCard(),
             };
             related_skills = new Dictionary<string, List<string>>
             {
@@ -85,6 +89,7 @@ namespace SanguoshaServer.Package
                 { "guowu_hegemony", new List<string> { "#guowu_hegemony" } },
                 { "zhuangrong_hegemony", new List<string> { "#zhuangrong_hegemony" } },
                 { "zhuhai", new List<string>{ "#zhuhai" } },
+                { "mingfa_hegemony", new List<string> { "#mingfa_hegemony" } },
             };
         }
     }
@@ -600,6 +605,141 @@ namespace SanguoshaServer.Package
             }
 
             return count;
+        }
+    }
+
+    //yanghu
+    public class DeshaoHegemony : TriggerSkill
+    {
+        public DeshaoHegemony() : base("deshao_hegemony")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TargetConfirmed, TriggerEvent.EventPhaseChanging };
+            skill_type = SkillType.Replenish;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                    p.SetMark(Name, 0);
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.TargetConfirmed && data is CardUseStruct use && use.From != null && !Engine.IsSkillCard(use.Card.Name) && WrappedCard.IsBlack(use.Card.Suit)
+                && use.From != player && base.Triggerable(player, room) && player.GetMark(Name) < player.Hp && !use.From.IsNude() && RoomLogic.CanDiscard(room, player, use.From, "he"))
+            {
+                int count_from = use.From.HasShownAllGenerals() ? 2 : use.From.General1Showed ? 1 : 0;
+                int count_self = player.HasShownAllGenerals() ? 2 : player.HasShownOneGeneral() ? 1 : 0;
+                if (count_from <= count_self)
+                    return new TriggerStruct(Name, player);
+            }
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardUseStruct use && room.AskForSkillInvoke(player, Name, use.From, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.AddMark(Name);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardUseStruct use && use.From.Alive && player.Alive && !use.From.IsNude() && RoomLogic.CanDiscard(room, player, use.From, "he"))
+            {
+                List<int> ids = new List<int> { room.AskForCardChosen(player, use.From, "he", Name, false, HandlingMethod.MethodDiscard) };
+                room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, use.From.Name, Name, string.Empty), use.From, player);
+            }
+            return false;
+        }
+    }
+
+
+    public class MingfaHegemony : ZeroCardViewAsSkill
+    {
+        public MingfaHegemony() : base("mingfa_hegemony") { skill_type = SkillType.Attack; }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(MingfaCard.ClassName);
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(MingfaCard.ClassName) { Skill = Name, ShowSkill = Name };
+    }
+
+    public class MingfaCard : SkillCard
+    {
+        public static string ClassName = "MingfaCard";
+        public MingfaCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && !RoomLogic.WillBeFriendWith(room, Self, to_select);
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From, target = card_use.To[0];
+            List<string> froms = target.ContainsTag("mingfa_hegemony") ? (List<string>)target.GetTag("mingfa_hegemony") : new List<string>();
+            froms.Add(player.Name);
+            target.SetTag("mingfa_hegemony", froms);
+            room.SetPlayerStringMark(target, "mingfa_hegemony", string.Empty);
+        }
+    }
+
+    public class MingfaEffect : TriggerSkill
+    {
+        public MingfaEffect() : base("#mingfa_hegemony")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging };
+            frequency = Frequency.Compulsory;
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.Alive && player.ContainsTag("mingfa_hegemony"))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.GetTag("mingfa_hegemony") is List<string> names)
+            {
+                player.RemoveTag("mingfa_hegemony");
+                room.RemovePlayerStringMark(player, "mingfa_hegemony");
+            List<Player> froms = new List<Player>();
+                foreach (string player_name in names)
+                {
+                    Player from = room.FindPlayer(player_name);
+                    if (from != null)
+                        froms.Add(from);
+                }
+                if (froms.Count > 0)
+                {
+                    room.SortByActionOrder(ref froms);
+                    foreach (Player p in froms)
+                    {
+                        if (p.Alive && player.Alive)
+                        {
+                            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, p.Name, player.Name);
+                            room.SendCompulsoryTriggerLog(p, "mingfa_hegemony");
+                            if (player.HandcardNum < p.HandcardNum)
+                            {
+                                room.Damage(new DamageStruct("mingfa_hegemony", p, player));
+                                if (p.Alive && player.Alive && !player.IsKongcheng() && RoomLogic.CanGetCard(room, p, player, "h"))
+                                {
+                                    List<int> ids = new List<int> { room.AskForCardChosen(p, player, "h", Name, false, HandlingMethod.MethodGet) };
+                                    room.ObtainCard(p, ref ids, new CardMoveReason(MoveReason.S_REASON_EXTRACTION, p.Name, player.Name, "mingfa_hegemony", string.Empty), false);
+                                }
+                            }
+                            else
+                            {
+                                int count = player.HandcardNum - p.HandcardNum;
+                                count = Math.Min(5, count);
+                                room.DrawCards(p, count, "mingfa_hegemony");
+                            }
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
     }
 

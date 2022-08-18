@@ -5025,7 +5025,7 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.EventPhaseStart)
             {
-                int count = Math.Abs(player.HandcardNum - player.Hp);
+                int count = player.HandcardNum;
                 count = Math.Max(1, count);
                 count = Math.Min(5, count);
                 string card_name = room.GetCard(ask_who.GetPile(Name)[0]).Name;
