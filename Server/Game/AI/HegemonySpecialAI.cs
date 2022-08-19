@@ -21,6 +21,8 @@ namespace SanguoshaServer.AI
                 new ZaoyunAI(),
                 new JuejueAI(),
                 new FangyuanAI(),
+                new DeshaoHegemonyAI(),
+                new MingfaHegemonyAI(),
                 
                 new TunchuAI(),
                 new ShuliangAI(),
@@ -51,6 +53,7 @@ namespace SanguoshaServer.AI
                 new QingyinCardAI(),
                 new DuwuHegemonyCardAI(),
                 new DiaoguiCardAI(),
+                new MingfaCardAI(),
             };
         }
     }
@@ -372,6 +375,57 @@ namespace SanguoshaServer.AI
             List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { slash }, targets, false);
             return scores[0].Players;
         }
+    }
+
+    public class DeshaoHegemonyAI : SkillEvent
+    {
+        public DeshaoHegemonyAI() : base("deshao_hegemony") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (ai.WillShowForDefence() && data is Player target && ai.IsEnemy(target)) return true;
+            return false;
+        }
+    }
+
+    public class MingfaHegemonyAI : SkillEvent
+    {
+        public MingfaHegemonyAI() : base("mingfa_hegemony") { }
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            if (!player.HasUsed(MingfaCard.ClassName))
+                return new List<WrappedCard> { new WrappedCard(MingfaCard.ClassName) { Skill = Name, ShowSkill = Name } };
+            return new List<WrappedCard>();
+        }
+    }
+
+    public class MingfaCardAI : UseCard
+    {
+        public MingfaCardAI() : base(MingfaCard.ClassName) { }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            Room room = ai.Room;
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use && ai.Self != player)
+            {
+                if (!player.HasShownOneGeneral())
+                {
+                    string role = (Scenario.Hegemony.WillbeRole(room, player) != "careerist" ? player.Kingdom : "careerist");
+                    ai.UpdatePlayerIntention(player, role, 100);
+                }
+                foreach (Player p in use.To)
+                    ai.UpdatePlayerRelation(player, p, false);
+            }
+        }
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            List<Player> targets = ai.GetEnemies(player);
+            if (targets.Count > 0)
+            {
+                ai.SortByDefense(ref targets);
+                use.Card = card;
+                use.To.Add(targets[0]);
+            }
+        }
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 0;
     }
 
     public class TunchuAI : SkillEvent
