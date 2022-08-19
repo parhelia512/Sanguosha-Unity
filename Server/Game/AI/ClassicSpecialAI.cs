@@ -41,6 +41,8 @@ namespace SanguoshaServer.AI
                 new WeijingAI(),
                 new TuoguAI(),
                 new ShanzhuanAI(),
+                new YuanzhiAI(),
+                new LiejieAI(),
 
                 new ChongzhenAI(),
                 new MizhaoAI(),
@@ -3606,6 +3608,61 @@ namespace SanguoshaServer.AI
                 return 2;
 
             return 0;
+        }
+    }
+
+    public class YuanzhiAI : SkillEvent
+    {
+        public YuanzhiAI() : base("yuanzhi")
+        {
+            key = new List<string> { "skillInvoke:yuanzhi:yes" };
+        }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str && ai.Self != player)
+            {
+                Room room = ai.Room;
+                List<string> strs = new List<string>(str.Split(':'));
+                if (strs[1] == Name && strs[2] == "yes")
+                {
+                    Player target = room.Current;
+                    if (ai.GetPlayerTendency(target) != "unknown") ai.UpdatePlayerRelation(player, target, true);
+                }
+            }
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is Player target)
+            {
+                return ai.IsFriend(target) && !ai.WillSkipPlayPhase(target);
+            }
+            else
+                return true;
+        }
+    }
+
+    public class LiejieAI : SkillEvent
+    {
+        public LiejieAI() : base("liejie") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => data is Player target && ai.IsEnemy(target) && ai.FindCards2Discard(player, target, Name, "he", HandlingMethod.MethodDiscard, 1).Score > 0;
+        public override List<int> OnDiscard(TrustedAI ai, Player player, List<int> ids, int min, int max, bool option)
+        {
+            List<int> result = new List<int>();
+            Room room = ai.Room;
+            List<int> cards = new List<int>();
+            foreach (int id in player.GetCards("he"))
+                if (RoomLogic.CanDiscard(room, player, player, id))
+                    cards.Add(id);
+
+            if (cards.Count > 0)
+            {
+                List<double> values = ai.SortByKeepValue(ref cards, false);
+                for (int i = 0; i < Math.Min(3, cards.Count); i++)
+                    if (values[i] < 2)
+                        result.Add(cards[i]);
+            }
+            return result;
         }
     }
 
