@@ -2799,7 +2799,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (player.Phase == PlayerPhase.Start && player.GetMark(Name) == 0 && base.Triggerable(player, room) && player.IsKongcheng())
+            if ((player.Phase == PlayerPhase.Start || player.Phase == PlayerPhase.Finish) && player.GetMark(Name) == 0 && base.Triggerable(player, room) && player.IsKongcheng())
                 return new TriggerStruct(Name, player);
 
             return new TriggerStruct();
@@ -3005,30 +3005,67 @@ namespace SanguoshaServer.Package
     {
         public static string ClassName = "TiaoxinJXCard";
         public TiaoxinJXCard() : base(ClassName) { }
-        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
-        {
-            return targets.Count == 0 && to_select != Self;
-        }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self && RoomLogic.CanSlash(room, to_select, Self);
         public override void OnEffect(Room room, CardEffectStruct effect)
         {
-            bool use_slash = room.AskForUseSlashTo(effect.To, effect.From, "@tiaoxin_jx-slash:" + effect.From.Name, null) != null;
-            if (!use_slash && RoomLogic.CanDiscard(room, effect.From, effect.To, "he"))
+            Player slasher = effect.To;
+            slasher.SetFlags("slashTargetFix");
+            slasher.SetFlags("slashTargetFixToOne");
+            effect.From.SetFlags("SlashAssignee");
+            WrappedCard slash = room.AskForUseCard(slasher, RespondType.Slash, "Slash:tiaoxin_jx", "@tiaoxin_jx-slash:" + effect.From.Name, null, -1, HandlingMethod.MethodUse, true);
+            bool discard = false;
+            if (slash == null)
             {
-                int id = room.AskForCardChosen(effect.From, effect.To, "he", "tiaoxin_jx", false, HandlingMethod.MethodDiscard);
-                room.ThrowCard(id, effect.To, effect.From);
+                discard = true;
+                slasher.SetFlags("-slashTargetFix");
+                slasher.SetFlags("-slashTargetFixToOne");
+                effect.From.SetFlags("-SlashAssignee");
+            }
+            else
+            {
+                if (effect.From.HasFlag("tiaoxin_damage"))
+                    effect.From.SetFlags("-tiaoxin_damage");
+                else
+                    discard = true;
+            }
+            if (discard && effect.From.Alive)
+            {
+                effect.From.SetFlags("tiaoxin_jx");
+                if (slasher.Alive && !slasher.IsNude() && RoomLogic.CanDiscard(room, effect.From, effect.To, "he"))
+                {
+                    int id = room.AskForCardChosen(effect.From, effect.To, "he", "tiaoxin_jx", false, HandlingMethod.MethodDiscard);
+                    room.ThrowCard(id, effect.To, effect.From);
+                }
             }
         }
     }
-    public class TiaoxinJX : ZeroCardViewAsSkill
+
+    public class TiaoxinJX : TriggerSkill
     {
         public TiaoxinJX() : base("tiaoxin_jx")
         {
+            events = new List<TriggerEvent> { TriggerEvent.Damage, TriggerEvent.CardUsedAnnounced };
+            view_as_skill = new TiaoxinJXVS();
             skill_type = SkillType.Attack;
         }
-        public override bool IsEnabledAtPlay(Room room, Player player)
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            return !player.HasUsed(TiaoxinJXCard.ClassName);
+            if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && use.Pattern == "Slash:tiaoxin_jx")
+                use.Card.SetFlags(Name);
+            else if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && damage.Card != null && damage.To.Phase == PlayerPhase.Play && damage.Card.HasFlag(Name))
+                damage.To.SetFlags("tiaoxin_damage");
         }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+
+    public class TiaoxinJXVS : ZeroCardViewAsSkill
+    {
+        public TiaoxinJXVS() : base("tiaoxin_jx")
+        {
+        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => player.UsedTimes(TiaoxinJXCard.ClassName) <= (player.HasFlag(Name) ? 1 : 0);
         public override WrappedCard ViewAs(Room room, Player player)
         {
             WrappedCard card = new WrappedCard(TiaoxinJXCard.ClassName)

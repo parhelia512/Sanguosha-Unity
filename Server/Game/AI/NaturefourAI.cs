@@ -520,7 +520,7 @@ namespace SanguoshaServer.AI
 
         public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
         {
-            if (!player.HasUsed(TiaoxinJXCard.ClassName))
+            if (player.UsedTimes(TiaoxinJXCard.ClassName) <= (player.HasFlag(Name) ? 1 : 0))
                 return new List<WrappedCard> { new WrappedCard(TiaoxinJXCard.ClassName) { Skill = Name, ShowSkill = Name } };
 
             return null;
@@ -535,19 +535,15 @@ namespace SanguoshaServer.AI
             if (target != null && RoomLogic.CanSlash(room, player, target))
             {
                 if (ai.IsFriend(target))
+                    return use;
+                else
                 {
-                    foreach (int id in player.GetEquips())
+                    List<ScoreStruct> scores = ai.CaculateSlashIncome(player, null, new List<Player> { target });
+                    if (scores.Count > 0 && scores[0].Score > 0 && scores[0].Card != null)
                     {
-                        if (ai.GetKeepValue(id, player) < 0 && RoomLogic.CanDiscard(room, target, player, id))
-                            return use;
+                        use.Card = scores[0].Card;
+                        use.To.Add(target);
                     }
-                }
-
-                List<ScoreStruct> scores = ai.CaculateSlashIncome(player, null, new List<Player> { target });
-                if (scores.Count > 0 && scores[0].Score > -2 && scores[0].Card != null)
-                {
-                    use.Card = scores[0].Card;
-                    use.To.Add(target);
                 }
             }
 
@@ -567,14 +563,12 @@ namespace SanguoshaServer.AI
             List<ScoreStruct> scores = new List<ScoreStruct>();
             foreach (Player p in room.GetOtherPlayers(player))
             {
-                if (p.IsNude()) continue;
+                if (p.IsNude() || !RoomLogic.CanSlash(room, p, player)) continue;
                 ScoreStruct score = ai.FindCards2Discard(player, p, string.Empty, "he", FunctionCard.HandlingMethod.MethodDiscard);
                 score.Players = new List<Player> { p };
                 if (ai.IsEnemy(p))
                 {
-                    if (!RoomLogic.CanSlash(room, p, player))
-                        score.Score += 3.5;
-                    else if (p.HandcardNum + p.GetPile("wooden_ox").Count < 3 || ai.IsLackCard(p, Slash.ClassName))
+                    if (p.HandcardNum + p.GetPile("wooden_ox").Count < 3 || ai.IsLackCard(p, Slash.ClassName))
                     {
                         score.Score += 3;
                     }
