@@ -5834,6 +5834,20 @@ namespace SanguoshaServer.Game
                     break;
                 }
 
+                //处理护甲伤害减免
+                if (damage_data.To.ArmorShield > 0)
+                {
+                    int shield = damage_data.To.ArmorShield;
+                    UpdateArmorShield(damage_data.To, -damage_data.Damage);
+                    damage_data.Damage -= shield;
+                    damage_data.Damage = Math.Max(damage_data.Damage, 0);
+                    if (damage_data.Damage == 0)
+                    {
+                        RemoveQinggangTag(damage_data);
+                        break;
+                    }
+                }
+
                 enter_stack = true;
                 m_damageStack.Enqueue(damage_data);
                 SetTag("CurrentDamageStruct", qdata);
@@ -10425,6 +10439,18 @@ namespace SanguoshaServer.Game
         public void UpdateSubCards(WrappedCard card, List<int> ids)
         {
             card_subcards[card] = new List<int>(ids);
+        }
+        public void UpdateArmorShield(Player player, int count)
+        {
+            if (player.ArmorShield + count < 0) count = -player.ArmorShield;
+            player.ArmorShield += count;
+            List<string> arg = new List<string>
+            {
+                GameEventType.S_GAME_EVENT_ARMOR_SHIELD.ToString(),
+                player.Name,
+                count.ToString()
+            };
+            DoBroadcastNotify(CommandType.S_COMMAND_LOG_EVENT, arg);
         }
 
         #region IDisposable Support

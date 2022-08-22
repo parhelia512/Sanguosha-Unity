@@ -84,6 +84,7 @@ namespace CommonClass.Game
         public KeyValuePair<int, string> OffensiveHorse { set; get; } = new KeyValuePair<int, string>(-1, null);
         public KeyValuePair<int, string> Treasure { set; get; } = new KeyValuePair<int, string>(-1, null);
         public KeyValuePair<int, string> Special { set; get; } = new KeyValuePair<int, string>(-1, null);
+        public int ArmorShield { set; get; }
         public bool FaceUp { set; get; } = true;
         public bool Chained { set; get; } = false;
         public bool Removed { set; get; } = false;
@@ -152,6 +153,7 @@ namespace CommonClass.Game
             TurnSkillState = other.TurnSkillState;
             JudgingAreaAvailable = other.JudgingAreaAvailable;
             Result = other.Result;
+            ArmorShield = other.ArmorShield;
         }
 
         public void CopyAll(Player other)
@@ -195,6 +197,7 @@ namespace CommonClass.Game
             StringMarks = other.StringMarks;
             PlayerGender = other.PlayerGender;
             Result = other.Result;
+            ArmorShield = other.ArmorShield;
         }
 
         //绝对不能给Player类设置class类的tag

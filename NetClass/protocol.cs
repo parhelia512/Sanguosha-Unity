@@ -273,6 +273,7 @@ namespace CommonClassLibrary
         S_GAME_EVENT_EQUIP_ABOLISH,
         S_GAME_EVENT_HUASHEN,
         S_GAME_EVENT_REFRESH_SKILLS,
+        S_GAME_EVENT_ARMOR_SHIELD,
     };
 
     public enum MoveCardType
