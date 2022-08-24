@@ -2231,13 +2231,6 @@ namespace SanguoshaServer.Package
         {
             if (data is CardUseStruct use)
             {
-                if (use.AddHistory)
-                {
-                    use.AddHistory = false;
-                    player.AddHistory(use.Card.Name, -1);
-                    data = use;
-                }
-
                 JudgeStruct judge = new JudgeStruct
                 {
                     Pattern = "Weapon#Horse",
@@ -2290,15 +2283,13 @@ namespace SanguoshaServer.Package
         {
         }
 
-        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern)
-        {
-            return from != null && RoomLogic.PlayerHasSkill(room, from, "zhuilie") && to != null;
-        }
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => from != null && RoomLogic.PlayerHasSkill(room, from, "zhuilie") && to != null;
 
-        public override void GetEffectIndex(Room room, Player player, WrappedCard card, ModType type, ref int index, ref string skill_name, ref string general_name, ref int skin_id)
+        public override bool CheckSpecificAssignee(Room room, Player from, Player to, WrappedCard card, string pattern)
         {
-            index = -2;
+            return from != null && RoomLogic.PlayerHasSkill(room, from, "zhuilie") && to != null && !RoomLogic.InMyAttackRange(room, from, to, card);
         }
+        public override void GetEffectIndex(Room room, Player player, WrappedCard card, ModType type, ref int index, ref string skill_name, ref string general_name, ref int skin_id) => index = -2;
     }
 
     public class Pianchong : TriggerSkill

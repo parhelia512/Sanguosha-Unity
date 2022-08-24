@@ -812,16 +812,17 @@ namespace SanguoshaServer.Package
         public NuzhanTM() : base("#nuzhan")
         {
         }
-        public override bool IgnoreCount(Room room, Player from, WrappedCard card)
+
+        public override int GetResidueNum(Room room, Player from, WrappedCard card)
         {
             if (RoomLogic.PlayerHasSkill(room, from, "nuzhan") && Engine.MatchExpPattern(room, pattern, from, card)
-                    && card.IsVirtualCard() && card.SubCards.Count == 1)
+           && card.IsVirtualCard() && card.SubCards.Count == 1)
             {
                 if (Engine.GetFunctionCard(room.GetCard(card.GetEffectiveId()).Name) is TrickCard)
-                    return true;
+                    return 999;
             }
 
-            return false;
+            return 0;
         }
         public override void GetEffectIndex(Room room, Player player, WrappedCard card, ModType type, ref int index, ref string skill_name, ref string general_name, ref int skin_id)
         {
@@ -9943,7 +9944,7 @@ namespace SanguoshaServer.Package
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
             => selected.Count == 0 && to_select.Suit == WrappedCard.CardSuit.Heart;
 
-        public override bool IsEnabledAtPlay(Room room, Player player) => Slash.IsAvailable(room, player) && !player.IsNude();
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.IsNude();
         public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
         {
             List<WrappedCard> result = new List<WrappedCard>();
@@ -9990,8 +9991,7 @@ namespace SanguoshaServer.Package
     public class LiushiTar : TargetModSkill
     {
         public LiushiTar() : base("#liushi", false) { }
-
-        public override bool IgnoreCount(Room room, Player from, WrappedCard card) => card.GetSkillName() == "liushi";
+        public override int GetResidueNum(Room room, Player from, WrappedCard card) => card.GetSkillName() == "liushi" ? 999 : 0;
     }
 
     public class LiushiMax : MaxCardsSkill
@@ -11110,10 +11110,7 @@ namespace SanguoshaServer.Package
     {
         public QiangwuTar() : base("#qiangwu-tar", false) { }
 
-        public override bool IgnoreCount(Room room, Player from, WrappedCard card)
-        {
-            return from.GetMark("qiangwu") > 0 && RoomLogic.GetCardNumber(room, card) > from.GetMark("qiangwu");
-        }
+        public override int GetResidueNum(Room room, Player from, WrappedCard card) => from.GetMark("qiangwu") > 0 && RoomLogic.GetCardNumber(room, card) > from.GetMark("qiangwu") ? 999 : 0;
 
         public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern)
         {
