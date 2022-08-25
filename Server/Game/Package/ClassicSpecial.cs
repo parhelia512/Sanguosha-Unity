@@ -228,6 +228,7 @@ namespace SanguoshaServer.Package
                 new Qianya(),
                 new Shuimeng(),
                 new Fuman(),
+                new FumanEffect(),
                 new Bingzheng(),
                 new Sheyan(),
                 new Baobian(),
@@ -390,6 +391,7 @@ namespace SanguoshaServer.Package
                 { "juguan", new List<string>{ "#juguan" } },
                 { "fengji_sp", new List<string>{ "#fengji_sp" } },
                 { "zhuiji", new List<string>{ "#zhuiji" } },
+                { "fuman", new List<string>{ "#fuman" } },
             };
         }
     }
@@ -13110,13 +13112,12 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Fuman : TriggerSkill
+    public class FumanEffect : TriggerSkill
     {
-        public Fuman() : base("fuman")
+        public FumanEffect() : base("#fuman")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardUsed };
-            view_as_skill = new FumanVS();
-            skill_type = SkillType.Attack;
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardUsed, TriggerEvent.CardResponded };
+            frequency = Frequency.Compulsory;
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
@@ -13128,11 +13129,43 @@ namespace SanguoshaServer.Package
                         if (p.HasFlag("fuman_" + player.Name))
                             p.SetFlags("-fuman_" + player.Name);
                 }
-                else if (change.To == PlayerPhase.NotActive && player.ContainsTag(Name))
-                    player.RemoveTag(Name);
+                else if (change.To == PlayerPhase.NotActive && player.ContainsTag("fuman"))
+                    player.RemoveTag("fuman");
             }
-            else if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && Engine.GetFunctionCard(use.Card.Name).TypeID != CardType.TypeSkill
-                && player.ContainsTag(Name) && player.GetTag(Name) is Dictionary<string, List<int>> record)
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && Engine.GetFunctionCard(use.Card.Name).TypeID != CardType.TypeSkill
+                && player.ContainsTag("fuman") && player.GetTag("fuman") is Dictionary<string, List<int>> record)
+            {
+                foreach (int id in use.Card.SubCards)
+                {
+                    foreach (string genreal in record.Keys)
+                    {
+                        if (record[genreal].Contains(id))
+                            return new TriggerStruct(Name, player);
+                    }
+                }
+            }
+            else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && player.ContainsTag("fuman") && player.GetTag("fuman") is Dictionary<string, List<int>> _record)
+            {
+                foreach (int id in resp.Card.SubCards)
+                {
+                    foreach (string genreal in _record.Keys)
+                    {
+                        if (_record[genreal].Contains(id))
+                            return new TriggerStruct(Name, player);
+                    }
+                }
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<Player> targets = new List<Player>();
+            if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && Engine.GetFunctionCard(use.Card.Name).TypeID != CardType.TypeSkill
+                 && player.GetTag(Name) is Dictionary<string, List<int>> record)
             {
                 foreach (int id in use.Card.SubCards)
                 {
@@ -13140,23 +13173,46 @@ namespace SanguoshaServer.Package
                     {
                         if (record[genreal].Contains(id))
                         {
-                            Player target = room.FindPlayer(genreal);
-                            if (target != null) room.DrawCards(target, 1, Name);
+                            record[genreal].Remove(id);
+                            Player target = room.FindPlayer(genreal, true);
+                            targets.Add(target);
                         }
                     }
                 }
+                player.SetTag("fuman", record);
             }
+            else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && player.ContainsTag("fuman") && player.GetTag("fuman") is Dictionary<string, List<int>> _record)
+            {
+                foreach (int id in resp.Card.SubCards)
+                {
+                    foreach (string genreal in _record.Keys)
+                    {
+                        if (_record[genreal].Contains(id))
+                        {
+                            _record[genreal].Remove(id);
+                            Player target = room.FindPlayer(genreal, true);
+                            targets.Add(target);
+                        }
+                    }
+                }
+                player.SetTag("fuman", _record);
+            }
+
+            room.SortByActionOrder(ref targets);
+            foreach (Player target in targets)
+            {
+                if (player.Alive) room.DrawCards(player, new DrawCardStruct(1, target, "fuman"));
+                if (target.Alive) room.DrawCards(target, 1, "fuman");
+            }
+
+            return false;
         }
-        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who) => new TriggerStruct();
     }
 
-    public class FumanVS : OneCardViewAsSkill
+    public class Fuman : OneCardViewAsSkill
     {
-        public FumanVS() : base("fuman") { filter_pattern = "Slash"; }
-        public override bool IsEnabledAtPlay(Room room, Player player)
-        {
-            return !player.IsKongcheng();
-        }
+        public Fuman() : base("fuman") { filter_pattern = "..!"; }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.IsKongcheng();
 
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {
@@ -13171,16 +13227,10 @@ namespace SanguoshaServer.Package
         public static string ClassName = "FumanCard";
         public FumanCard() : base(ClassName)
         {
-            will_throw = false;
+            will_throw = true;
         }
-        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
-        {
-            return targets.Count == 0 && to_select != Self && !to_select.HasFlag("fuman_" + Self.Name);
-        }
-        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card)
-        {
-            return targets.Count == 1 && card.SubCards.Count > 0;
-        }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self && !to_select.HasFlag("fuman_" + Self.Name);
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card) => targets.Count == 1 && card.SubCards.Count > 0;
         public override void Use(Room room, CardUseStruct card_use)
         {
             Player target = card_use.To[0];
@@ -13189,16 +13239,42 @@ namespace SanguoshaServer.Package
             result.Assist += card_use.Card.SubCards.Count;
             card_use.From.Result = result;
 
-            Dictionary<string, List<int>> record = target.ContainsTag("fuman") ? (Dictionary<string, List<int>>)target.GetTag("fuman") : new Dictionary<string, List<int>>();
-            if (record.ContainsKey(card_use.From.Name))
-                record[card_use.From.Name].Add(card_use.Card.GetEffectiveId());
-            else
-                record[card_use.From.Name] = new List<int> { card_use.Card.GetEffectiveId() };
-            target.SetTag("fuman", record);
+            int card_id = -1;
+            CardMoveReason reason = new CardMoveReason();
+            foreach (int id in room.DiscardPile)
+            {
+                if (room.GetCard(id).Name.Contains(Slash.ClassName))
+                {
+                    reason = new CardMoveReason(MoveReason.S_REASON_RECYCLE, card_use.From.Name, target.Name, "fuman", null);
+                    card_id = id;
+                    break;
+                }
+            }
+            if (card_id == -1)
+            {
+                foreach (int id in room.DrawPile)
+                {
+                    if (room.GetCard(id).Name.Contains(Slash.ClassName))
+                    {
+                        reason = new CardMoveReason(MoveReason.S_REASON_GOTCARD, card_use.From.Name, target.Name, "fuman", null);
+                        card_id = id;
+                        break;
+                    }
+                }
+            }
 
-            target.SetFlags("fuman_" + card_use.From.Name);
-            CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_GIVE, card_use.From.Name, target.Name, "fuman", null);
-            room.ObtainCard(target, card_use.Card, reason, true);
+            if (card_id >= 0)
+            {
+                Dictionary<string, List<int>> record = target.ContainsTag("fuman") ? (Dictionary<string, List<int>>)target.GetTag("fuman") : new Dictionary<string, List<int>>();
+                if (record.ContainsKey(card_use.From.Name))
+                    record[card_use.From.Name].Add(card_id);
+                else
+                    record[card_use.From.Name] = new List<int> { card_id };
+                target.SetTag("fuman", record);
+
+                target.SetFlags("fuman_" + card_use.From.Name);
+                room.ObtainCard(target, room.GetCard(card_id), reason, true);
+            }
         }
     }
 

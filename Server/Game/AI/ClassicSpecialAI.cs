@@ -906,8 +906,8 @@ namespace SanguoshaServer.AI
             {
                 Room room = ai.Room;
                 List<int> ids = new List<int>();
-                foreach (int id in player.GetCards("h"))
-                    if (room.GetCard(id).Name.Contains(Slash.ClassName))
+                foreach (int id in player.GetCards("he"))
+                    if (RoomLogic.CanDiscard(room, player, player, id))
                         ids.Add(id);
 
                 if (ids.Count > 0)

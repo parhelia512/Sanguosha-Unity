@@ -2542,22 +2542,30 @@ namespace SanguoshaServer.Package
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => false;
         public override WrappedCard ViewAs(Room room, Player player)
         {
-                WrappedCard card = new WrappedCard(Duel.ClassName) { Skill = Name };
-                card.AddSubCards(player.GetCards("h"));
-                return card;
+            List<int> ids = new List<int>();
+            foreach (int id in player.GetCards("h"))
+                if (!room.GetCard(id).HasFlag("qinwang"))
+                    ids.Add(id);
+            WrappedCard card = new WrappedCard(Duel.ClassName) { Skill = Name };
+            card.AddSubCards(ids);
+            return card;
         }
         public override bool IsEnabledAtPlay(Room room, Player player)
         {
-            if (!player.IsKongcheng() && !player.HasUsed(Name) && !player.HasFlag(Name))
+            if (!player.IsKongcheng() && !player.HasFlag(Name))
             {
+                List<int> ids = new List<int>();
                 foreach (int id in player.GetCards("h"))
                 {
                     WrappedCard card = room.GetCard(id);
-                    if (RoomLogic.IsCardLimited(room, player, card, HandlingMethod.MethodUse))
+                    if (room.GetCard(id).HasFlag("qinwang"))
+                        continue;
+                    else if (!RoomLogic.IsCardLimited(room, player, card, HandlingMethod.MethodUse))
+                        ids.Add(id);
+                    else
                         return false;
                 }
-
-                return true;
+                return ids.Count > 0;
             }
             return false;
         }
@@ -2581,8 +2589,7 @@ namespace SanguoshaServer.Package
             }
             else if (triggerEvent == TriggerEvent.CardFinished && data is CardUseStruct use && use.Card != null && use.Card.Name == Duel.ClassName && use.Card.Skill == Name)
             {
-                if (use.From.Alive)
-                    room.DrawCards(use.From, 1, Name);
+                if (use.From.Alive) room.DrawCards(use.From, 1, Name);
                 string card_str = RoomLogic.CardToString(room, use.Card);
                 string str = string.Format("{0}_{1}", Name, card_str);
                 foreach (Player p in room.GetAlivePlayers())
@@ -2594,12 +2601,23 @@ namespace SanguoshaServer.Package
                     }
                 }
             }
-            else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.To != null && move.Reason.Reason == MoveReason.S_REASON_DRAW
-                && move.Reason.SkillName == Name && room.Current == move.To && !move.To.HasFlag(Name))
+            else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move)
             {
-                move.To.AddMark(Name);
-                if (move.To.GetMark(Name) >= 2)
-                    move.To.SetFlags(Name);
+                if (move.To != null && move.Reason.Reason == MoveReason.S_REASON_DRAW && move.Reason.SkillName == Name && room.Current == move.To && !move.To.HasFlag(Name))
+                {
+                    move.To.AddMark(Name);
+                    if (move.To.GetMark(Name) >= 3) move.To.SetFlags(Name);
+                }
+                else if (move.To != null && move.Reason.Reason == MoveReason.S_REASON_GIVE && move.Reason.SkillName == "qinwang" && move.To_place == Place.PlaceHand)
+                {
+                    foreach (int id in move.Card_ids)
+                        room.SetCardFlag(id, "qinwang");
+                }
+                else if (move.From != null && move.From_places.Contains(Place.PlaceHand))
+                {
+                    foreach (int id in move.Card_ids)
+                        room.SetCardFlag(id, "-qinwang");
+                }
             }
             else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.GetMark(Name) > 0)
                 player.SetMark(Name, 0);
@@ -2610,42 +2628,24 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Qinwang : OneCardViewAsSkill
+    public class Qinwang : ZeroCardViewAsSkill
     {
         public Qinwang() : base("qinwang")
         {
             lord_skill = true;
-            filter_pattern = "..!";
         }
 
         public override bool IsEnabledAtPlay(Room room, Player player)
         {
-            if (player.IsNude() || !Slash.IsAvailable(room, player) || player.HasFlag(string.Format("jijiang_activate_{0}", room.GetRoomState().GlobalActivateID)))
-                return false;
-
-            foreach (Player p in room.GetOtherPlayers(player))
-                if (p.Kingdom == "shu") return true;
-
+            if (!player.HasUsed(QinwangCard.ClassName))
+            {
+                foreach (Player p in room.GetOtherPlayers(player))
+                    if (p.Kingdom == "shu") return true;
+            }
             return false;
         }
 
-        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
-        {
-            if (player.IsNude() || !MatchSlash(respond) || player.HasFlag(string.Format("jijiang_{0}", room.GetRoomState().GetCurrentResponseID())))
-                return false;
-
-            foreach (Player p in room.GetOtherPlayers(player))
-                if (p.Kingdom == "shu") return true;
-
-            return false;
-        }
-
-        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
-        {
-            WrappedCard qw = new WrappedCard(QinwangCard.ClassName) { Skill = Name, Mute = true };
-            qw.AddSubCard(card);
-            return qw;
-        }
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(QinwangCard.ClassName) { Skill = Name, Mute = true };
     }
 
     public class QinwangCard : SkillCard
@@ -2653,116 +2653,38 @@ namespace SanguoshaServer.Package
         public static string ClassName = "QinwangCard";
         public QinwangCard() : base(ClassName)
         {
+            target_fixed = true;
         }
 
-        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        public override void Use(Room room, CardUseStruct card_use)
         {
-            if (room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_PLAY || room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE)
-            {
-                WrappedCard slash = new WrappedCard(Slash.ClassName);
-                FunctionCard fcard = Slash.Instance;
-                return fcard.TargetFilter(room, targets, to_select, Self, slash);
-            }
-
-            return false;
-        }
-
-        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card)
-        {
-            if (room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_PLAY || room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE)
-                return targets.Count > 0;
-
-            return true;
-        }
-
-        public override WrappedCard Validate(Room room, CardUseStruct use)
-        {
-            Player player = use.From;
-            if (use.Reason == CardUseReason.CARD_USE_REASON_PLAY)
-                player.SetFlags(string.Format("jijiang_activate_{0}", room.GetRoomState().GlobalActivateID));
-            else
-                player.SetFlags(string.Format("jijiang_{0}", room.GetRoomState().GetCurrentResponseID()));
-
-            LogMessage log = new LogMessage("$qinwang-slash")
-            {
-                From = player.Name,
-                To = new List<string>(),
-                Card_str = RoomLogic.CardToString(room, use.Card)
-            };
-            log.SetTos(use.To);
-            room.SendLog(log);
-
-            List<string> targets = new List<string>();
-            foreach (Player p in use.To)
-            {
-                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
-                targets.Add(p.Name);
-            }
-
-            room.BroadcastSkillInvoke("qinwang", player, use.Card.SkillPosition);
-            room.NotifySkillInvoked(player, "qinwang");
-            room.ThrowCard(use.Card.GetEffectiveId(), player);
-
+            Player player = card_use.From;
+            List<Player> targets = new List<Player>(), drawers = new List<Player>();
             foreach (Player p in room.GetOtherPlayers(player))
-            {
-                if (p.Kingdom == "shu")
-                {
-                    CardEffectStruct effect = new CardEffectStruct
-                    {
-                        Card = use.Card,
-                        From = player,
-                        To = p
-                    };
-                    WrappedCard card = room.AskForCard(p, "qinwang", RespondType.Slash, Slash.ClassName, string.Format("@qinwang-target:{0}:{1}", player.Name, string.Join("+", targets)),
-                        effect, HandlingMethod.MethodResponse);
-                    if (card != null)
-                    {
-                        ResultStruct result = p.Result;
-                        result.Assist++;
-                        p.Result = result;
+                if (p.Kingdom == "shu") targets.Add(p);
 
-                        room.DrawCards(p, 1, "qinwang");
-                        Thread.Sleep(500);
-                        return card;
+            if (targets.Count > 0)
+            {
+                foreach (Player p in targets)
+                {
+                    if (player.Alive && p.Alive)
+                    {
+                        room.DoAnimate(AnimateType.S_ANIMATE_ABUSE, player.Name, p.Name);
+                        List<int> ids = room.AskForExchange(p, "qinwang", 1, 0, "@qinwang:" + player.Name, string.Empty, Slash.ClassName, null);
+                        if (ids.Count > 0)
+                        {
+                            room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, p.Name, player.Name, "qinwang", string.Empty), true);
+                            drawers.Add(p);
+                        }
                     }
                 }
-            }
 
-            return null;
-        }
-
-        public override WrappedCard ValidateInResponse(Room room, Player player, WrappedCard card)
-        {
-            room.ThrowCard(card.GetEffectiveId(), player, null, "qinwang");
-            room.BroadcastSkillInvoke("qinwang", player, card.SkillPosition);
-
-            HandlingMethod method = room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE ? HandlingMethod.MethodUse : HandlingMethod.MethodResponse;
-            player.SetFlags(string.Format("jijiang_{0}", room.GetRoomState().GetCurrentResponseID()));
-            foreach (Player p in room.GetOtherPlayers(player))
-            {
-                if (p.Kingdom == "shu")
+                if (player.Alive && drawers.Count > 0 && room.AskForSkillInvoke(player, "qinwang", drawers, card_use.Card.SkillPosition))
                 {
-                    CardEffectStruct effect = new CardEffectStruct
-                    {
-                        Card = card,
-                        From = player,
-                        To = p
-                    };
-                    WrappedCard slash = room.AskForCard(p, "qinwang", RespondType.Slash, Slash.ClassName, "@qinwang:" + player.Name, effect, method);
-                    if (slash != null)
-                    {
-                        ResultStruct result = p.Result;
-                        result.Assist++;
-                        p.Result = result;
-
-                        room.DrawCards(p, 1, "qinwang");
-                        Thread.Sleep(500);
-                        return slash;
-                    }
+                    foreach (Player p in drawers)
+                        if (p.Alive) room.DrawCards(p, new DrawCardStruct(1, player, "qinwang"));
                 }
             }
-
-            return null;
         }
     }
 
