@@ -5720,44 +5720,57 @@ namespace SanguoshaServer.Game
 
         public bool ApplyDamage(Player victim, DamageStruct damage)
         {
-            List<string> arg = new List<string> { victim.Name, (-damage.Damage).ToString(), ((int)damage.Nature).ToString() };
-            DoBroadcastNotify(CommandType.S_COMMAND_CHANGE_HP, arg);
+            //处理护甲伤害减免
+            int count = -damage.Damage;
+            if (victim.ArmorShield > 0)
+            {
+                count += damage.To.ArmorShield;
+                count = Math.Min(0, count);
+                UpdateArmorShield(victim, -damage.Damage);
+            }
+            if (count < 0)
+            {
+                List<string> arg = new List<string> { victim.Name, (-count).ToString(), ((int)damage.Nature).ToString() };
+                DoBroadcastNotify(CommandType.S_COMMAND_CHANGE_HP, arg);
+            }
 
             if (damage.Nature != DamageStruct.DamageNature.Normal && victim.Chained)
                 ChainedRemoveOnDamageDone(victim, damage);
-
-            object data = -damage.Damage;
-            bool result = RoomThread.Trigger(TriggerEvent.HpChanging, this, victim, ref data);
-            if (!result)
+            
+            if (count < 0)
             {
-                int new_hp = victim.Hp - damage.Damage;
-                victim.Hp = new_hp;
-                BroadcastProperty(victim, "Hp");
-
-                LogMessage log = new LogMessage
+                object data = count;
+                bool result = RoomThread.Trigger(TriggerEvent.HpChanging, this, victim, ref data);
+                if (!result)
                 {
-                    Type = "#GetHp",
-                    From = victim.Name,
-                    Arg = victim.Hp.ToString(),
-                    Arg2 = victim.MaxHp.ToString()
-                };
-                SendLog(log);
+                    int new_hp = victim.Hp + count;
+                    victim.Hp = new_hp;
+                    BroadcastProperty(victim, "Hp");
 
-                ResultStruct new_result = damage.To.Result;
-                new_result.Damaged += damage.Damage;
-                damage.To.Result = new_result;
-                if (damage.From != null && !RoomLogic.WillBeFriendWith(this, damage.From, damage.To))
-                {
-                    new_result = damage.From.Result;
-                    new_result.Damage += damage.Damage;
-                    damage.From.Result = new_result;
+                    LogMessage log = new LogMessage
+                    {
+                        Type = "#GetHp",
+                        From = victim.Name,
+                        Arg = victim.Hp.ToString(),
+                        Arg2 = victim.MaxHp.ToString()
+                    };
+                    SendLog(log);
+
+                    ResultStruct new_result = damage.To.Result;
+                    new_result.Damaged += damage.Damage;
+                    damage.To.Result = new_result;
+                    if (damage.From != null && !RoomLogic.WillBeFriendWith(this, damage.From, damage.To))
+                    {
+                        new_result = damage.From.Result;
+                        new_result.Damage += damage.Damage;
+                        damage.From.Result = new_result;
+                    }
+
+                    RoomThread.Trigger(TriggerEvent.HpChanged, this, victim, ref data);
                 }
-
-                RoomThread.Trigger(TriggerEvent.HpChanged, this, victim, ref data);
+                return result;
             }
-
-
-            return result;
+            return false;
         }
 
         private void RemoveQinggangTag(DamageStruct damage_data)
@@ -5832,20 +5845,6 @@ namespace SanguoshaServer.Game
                         Damage(transfer_damage_data);
 
                     break;
-                }
-
-                //处理护甲伤害减免
-                if (damage_data.To.ArmorShield > 0)
-                {
-                    int shield = damage_data.To.ArmorShield;
-                    UpdateArmorShield(damage_data.To, -damage_data.Damage);
-                    damage_data.Damage -= shield;
-                    damage_data.Damage = Math.Max(damage_data.Damage, 0);
-                    if (damage_data.Damage == 0)
-                    {
-                        RemoveQinggangTag(damage_data);
-                        break;
-                    }
                 }
 
                 enter_stack = true;
