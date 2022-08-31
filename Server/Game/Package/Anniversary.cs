@@ -17266,20 +17266,24 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (triggerEvent == TriggerEvent.CardUsedAnnounced && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play && !player.IsKongcheng()
-                && player.GetMark(Name) <= 4 && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name) && use.To.Count > 0 && use.Card.GetSkillName() != Name)
+                && player.GetMark(Name) <= 4 && data is CardUseStruct use && use.To.Count > 0 && use.Card.GetSkillName() != Name)
             {
-                List<WrappedCard.CardSuit> suits = new List<WrappedCard.CardSuit>();
-                foreach (int id in player.GetCards("h"))
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                if (fcard is BasicCard || fcard.IsNDTrick())
                 {
-                    WrappedCard.CardSuit suit = room.GetCard(id).Suit;
-                    if (!suits.Contains(suit))
+                    List<WrappedCard.CardSuit> suits = new List<WrappedCard.CardSuit>();
+                    foreach (int id in player.GetCards("h"))
                     {
-                        suits.Add(suit);
-                        if (suits.Count == 4) break;
+                        WrappedCard.CardSuit suit = room.GetCard(id).Suit;
+                        if (!suits.Contains(suit))
+                        {
+                            suits.Add(suit);
+                            if (suits.Count == 4) break;
+                        }
                     }
+                    if (suits.Count == player.GetMark(Name))
+                        return new TriggerStruct(Name, player);
                 }
-                if (suits.Count == player.GetMark(Name))
-                    return new TriggerStruct(Name, player);
             }
             return new TriggerStruct();
         }
@@ -17338,7 +17342,7 @@ namespace SanguoshaServer.Package
                             targets.Add(p);
 
                     if (targets.Count > 0)
-                        room.UseCard(new CardUseStruct(card, player, targets, false), true);
+                        room.UseCard(new CardUseStruct(card, player, targets, false), true, true);
                     else
                         break;
                 }

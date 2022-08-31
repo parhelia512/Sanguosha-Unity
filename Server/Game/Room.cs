@@ -5730,7 +5730,7 @@ namespace SanguoshaServer.Game
             }
             if (count < 0)
             {
-                List<string> arg = new List<string> { victim.Name, (-count).ToString(), ((int)damage.Nature).ToString() };
+                List<string> arg = new List<string> { victim.Name, count.ToString(), ((int)damage.Nature).ToString() };
                 DoBroadcastNotify(CommandType.S_COMMAND_CHANGE_HP, arg);
             }
 
