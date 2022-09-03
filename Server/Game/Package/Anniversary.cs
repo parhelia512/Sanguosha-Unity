@@ -17341,7 +17341,7 @@ namespace SanguoshaServer.Package
                         if (p.Alive && RoomLogic.IsProhibited(room, player, p, card) == null)
                             targets.Add(p);
 
-                    if (targets.Count > 0)
+                    if (targets.Count == use.To.Count)
                         room.UseCard(new CardUseStruct(card, player, targets, false), true, true);
                     else
                         break;
@@ -17362,7 +17362,9 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.RoundStart)
                 foreach (Player p in room.GetAlivePlayers())
+                {
                     p.SetMark(Name, 0);
+                }
         }
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
