@@ -4828,7 +4828,7 @@ namespace SanguoshaServer.AI
             Room room = ai.Room;
             List<Player> fromList = new List<Player>();
             double basic_value = 0;
-            if (ai.HasSkill("jizhi|jizhi_jx", player))
+            if (ai.HasSkill("jizhi|jizhi_jx", player) || ai.HasSkill(TrustedAI.LoseEquipSkill))
                 basic_value += 4;
             foreach (Player p in room.GetOtherPlayers(player))
             {
@@ -4874,17 +4874,15 @@ namespace SanguoshaServer.AI
 
                 if (from.HasWeapon(CrossBow.ClassName) && needCrossbow)
                     from_value += 4;
-
-                if (needWeapon)
-                    from_value += 2;
-
+                if (needWeapon) from_value += 2;
                 foreach (string skill in ai.GetKnownSkills(from))
                 {
                     SkillEvent ev = Engine.GetSkillEvent(skill);
                     if (ev != null)
                         from_value += ev.TargetValueAdjust(ai, card, player, new List<Player> { from }, from);
                 }
-
+                if (ai.IsFriend(from) && from_value <= 0 && basic_value <= 0 && ai.IsLackCard(from, Slash.ClassName))
+                    from_value -= 10;
 
                 Dictionary<Player, double> to_values = new Dictionary<Player, double>();
                 foreach (Player to in room.GetOtherPlayers(from))
@@ -4919,11 +4917,16 @@ namespace SanguoshaServer.AI
             if (froms.Count > 0)
             {
                 froms.Sort((x, y) => { return from_values[x] > from_values[y] ? -1 : 1; });
-                use.To.Add(froms[0]);
-                use.To.Add(from_to[froms[0]]);
-                use.Card = card;
+                if (from_values[froms[0]] > 0)
+                {
+                    use.To.Add(froms[0]);
+                    use.To.Add(from_to[froms[0]]);
+                    use.Card = card;
+                    return;
+                }
             }
-            else if (basic_value > 0)
+
+            if (basic_value > 0)
             {
                 foreach (Player p in room.GetOtherPlayers(player))
                 {

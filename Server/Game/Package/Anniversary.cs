@@ -652,7 +652,7 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && use.Pattern == "Slash:yingshi")
                 use.Card.SetFlags(Name);
-            else if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && damage.From != null && damage.Card.HasFlag(Name))
+            else if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && damage.From != null && damage.Card != null && damage.Card.HasFlag(Name))
                 damage.From.SetFlags(Name);
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)

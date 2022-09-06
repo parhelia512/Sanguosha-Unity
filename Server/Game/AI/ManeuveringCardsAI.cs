@@ -35,7 +35,17 @@ namespace SanguoshaServer.AI
         }
         public override double CardValue(TrustedAI ai, Player player, bool use, WrappedCard card, Player.Place place, List<string> ignore_list = null)
         {
-            return ai.AjustWeaponRangeValue(player, card);
+            double value = ai.AjustWeaponRangeValue(player, card);
+            foreach (Player p in ai.GetEnemies(player))
+            {
+                if (p.IsKongcheng() && 2 < RoomLogic.DistanceTo(ai.Room, player, p, null, true))
+                {
+                    value += 5;
+                    if (ai.GetPrioEnemies().Contains(p))
+                        value += 2;
+                }
+            }
+            return value;
         }
 
         public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
