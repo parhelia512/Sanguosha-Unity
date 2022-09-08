@@ -1969,8 +1969,14 @@ namespace SanguoshaServer.AI
                 {
                     Room room = ai.Room;
                     Player target = room.FindPlayer(choices[2]);
-                    if (target != player && target.HandcardNum < 5 && target.HandcardNum < target.MaxHp && ai.GetPlayerTendency(target) != "unknown")
-                        ai.UpdatePlayerRelation(player, target, true);
+                    int count = Math.Min(5, target.MaxHp);
+                    if (target != player && ai.GetPlayerTendency(target) != "unknown")
+                    {
+                        if (count >= target.HandcardNum || ai.HasSkill("qingjian", target))
+                            ai.UpdatePlayerRelation(player, target, true);
+                        else if (count < player.HandcardNum - 1 && !ai.HasSkill("qingjian", target))
+                            ai.UpdatePlayerRelation(player, target, false);
+                    }
                 }
             }
         }
@@ -2036,13 +2042,14 @@ namespace SanguoshaServer.AI
                     double value = Math.Min(5, count - p.HandcardNum) * 1.2;
                     if (ai.HasSkill(TrustedAI.CardneedSkill, p)) value *= 1.2;
                     if (ai.Room.Current == p) value += 2;
-                    if (ai.HasSkill("qingjian")) value += 1.5;
+                    if (ai.HasSkill("qingjian")) value += 2;
 
                     point.Add(p, value);
                 }
                 else if (ai.IsEnemy(p) && p.HandcardNum - count > 1)
                 {
                     double value = Math.Min(5, count - p.HandcardNum);
+                    if (ai.HasSkill("qingjian")) value -= 1.5 * count;
                     point.Add(p, value);
                 }
             }

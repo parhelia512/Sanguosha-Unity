@@ -11051,7 +11051,6 @@ namespace SanguoshaServer.Package
         public Huamu() : base("huamu")
         {
             events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.CardResponded };
-
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -11101,8 +11100,7 @@ namespace SanguoshaServer.Package
         {
             events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.CardResponded, TriggerEvent.EventPhaseChanging };
         }
-        public override int Priority => -1;
-
+        public override int Priority => 1;
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
