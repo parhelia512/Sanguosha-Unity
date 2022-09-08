@@ -3257,60 +3257,55 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class JiemingJX : MasochismSkill
+    public class JiemingJX : TriggerSkill
     {
         public JiemingJX() : base("jieming_jx")
         {
+            events = new List<TriggerEvent> { TriggerEvent.Damaged, TriggerEvent.Death };
             skill_type = SkillType.Masochism;
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (player != null && player.Alive && RoomLogic.PlayerHasSkill(room, player, Name) && data is DamageStruct damage)
+            if (triggerEvent == TriggerEvent.Damaged && base.Triggerable(player, room) && data is DamageStruct damage)
             {
-                TriggerStruct trigger = new TriggerStruct(Name, player)
+                return new TriggerStruct(Name, player)
                 {
                     Times = damage.Damage
                 };
-                return trigger;
             }
+            else if (triggerEvent == TriggerEvent.Death && RoomLogic.PlayerHasSkill(room, player, Name))
+                return new TriggerStruct(Name, player);
 
             return new TriggerStruct();
         }
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (!player.Alive)
-                return new TriggerStruct();
-
-            Player target = room.AskForPlayerChosen(player, room.GetAlivePlayers(), Name, "jieming-invoke", true, true, info.SkillPosition);
+            Player target = room.AskForPlayerChosen(player, room.GetAlivePlayers(), Name, "@jieming-invoke", true, true, info.SkillPosition);
             if (target != null)
             {
                 GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition);
                 room.BroadcastSkillInvoke(Name, "male", (target == player ? 2 : 1), gsk.General, gsk.SkinId);
-
-                List<string> target_list = player.ContainsTag("jieming_target") ? (List<string>)player.GetTag("jieming_target") : new List<string>();
-                target_list.Add(target.Name);
-                player.SetTag("jieming_target", target_list);
+                room.SetTag(Name, target);
 
                 return info;
             }
             return new TriggerStruct();
         }
-        public override void OnDamaged(Room room, Player player, DamageStruct damage, TriggerStruct info)
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            List<string> target_list = (List<string>)player.GetTag("jieming_target");
-            string target_name = target_list[target_list.Count - 1];
-            target_list.RemoveAt(target_list.Count - 1);
-            player.SetTag("jieming_target", target_list);
-
-            Player to = room.FindPlayer(target_name);
-
-            if (to != null)
+            if (room.GetTag(Name) is Player to)
             {
+                room.RemoveTag(Name);
                 int upper = Math.Min(5, to.MaxHp);
-                int x = upper - to.HandcardNum;
-                if (x > 0)
-                    room.DrawCards(to, new DrawCardStruct(x, player, Name));
+                room.DrawCards(to, new DrawCardStruct(upper, player, Name));
+                if (to.Alive && to.HandcardNum > upper)
+                {
+                    int count = to.HandcardNum - upper;
+                    room.AskForDiscard(to, Name, count, count, false, false, string.Format("@jieming_jx-disacard:::{0}", count), false, info.SkillPosition);
+                }
             }
+
+            return false;
         }
     }
 

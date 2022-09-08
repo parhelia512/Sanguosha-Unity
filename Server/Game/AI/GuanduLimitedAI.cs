@@ -2028,27 +2028,31 @@ namespace SanguoshaServer.AI
         public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> target, int min, int max)
         {
             Dictionary<Player, double> point = new Dictionary<Player, double>();
-            foreach (Player p in ai.GetFriends(player))
+            foreach (Player p in ai.Room.GetAlivePlayers())
             {
-                if (p.MaxHp - p.HandcardNum > 0)
+                int count = Math.Min(5, p.MaxHp);
+                if (ai.IsFriend(p) && count - p.HandcardNum >= 0)
                 {
-                    double value = Math.Min(5, p.MaxHp - p.HandcardNum) * 1.2;
+                    double value = Math.Min(5, count - p.HandcardNum) * 1.2;
                     if (ai.HasSkill(TrustedAI.CardneedSkill, p)) value *= 1.2;
-                    if (ai.Room.Current == p)
-                        value += 2;
+                    if (ai.Room.Current == p) value += 2;
+                    if (ai.HasSkill("qingjian")) value += 1.5;
 
                     point.Add(p, value);
                 }
+                else if (ai.IsEnemy(p) && p.HandcardNum - count > 1)
+                {
+                    double value = Math.Min(5, count - p.HandcardNum);
+                    point.Add(p, value);
+                }
             }
+
             List<Player> targets = new List<Player>(point.Keys);
             if (targets.Count > 0)
             {
                 targets.Sort((x, y) => { return point[x] > point[y] ? -1 : 1; });
                 return new List<Player> { targets[0] };
             }
-
-            if (ai.NeedShowImmediately())
-                return new List<Player> { player };
 
             return new List<Player>();
         }

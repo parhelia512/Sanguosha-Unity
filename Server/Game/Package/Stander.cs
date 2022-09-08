@@ -1549,7 +1549,7 @@ namespace SanguoshaServer.Package
             if (!player.Alive)
                 return new TriggerStruct();
 
-            Player target = room.AskForPlayerChosen(player, room.GetAlivePlayers(), Name, "jieming-invoke", true, true, info.SkillPosition);
+            Player target = room.AskForPlayerChosen(player, room.GetAlivePlayers(), Name, "@jieming-invoke", true, true, info.SkillPosition);
             if (target != null)
             {
                 GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition);
