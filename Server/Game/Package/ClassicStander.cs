@@ -1257,7 +1257,7 @@ namespace SanguoshaServer.Package
                 Arg = top_cards.Count.ToString(),
                 Arg2 = bottom_cards.Count.ToString()
             };
-            room.SendLog(log);
+            room.SendLog(log, new List<Player> { zhuge });
 
             if (top_cards.Count > 0)
             {
@@ -1277,7 +1277,7 @@ namespace SanguoshaServer.Package
                     From = zhuge.Name,
                     Card_str = string.Join("+", JsonUntity.IntList2StringList(bottom_cards))
                 };
-                room.SendLog(log, zhuge);
+                room.SendLog(log1, zhuge);
             }
 
             room.ReturnToDrawPile(top_cards, false, zhuge);

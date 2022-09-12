@@ -4557,7 +4557,7 @@ namespace SanguoshaServer.AI
             {
                 List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { use.Card }, new List<Player>(use.To), false);
                 if (scores.Count > 0 && (scores[0].Card.Name == FireSlash.ClassName ||
-                    (ai.HasSkill("lihuo") && scores.Count > 1 && scores[1].Card.Name == FireSlash.ClassName || scores[1].Score > 0 && scores[0].Score - scores[1].Score < 1)))
+                    (ai.HasSkill("lihuo") && scores.Count > 1 && (scores[1].Card.Name == FireSlash.ClassName || scores[1].Score > 0 && scores[0].Score - scores[1].Score < 1))))
                 {
                     WrappedCard fire = new WrappedCard(FireSlash.ClassName) { Skill = use.Card.Skill, UserString = use.Card.UserString };
                     fire.AddSubCard(use.Card);

@@ -2709,6 +2709,8 @@ namespace SanguoshaServer.AI
             scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
             return scores[0].Players;
         }
+
+        public override AskForMoveCardsStruct OnMoveCards(TrustedAI ai, Player player, List<int> ups, List<int> downs, int min, int max) => ai.Guanxing(ups);
     }
 
     public class YanerAI : SkillEvent

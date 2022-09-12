@@ -937,7 +937,7 @@ namespace SanguoshaServer.AI
                             double value = 0;
                             for (int i = 0; i < count; i++)
                             {
-                                subs.Add(ids[i]);
+                                subs.Add(available[i]);
                                 double _value = ai.GetKeepValue(available[i], player);
                                 if (_value < 0) value += _value;
                                 else value += ai.GetUseValue(available[i], player);

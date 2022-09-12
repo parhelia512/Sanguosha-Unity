@@ -2088,8 +2088,6 @@ namespace SanguoshaServer.Package
             if (RoomLogic.PlayerHasSkill(room, zhuge, "yizhi") && !zhuge.General1Showed || !RoomLogic.InPlayerHeadSkills(zhuge, Name))
                 skill_name = "yizhi";
             room.AskForGuanxing(zhuge, guanxing, skill_name, true, info.SkillPosition);
-
-
             return false;
         }
         private int GetGuanxingNum(Room room, Player zhuge)

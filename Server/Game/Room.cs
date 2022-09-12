@@ -9953,8 +9953,6 @@ namespace SanguoshaServer.Game
                     }
                     Thread.Sleep(1000);
                 }
-                else
-                    System.Diagnostics.Debug.Assert(success);
             }
             else
             {
@@ -9987,19 +9985,18 @@ namespace SanguoshaServer.Game
                         success = false;
                     }
                 }
-
-                if (!success && !can_refuse)
-                {
-                    while (bottom_cards.Count < min_num)
-                    {
-                        bottom_cards.Add(to_move[0]);
-                        to_move.RemoveAt(0);
-
-                    }
-                    top_cards = to_move;
-                }
             }
-            
+
+            if (!success && !can_refuse)
+            {
+                while (bottom_cards.Count < min_num)
+                {
+                    bottom_cards.Add(to_move[0]);
+                    to_move.RemoveAt(0);
+                }
+                top_cards = to_move;
+            }
+
             DoBroadcastNotify(CommandType.S_COMMAND_MIRROR_MOVECARDS_STEP, new List<string> { GuanxingStep.S_GUANXING_FINISH.ToString() }, isTrustAI ? null : GetClient(zhuge));
             DoBroadcastNotify(CommandType.S_COMMAND_UNKNOWN, new List<string> { false.ToString() });
 
