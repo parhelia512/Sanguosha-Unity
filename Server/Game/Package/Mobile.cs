@@ -2013,7 +2013,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (base.Triggerable(player, room) && !player.HasFlag(Name) && data is DamageStruct damage && damage.Card != null)
+            if (base.Triggerable(player, room) && !player.HasFlag(Name))
                 return new TriggerStruct(Name, player);
             return new TriggerStruct();
         }
@@ -2026,7 +2026,7 @@ namespace SanguoshaServer.Package
                 if (player.IsKongcheng() || !room.AskForDiscard(player, Name, 1, 1, true, false, "@difei", false, info.SkillPosition))
                     room.DrawCards(player, 1, Name);
 
-                if (!player.IsKongcheng() && player.Alive)
+                if (!player.IsKongcheng() && player.Alive && damage.Card != null)
                 {
                     room.ShowAllCards(player, null, Name, info.SkillPosition);
                     bool same = false;

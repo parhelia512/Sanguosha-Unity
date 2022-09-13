@@ -260,10 +260,8 @@ namespace SanguoshaServer.Package
             if (base.Triggerable(player, room) && data is DamageStruct damage && damage.Card != null && Engine.GetFunctionCard(damage.Card.Name).TypeID != CardType.TypeSkill)
             {
                 WrappedCard card = damage.Card;
-                List<int> table_cardids = room.GetCardIdsOnTable(room.GetSubCards(card));
-                List<int> ids = new List<int>(card.SubCards);
-
-                if (table_cardids.Count > 0 && ids.SequenceEqual(table_cardids))
+                List<int> ids = room.GetSubCards(card);
+                if (ids.Count > 0 && ids.SequenceEqual(card.SubCards))
                 {
                     bool check = true;
                     foreach (int id in card.SubCards)
@@ -291,6 +289,7 @@ namespace SanguoshaServer.Package
         }
         public override void OnDamaged(Room room, Player target, DamageStruct damage, TriggerStruct info)
         {
+            room.RemoveSubCards(damage.Card);
             room.ObtainCard(target, damage.Card);
         }
     }
