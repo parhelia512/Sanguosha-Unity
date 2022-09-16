@@ -17450,7 +17450,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (data is DamageStruct damage && room.AskForSkillInvoke(ask_who, Name, string.Format("@xiecui:{0}:{1}:{2}", player, damage.To, damage.Card.Name), info.SkillPosition))
+            if (data is DamageStruct damage && room.AskForSkillInvoke(ask_who, Name, string.Format("@xiecui:{0}:{1}:{2}", player.Name, damage.To.Name, damage.Card.Name), info.SkillPosition))
             {
                 room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                 ask_who.SetFlags(Name);
