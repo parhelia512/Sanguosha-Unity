@@ -15633,12 +15633,12 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.From.Phase == PlayerPhase.Play
                 && move.From_places.Contains(Place.PlaceHand) && move.Is_last_handcard)
             {
                 List<Player> jfs = RoomLogic.FindPlayersBySkillName(room, Name);
                 foreach (Player p in jfs)
-                    if (p != move.From && !p.HasFlag(Name) && (move.From.Phase == PlayerPhase.Play || p.GetMark(Name) > 0))
+                    if (p != move.From && !p.HasFlag(Name))
                         triggers.Add(new TriggerStruct(Name, p));
             }
             return triggers;
