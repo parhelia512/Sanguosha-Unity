@@ -13002,7 +13002,7 @@ namespace SanguoshaServer.Package
         }
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
         {
-            if (player.HasEquip(to_select.Name)) return false;
+            if (room.GetCardPlace(to_select.Id) != Place.PlaceHand) return false;
             int number = 0;
             foreach (WrappedCard card in selected)
                 number += card.Number;
