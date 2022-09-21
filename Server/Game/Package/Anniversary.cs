@@ -121,6 +121,7 @@ namespace SanguoshaServer.Package
                 new Kannan(),
                 new KannanDamage(),
                 new Jixu(),
+                new JixuTar(),
                 new Jijun(),
                 new Fangtong(),
                 new Lixun(),
@@ -399,6 +400,7 @@ namespace SanguoshaServer.Package
                 { "fuping", new List<string>{ "#fuping" } },
                 { "tongli", new List<string>{ "#tongli" } },
                 { "xiecui", new List<string>{ "#xiecui" } },
+                { "jixu", new List<string>{ "#jixu" } },
             };
         }
     }
@@ -7459,8 +7461,15 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.Play)
             {
+                player.SetMark(Name, 0);
                 foreach (Player p in room.GetOtherPlayers(player))
-                    if (p.HasFlag(Name)) p.SetFlags("-jixu");
+                {
+                    if (p.HasFlag(Name))
+                    {
+                        room.RemovePlayerStringMark(p, "jixu_wrong");
+                        p.SetFlags("-jixu");
+                    }
+                }
             }
         }
 
@@ -7478,7 +7487,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            if (data is CardUseStruct use && room.AskForSkillInvoke(player, Name, string.Format("@jixu-target:::{0}", use.Card.Name), info.SkillPosition))
             {
                 return info;
             }
@@ -7532,14 +7541,7 @@ namespace SanguoshaServer.Package
         public static string ClassName = "JixuCard";
         public JixuCard() : base(ClassName) { }
 
-        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
-        {
-            if (to_select == Self) return false;
-            if (targets.Count == 0)
-                return true;
-            else
-                return to_select.Hp == targets[0].Hp;
-        }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => to_select != Self && targets.Count < Self.Hp;
 
         public override void Use(Room room, CardUseStruct card_use)
         {
@@ -7585,9 +7587,13 @@ namespace SanguoshaServer.Package
             int count;
             if (has)
             {
+                player.AddMark("jixu", no.Count);
                 count = no.Count;
                 foreach (Player p in no)
+                {
+                    room.SetPlayerStringMark(p, "jixu_wrong", string.Empty);
                     p.SetFlags("jixu");
+                }
             }
             else
             {
@@ -7602,11 +7608,14 @@ namespace SanguoshaServer.Package
                 }
             }
 
-            if (count > 0)
-                room.DrawCards(player, count, "jixu");
-            else
-                player.SetFlags("Global_PlayPhaseTerminated");
+            if (count > 0) room.DrawCards(player, count, "jixu");
         }
+    }
+
+    public class JixuTar : TargetModSkill
+    {
+        public JixuTar() : base("#jixu", false) { }
+        public override int GetResidueNum(Room room, Player from, WrappedCard card) => from.GetMark("jixu");
     }
 
     public class Jijun : TriggerSkill

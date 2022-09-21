@@ -3023,12 +3023,13 @@ namespace SanguoshaServer.AI
         public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
         {
             Room room = ai.Room;
+            Player target = room.Current;
             foreach (int id in ai.GetKnownCards(player))
             {
                 if (room.GetCard(id).Name.Contains(Slash.ClassName))
-                    return "has";
+                    return !ai.IsFriend(target) ? "has" : "nohas";
             }
-            if (Shuffle.random(player.HandcardNum, 4)) return "has";
+            if (Shuffle.random(player.HandcardNum, 4)) return !ai.IsFriend(target) ? "has" : "nohas";
             return "nohas";
         }
 
@@ -3043,39 +3044,45 @@ namespace SanguoshaServer.AI
     public class JixuCardAI : UseCard
     {
         public JixuCardAI() : base(JixuCard.ClassName) { }
-        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
-        {
-            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
-            {
-                foreach (Player p in use.To)
-                    if (ai.GetPlayerTendency(p) != "unknown")
-                        ai.UpdatePlayerRelation(player, p, false);
-            }
-        }
         public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
         {
             List<Player> enemies = ai.GetEnemies(player);
             if (enemies.Count > 0)
             {
-                Dictionary<Player, int> count = new Dictionary<Player, int>();
-                foreach (Player p in enemies)
+                ai.SortByDefense(ref enemies, false);
+                for (int i = 0; i < Math.Min(player.Hp, enemies.Count); i++)
+                    use.To.Add(enemies[i]);
+            }
+            if (use.To.Count < player.Hp)
+            {
+                foreach (Player p in ai.Room.GetOtherPlayers(player))
                 {
-                    int number = 1;
-                    foreach (Player p2 in enemies)
+                    if (!use.To.Contains(p))
                     {
-                        if (p == p2) continue;
-                        if (p.Hp == p2.Hp) number++;
+                        use.To.Add(p);
+                        if (use.To.Count >= player.Hp) break;
                     }
-                    count[p] = number;
                 }
-                enemies.Sort((x, y) => { return count[x] > count[y] ? -1 : 1; });
-                use.Card = card;
-                foreach (Player p in enemies)
-                    if (p.Hp == enemies[0].Hp) use.To.Add(p);
-            }            
+            }
+            use.Card = card;
         }
 
-        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 5;
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
+        {
+            List<int> ids = player.GetCards("h");
+            bool has = false;
+            Room room = ai.Room;
+            foreach (int id in ids)
+            {
+                if (room.GetCard(id).Name.Contains(Slash.ClassName))
+                {
+                    has = true;
+                    break;
+                }
+            }
+            if (ids.Count >= 3) return has ? 2 : 9;
+            return 5;
+        }
     }
 
     public class KuizhuLSAI : SkillEvent
