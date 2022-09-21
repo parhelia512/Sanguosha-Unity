@@ -50,6 +50,9 @@ namespace SanguoshaServer.AI
                 new LiexianAI(),
                 new RouxianAI(),
                 new HexianAI(),
+                new LianduiAI(),
+                new BiejunAI(),
+                new BiejunVSAI(),
 
                 new ZhichiAI(),
                 new MingceAI(),
@@ -168,6 +171,7 @@ namespace SanguoshaServer.AI
                 new XuanhuoJXCardAI(),
                 new ZhaofuCardAI(),
                 new GanluJxCardAI(),
+                new BiejunCardAI(),
             };
         }
     }
@@ -2228,6 +2232,130 @@ namespace SanguoshaServer.AI
             return new List<Player>();
         }
     }
+
+    public class LianduiAI : SkillEvent
+    {
+        public LianduiAI() : base("liandui")
+        {
+            key = new List<string> { "skillInvoke:liandui" };
+        }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str)
+            {
+                List<string> strs = new List<string>(str.Split(':'));
+                if (strs[1] == Name && strs[2] == "yes" && ai.Room.GetTag(Name) is Player target)
+                {
+                    if (ai.GetPlayerTendency(target) != "unknown") ai.UpdatePlayerRelation(player, target, true);
+                }
+            }
+        }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is Player target)
+                return ai.IsFriend(target);
+            else if (data is string str)
+            {
+                string[] strs = str.Split(':');
+                Player who = ai.Room.FindPlayer(strs[1]);
+                return ai.IsFriend(who);
+            }
+            return false;
+        }
+    }
+
+    public class BiejunAI : SkillEvent
+    {
+        public BiejunAI() : base("biejun") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => !player.FaceUp || ai.IsWeak();
+        public override ScoreStruct GetDamageScore(TrustedAI ai, DamageStruct damage)
+        {
+            Room room = ai.Room;
+            ScoreStruct score = new ScoreStruct
+            {
+                Score = 0
+            };
+            if (RoomLogic.PlayerHasSkill(room, damage.To, Name) && damage.To.GetMark(Name) == 0 && !damage.To.FaceUp && !damage.To.HasFlag(Name))
+                score.Score = ai.IsFriend(damage.To) ? 10 : -10;
+            return score;
+        }
+
+        public override void DamageEffect(TrustedAI ai, ref DamageStruct damage, DamageStruct.DamageStep step)
+        {
+            Room room = ai.Room;
+            if (RoomLogic.PlayerHasSkill(room, damage.To, Name) && damage.To.GetMark(Name) == 0 && !damage.To.FaceUp && !damage.To.HasFlag(Name))
+                damage.Damage = 0;
+        }
+
+        public override double TargetValueAdjust(TrustedAI ai, WrappedCard card, Player from, List<Player> targets, Player to)
+        {
+            if (to != null && ai.IsEnemy(to) && (to.HasFlag(Name) || to.GetMark(Name) > 0))
+            {
+                if (card != null && (card.Name.Contains(Slash.ClassName) || card.Name == Duel.ClassName || card.Name == FireAttack.ClassName || card.Name == ArcheryAttack.ClassName
+                    || card.Name == SavageAssault.ClassName))
+                    return 1.5;
+            }
+            return 0;
+        }
+    }
+
+    public class BiejunVSAI : SkillEvent
+    {
+        public BiejunVSAI() : base("biejun_vs") { }
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            Player target = RoomLogic.FindPlayerBySkillName(ai.Room, "biejun");
+            List<WrappedCard> result = new List<WrappedCard>();
+            if (target != null && target != player && player.HandcardNum > 0 && !player.HasUsed(BiejunCard.ClassName))
+            {
+                if (target.GetMark("biejun") == 0 && ai.IsEnemy(target) && ai.GetPrioEnemies().Contains(target) && (ai.IsWeak(target) || ai.GetEnemies(player).Count == 1))
+                    result.Add(new WrappedCard(BiejunCard.ClassName));
+                else if (ai.IsFriend(target) && ai.GetOverflow(player) > 0)
+                    result.Add(new WrappedCard(BiejunCard.ClassName));
+            }
+            return result;
+        }
+    }
+
+    public class BiejunCardAI : UseCard
+    {
+        public BiejunCardAI() : base(BiejunCard.ClassName) { }
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            Room room = ai.Room;
+            Player target = RoomLogic.FindPlayerBySkillName(ai.Room, "biejun");
+            if (ai.IsEnemy(target))
+            {
+                if (Slash.IsAvailable(room, player) && ai.GetCards(Slash.ClassName, player).Count > 0 && RoomLogic.InMyAttackRange(room, player, target))
+                {
+                    List<int> ids = player.GetCards("h");
+                    List<double> values = ai.SortByUseValue(ref ids, false);
+                    if (values.Count < 4)
+                    {
+                        use.Card = card;
+                        use.Card.AddSubCard(ids[0]);
+                    }
+                }
+            }
+            else if (target != null)
+            {
+                KeyValuePair<Player, int> key = ai.GetCardNeedPlayer(player.GetCards("h"), new List<Player> { target });
+                if (key.Key != null && key.Value >= 0)
+                {
+                    use.Card = card;
+                    use.Card.AddSubCard(key.Value);
+                }
+            }
+        }
+
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
+        {
+            Player target = RoomLogic.FindPlayerBySkillName(ai.Room, Name);
+            return ai.IsEnemy(target) ? 4 : 0;
+        }
+    }
+
     public class RouxianAI : SkillEvent
     {
         public RouxianAI() : base("rouxian")
@@ -5573,6 +5701,43 @@ namespace SanguoshaServer.AI
 
             return players;
         }
+
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            Room room = ai.Room;
+            List<WrappedCard> result = new List<WrappedCard>();
+            List<int> ids = player.GetPile("revolt");
+            if (ids.Count > player.Hp)
+            {
+                WrappedCard xs = new WrappedCard(XiansiCard.ClassName);
+                xs.AddSubCard(ids[0]);
+                WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_xiansi" };
+                slash.UserString = RoomLogic.CardToString(room, xs);
+                slash.AddSubCard(ids[0]);
+                result.Add(slash);
+            }
+
+            return result;
+        }
+
+        public override List<WrappedCard> GetViewAsCards(TrustedAI ai, string pattern, Player player)
+        {
+            Room room = ai.Room;
+            List<WrappedCard> result = new List<WrappedCard>();
+            List<int> ids = player.GetPile("revolt");
+            if (pattern == Slash.ClassName && (room.GetRoomState().GetCurrentCardUseReason() == CardUseStruct.CardUseReason.CARD_USE_REASON_RESPONSE_USE
+                    || room.GetRoomState().GetCurrentCardUseReason() == CardUseStruct.CardUseReason.CARD_USE_REASON_PLAY) && ids.Count > player.Hp)
+            {
+                WrappedCard xs = new WrappedCard(XiansiCard.ClassName);
+                xs.AddSubCard(ids[0]);
+                WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_xiansi" };
+                slash.AddSubCard(ids[0]);
+                slash.UserString = RoomLogic.CardToString(room, xs);
+                result.Add(slash);
+            }
+
+            return result;
+        }
     }
 
     public class XiansiVSAI : SkillEvent
@@ -5594,6 +5759,8 @@ namespace SanguoshaServer.AI
                     xs.AddSubCard(ids[1]);
                     WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_xiansi" };
                     slash.UserString = RoomLogic.CardToString(room, xs);
+                    slash.AddSubCard(ids[0]);
+                    slash.AddSubCard(ids[1]);
                     result.Add(slash);
                 }
             }
@@ -5619,6 +5786,8 @@ namespace SanguoshaServer.AI
                         xs.AddSubCard(ids[1]);
                         WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_xiansi" };
                         slash.UserString = RoomLogic.CardToString(room, xs);
+                        slash.AddSubCard(ids[0]);
+                        slash.AddSubCard(ids[1]);
                         result.Add(slash);
                     }
                 }
