@@ -2379,11 +2379,11 @@ namespace SanguoshaServer.AI
                 foreach (Player p in room.GetOtherPlayers(player))
                     least = Math.Min(p.HandcardNum, least);
 
-                foreach (Player p in ai.FriendNoSelf)
-                {
-                    if (p.HandcardNum == least)
+
+                foreach (Player p in room.GetOtherPlayers(player))
+                    if (p.HandcardNum == least && ai.IsFriend(p))
                         return true;
-                }
+
                 return false;
             }
             else
@@ -2463,7 +2463,7 @@ namespace SanguoshaServer.AI
         { }
         public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
         {
-            if (ai.WillShowForAttack() && ai.FriendNoSelf.Count > 0 && !player.HasUsed(DimengCCard.ClassName))
+            if (ai.FriendNoSelf.Count > 0 && !player.HasUsed(DimengCCard.ClassName))
                 return new List<WrappedCard> { new WrappedCard(DimengCCard.ClassName) { Skill = Name, ShowSkill = Name } };
 
             return null;
