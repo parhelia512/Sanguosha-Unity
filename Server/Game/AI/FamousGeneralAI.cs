@@ -540,7 +540,7 @@ namespace SanguoshaServer.AI
         public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
         {
             List<WrappedCard> result = new List<WrappedCard>();
-            if (player.GetPile("quanji").Count > 0 && !player.HasUsed(PaiyiCard.ClassName))
+            if (player.GetPile("quanji").Count > 0 && (!player.HasFlag("paiyi_draw") || !player.HasFlag("paiyi_damage")))
             {
                 WrappedCard card = new WrappedCard(PaiyiCard.ClassName) { Skill = Name };
                 card.AddSubCard(player.GetPile("quanji")[0]);
@@ -549,6 +549,8 @@ namespace SanguoshaServer.AI
 
             return result;
         }
+
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data) => ai.Choice[Name];
     }
 
     public class PaiyiCardAI : UseCard
@@ -559,21 +561,52 @@ namespace SanguoshaServer.AI
         {
             if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use && player != ai.Self)
             {
-                Player target = use.To[0];
-                if (target.HandcardNum + 2 <= player.HandcardNum && player != target && ai.GetPlayerTendency(target) != "unknown")
-                    ai.UpdatePlayerRelation(player, target, true);
+                if (use.To.Count == 1 && player.HasFlag("paiyi_damage"))
+                    ai.UpdatePlayerRelation(player, use.To[0], true);
             }
         }
         public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
         {
+            int count = Math.Max(1, player.GetPile("quanji").Count);
+
+            double draw_value = 0, damage_value = 0;
+            List<ScoreStruct> scores = new List<ScoreStruct>();
+            if (!player.HasFlag("paiyi_draw"))
+            {
+                draw_value = count * 1.8;
+            }
+            else
+            {
+                Room room = ai.Room;
+                foreach (Player p in room.GetAlivePlayers())
+                {
+                    ScoreStruct score = ai.GetDamageScore(new DamageStruct("paiyi", player, p));
+                    score.Players = new List<Player> { p };
+                    if (score.Score > 0)
+                        scores.Add(score);
+                }
+                if (scores.Count > 0)
+                {
+                    scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+                    for (int i = 0; i < Math.Min(scores.Count, count); i++)
+                        damage_value += scores[i].Score;
+                }
+            }
             use.Card = card;
-            use.To.Add(player);
+            if (draw_value > damage_value)
+            {
+                ai.Choice["paiyi"] = "draw";
+                use.To.Add(player);
+            }
+            else
+            {
+                ai.Choice["paiyi"] = "damage";
+                for (int i = 0; i < Math.Min(scores.Count, count); i++)
+                    use.To.AddRange(scores[i].Players);
+            }
         }
 
-        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
-        {
-            return 6;
-        }
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 6;
     }
 
     public class ZuodingAI : SkillEvent

@@ -5965,15 +5965,13 @@ namespace SanguoshaServer.Package
     {
         public Quanji() : base("quanji")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventLoseSkill, TriggerEvent.Damaged, TriggerEvent.EventPhaseEnd };
+            events = new List<TriggerEvent> { TriggerEvent.EventLoseSkill, TriggerEvent.Damaged, TriggerEvent.CardsMoveOneTime };
             skill_type = SkillType.Masochism;
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == Name && player.GetPile(Name).Count > 0)
-            {
                 room.ClearOnePrivatePile(player, Name);
-            }
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
@@ -5985,9 +5983,11 @@ namespace SanguoshaServer.Package
                 };
                 return trigger;
             }
-            else if (triggerEvent == TriggerEvent.EventPhaseEnd && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play && player.HandcardNum > player.Hp)
+            else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.To != null && move.From != move.To
+                && base.Triggerable(move.From, room) && move.To_place == Place.PlaceHand && (move.From_places.Contains(Place.PlaceHand)
+                || move.From_places.Contains(Place.PlaceEquip)))
             {
-                return new TriggerStruct(Name, player);
+                return new TriggerStruct(Name, move.From);
             }
 
             return new TriggerStruct();
@@ -5995,9 +5995,9 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            if (room.AskForSkillInvoke(ask_who, Name, data, info.SkillPosition))
             {
-                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                 return info;
             }
 
@@ -6006,11 +6006,11 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player target, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.DrawCards(target, 1, Name);
-            if (target.Alive && !target.IsKongcheng())
+            room.DrawCards(ask_who, 1, Name);
+            if (ask_who.Alive && !ask_who.IsKongcheng())
             {
-                List<int> ids = room.AskForExchange(target, Name, 1, 1, "@quanji", string.Empty, ".", info.SkillPosition);
-                room.AddToPile(target, Name, ids, true);
+                List<int> ids = room.AskForExchange(ask_who, Name, 1, 1, "@quanji", string.Empty, ".", info.SkillPosition);
+                room.AddToPile(ask_who, Name, ids, true);
             }
 
             return false;
@@ -6075,17 +6075,33 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Paiyi : OneCardViewAsSkill
+    public class Paiyi : TriggerSkill
     {
         public Paiyi() : base("paiyi")
+        {
+            events.Add(TriggerEvent.EventPhaseChanging);
+            view_as_skill = new PaiyiVS();
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is PhaseChangeStruct change && change.From == PlayerPhase.Play)
+            {
+                player.SetFlags("-paiyi_draw");
+                player.SetFlags("-paiyi_damage");
+            }
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+
+    public class PaiyiVS : OneCardViewAsSkill
+    {
+        public PaiyiVS() : base("paiyi")
         {
             filter_pattern = ".|.|.|quanji";
             expand_pile = "quanji";
         }
-        public override bool IsEnabledAtPlay(Room room, Player player)
-        {
-            return player.GetPile("quanji").Count > 0 && !player.HasUsed(PaiyiCard.ClassName);
-        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => player.GetPile("quanji").Count > 0 && (!player.HasFlag("paiyi_draw") || !player.HasFlag("paiyi_damage"));
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {
             WrappedCard shun = new WrappedCard(PaiyiCard.ClassName)
@@ -6108,21 +6124,38 @@ namespace SanguoshaServer.Package
 
         public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
         {
-            return targets.Count == 0;
+            int count = Math.Max(1, !Self.HasFlag("paiyi_damage") ? Self.GetPile("quanji").Count - 1 : 0);
+            return targets.Count <= count - 1;
         }
-
-        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card)
-        {
-            return targets.Count == 1;
-        }
-
         public override void Use(Room room, CardUseStruct card_use)
         {
             Player player = card_use.From;
-            Player target = card_use.To[0];
-            room.DrawCards(target, new DrawCardStruct(2, player, "paiyi"));
-            if (target.Alive && player.Alive && target.HandcardNum > player.HandcardNum)
-                room.Damage(new DamageStruct("paiyi", player, target));
+
+            bool damage = card_use.To.Count > 1;
+            int count = Math.Max(1, player.GetPile("quanji").Count);
+            if (!damage)
+            {
+                Player target = card_use.To[0];
+                if (player.HasFlag("paiyi_draw") || (!player.HasFlag("paiyi_damage")
+                    && room.AskForChoice(player, "paiyi", "draw+damage", new List<string> { "@to-player:" + target.Name, "@paiyi:::" + count.ToString() }, target) == "damage"))
+                    damage = true;
+            }
+            
+            if (!damage)
+            {
+                player.SetFlags("paiyi_draw");
+                Player target = card_use.To[0];
+                room.DrawCards(target, new DrawCardStruct(count, player, "paiyi"));
+            }
+            else
+            {
+                player.SetFlags("paiyi_damage");
+                foreach (Player p in card_use.To)
+                {
+                    if (player.Alive && p.Alive)
+                        room.Damage(new DamageStruct("paiyi", player, p));
+                }
+            }
         }
     }
 
