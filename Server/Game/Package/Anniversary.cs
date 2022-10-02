@@ -292,6 +292,9 @@ namespace SanguoshaServer.Package
                 new Xiecui(),
                 new XiecuiMax(),
                 new Youxu(),
+                new Wanglu(),
+                new Xianzhu(),
+                new Chaixie(),
             };
 
             skill_cards = new List<FunctionCard>
@@ -17823,6 +17826,204 @@ namespace SanguoshaServer.Package
                     }
                 }
             }
+            return false;
+        }
+    }
+
+    public class Wanglu : TriggerSkill
+    {
+        public Wanglu() : base("wanglu")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.GameStart };
+            frequency = Frequency.Compulsory;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.GameStart && base.Triggerable(player, room))
+            {
+                foreach (int id in Engine.GetEngineCards())
+                {
+                    WrappedCard real_card = Engine.GetRealCard(id);
+                    if (real_card.Name == Breachingtower.ClassName && room.GetCard(id) == null)
+                    {
+                        room.AddNewCard(id);
+                        break;
+                    }
+                }
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Start && base.Triggerable(player, room))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(player, Name, true);
+            GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition);
+
+            if (!player.HasTreasure(Breachingtower.ClassName))
+            {
+                int breaching = -1;
+                foreach (int id in room.RoomCards)
+                {
+                    WrappedCard card = room.GetCard(id);
+                    if (card.Name == Breachingtower.ClassName)
+                    {
+                        breaching = id;
+                        break;
+                    }
+                }
+                if (breaching == -1) return false;
+
+                room.BroadcastSkillInvoke(Name, "male", 1, gsk.General, gsk.SkinId);
+
+                int equipped_id = -1;
+                if (player.GetTreasure())
+                    equipped_id = player.Weapon.Key;
+                List<CardsMoveStruct> exchangeMove = new List<CardsMoveStruct>();
+                if (equipped_id != -1)
+                {
+                    CardsMoveStruct move1 = new CardsMoveStruct(new List<int> { equipped_id }, player, Place.PlaceTable,
+                        new CardMoveReason(MoveReason.S_REASON_CHANGE_EQUIP, player.Name));
+                    exchangeMove.Add(move1);
+                    room.MoveCardsAtomic(exchangeMove, true);
+                }
+                CardsMoveStruct move2 = new CardsMoveStruct(new List<int> { breaching }, room.GetCardOwner(breaching), player, room.GetCardPlace(breaching),
+                                      Place.PlaceEquip, new CardMoveReason(MoveReason.S_REASON_PUT, player.Name, Name, string.Empty));
+                exchangeMove.Add(move2);
+                room.MoveCardsAtomic(exchangeMove, true);
+
+                LogMessage log = new LogMessage
+                {
+                    From = player.Name,
+                    Type = "$Install",
+                    Card_str = breaching.ToString()
+                };
+                room.SendLog(log);
+
+                if (equipped_id != -1)
+                {
+                    if (room.GetCardPlace(equipped_id) == Place.PlaceTable)
+                    {
+                        CardsMoveStruct move3 = new CardsMoveStruct(new List<int> { equipped_id }, null, Player.Place.DiscardPile,
+                           new CardMoveReason(MoveReason.S_REASON_CHANGE_EQUIP, player.Name));
+                        room.MoveCardsAtomic(new List<CardsMoveStruct> { move3 }, true);
+                    }
+                }
+            }
+            else
+            {
+                room.BroadcastSkillInvoke(Name, "male", 1, gsk.General, gsk.SkinId);
+                player.AddPhase(PlayerPhase.Play);
+            }
+
+            return false;
+        }
+    }
+
+    public class Xianzhu : TriggerSkill
+    {
+        public Xianzhu() : base("xianzhu")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.Damage };
+        }
+        
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && damage.Card != null && damage.Card.Name.Contains(Slash.ClassName)
+                && base.Triggerable(player, room) && player.GetMark(Breachingtower.ClassName) < 5)
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<string> choices = new List<string> { "target", "discard" };
+            if (player.GetMark("Breachingtower_ignore") == 0) choices.Add("ignore");
+            choices.Add("cancel");
+            string choice = room.AskForChoice(player, Name, string.Join("+", choices));
+            if (choice != "cancel")
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                room.NotifySkillInvoked(player, Name);
+                player.SetTag(Name, choice);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.GetTag(Name) is string choice)
+            {
+                player.RemoveTag(Name);
+                player.AddMark(Breachingtower.ClassName);
+                room.SetPlayerStringMark(player, Breachingtower.ClassName, player.GetMark(Breachingtower.ClassName).ToString());
+
+                LogMessage log = new LogMessage();
+                log.From = player.Name;
+                switch (choice)
+                {
+                    case "target":
+                        log.Type = "#xianzhu-target";
+                        room.SendLog(log);
+                        player.AddMark("Breachingtower_target");
+                        break;
+                    case "discard":
+                        log.Type = "#xianzhu-discard";
+                        room.SendLog(log);
+                        player.AddMark("Breachingtower_discard");
+                        break;
+                    default:
+                        log.Type = "#xianzhu-ignore";
+                        room.SendLog(log);
+                        player.AddMark("Breachingtower_ignore");
+                        break;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class Chaixie : TriggerSkill
+    {
+        public Chaixie() : base("chaixie")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime };
+            skill_type = SkillType.Replenish;
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.From_places.Contains(Place.PlaceEquip)
+                && move.From.GetMark("Breachingtower_draw") > 0)
+            {
+                bool invoke = false;
+                foreach (int id in move.Card_ids)
+                {
+                    if (room.GetCard(id).Name == Breachingtower.ClassName)
+                    {
+                        invoke = true;
+                        break;
+                    }
+                }
+                if (invoke) return new TriggerStruct(Name, move.From);
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int count = ask_who.GetMark("Breachingtower_draw");
+            ask_who.SetMark("Breachingtower_draw", 0);
+            room.DrawCards(ask_who, count, Name);
             return false;
         }
     }

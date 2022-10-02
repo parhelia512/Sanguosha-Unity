@@ -1303,10 +1303,12 @@ namespace SanguoshaServer.AI
 
             return new KeyValuePair<int, Player>(-1, null);
         }
-
+        
         public override List<int> OnDiscard(TrustedAI ai, Player player, List<int> ids, int min, int max, bool option)
         {
             List<int> to_discard = new List<int>();
+            ai.Number[Name] = -1;
+            ai.Target["qiaobian3"] = null;
             if (!ai.WillShowForAttack()) return to_discard;
             
             List<int> cards= player.GetCards("h");
@@ -1399,20 +1401,32 @@ namespace SanguoshaServer.AI
             }
             else if (phase == Player.PlayerPhase.Play && !player.IsSkipped(Player.PlayerPhase.Play))
             {
-                //cards= player.GetCards("h");
-                //ai.SortByKeepValue(ref cards, false);
-                //to_discard = new List<int>(cards[0]);
-
                 foreach (Player friend in ai.GetFriends(player))
                 {
-                    if (friend.JudgingArea.Count > 0 && CardForQiaobian(ai, friend).Key >= 0)
-                        return to_discard;
+                    if (friend.JudgingArea.Count > 0)
+                    {
+                        int id = CardForQiaobian(ai, friend).Key;
+                        if (id >= 0)
+                        {
+                            ai.Number[Name] = id;
+                            ai.Target["qiaobian3"] = friend;
+                            return to_discard;
+                        }
+                    }
                 }
 
                 foreach (Player friend in ai.FriendNoSelf)
                 {
-                    if (friend.HasEquip() && ai.HasSkill(TrustedAI.LoseEquipSkill, friend) && CardForQiaobian(ai, friend).Key >= 0)
-                        return to_discard;
+                    if (friend.HasEquip() && ai.HasSkill(TrustedAI.LoseEquipSkill, friend))
+                    {
+                        int id = CardForQiaobian(ai, friend).Key;
+                        if (id >= 0)
+                        {
+                            ai.Number[Name] = id;
+                            ai.Target["qiaobian3"] = friend;
+                            return to_discard;
+                        }
+                    }
                 }
 
                 cards= player.GetCards("h");
@@ -1432,8 +1446,13 @@ namespace SanguoshaServer.AI
                 if (top_value >= 3.7 && ai.GetTurnUse().Count > 0) return new List<int>();
                 foreach (Player p in ai.GetEnemies(player))
                 {
-                    if (CardForQiaobian(ai, p).Key > 0)
+                    int id = CardForQiaobian(ai, p).Key;
+                    if (id > 0)
+                    {
+                        ai.Number[Name] = id;
+                        ai.Target["qiaobian3"] = p;
                         return to_discard;
+                    }
                 }
             }
             else if (phase == Player.PlayerPhase.Discard && !player.IsSkipped(Player.PlayerPhase.Discard) && player.HandcardNum > RoomLogic.GetMaxCards(room, player) + 1)
@@ -1447,7 +1466,6 @@ namespace SanguoshaServer.AI
 
         public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
-            Player.PlayerPhase phase = (Player.PlayerPhase)player.GetMark("qiaobianPhase");
             CardUseStruct use = new CardUseStruct { From = player, Card = new WrappedCard(QiaobianCard.ClassName) { Mute = true, Skill = Name }, To = new List<Player>() };
             if (prompt == "@qiaobian-2" && ai.Target["qiaobian1"] != null && ai.Target["qiaobian2"] != null)
             {
@@ -1457,30 +1475,13 @@ namespace SanguoshaServer.AI
             }
             else
             {
-                foreach (Player friend in ai.GetFriends(player))
+                if (ai.Number[Name] >= 0 && ai.Target["qiaobian3"] != null)
                 {
-                    if (friend.JudgingArea.Count > 0 && CardForQiaobian(ai, friend).Key >= 0)
+                    Player to = CardForQiaobian(ai, ai.Target["qiaobian3"]).Value;
+                    if (to != null)
                     {
-                        use.To.Add(friend);
-                        return use;
-                    }
-                }
-                foreach (Player friend in ai.FriendNoSelf)
-                {
-                    if (friend.HasEquip() && ai.HasSkill(TrustedAI.LoseEquipSkill, friend) && CardForQiaobian(ai, friend).Key >= 0)
-                    {
-                        use.To.Add(friend);
-                        return use;
-                    }
-                }
-
-                List<Player> enemies = ai.GetEnemies(player);
-                ai.SortByDefense(ref enemies, false);
-                foreach (Player p in enemies)
-                {
-                    if (CardForQiaobian(ai, p).Key >= 0)
-                    {
-                        use.To.Add(p);
+                        use.To.Add(ai.Target["qiaobian3"]);
+                        use.To.Add(to);
                         return use;
                     }
                 }
@@ -1489,33 +1490,7 @@ namespace SanguoshaServer.AI
             return new CardUseStruct();
         }
 
-        public override List<int> OnCardsChosen(TrustedAI ai, Player from, Player to, string flags, int min, int max, List<int> disable_ids)
-        {
-            List<int> result = new List<int>();
-            if (flags == "ej")
-            {
-                int id = CardForQiaobian(ai, to).Key;
-                if (id >= 0)
-                    result.Add(id);
-            }
-
-            return null;
-        }
-
-        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> target, int min, int max)
-        {
-            List<Player> result = new List<Player>();
-            if (ai.Room.GetTag("QiaobianTarget") != null && ai.Room.GetTag("QiaobianTarget") is Player from)
-            {
-                Player to = CardForQiaobian(ai, from).Value;
-                if (to != null)
-                    result.Add(to);
-                else
-                    ai.Room.Debug("巧变3 AI出错");
-            }
-
-            return result;
-        }
+        public override int OnMoveStargeCard(TrustedAI ai, Player player, Player target1, Player target2, List<int> available) => ai.Number[Name] >= 0 ? (int)ai.Number[Name] : -1;
     }
 
     public class DuanliangAI : SkillEvent

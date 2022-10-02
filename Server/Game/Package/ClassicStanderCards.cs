@@ -26,6 +26,8 @@ namespace SanguoshaServer.Package
                 new Comb1Skill(),
                 new Comb2Skill(),
                 new Comb3Skill(),
+                new BreachingtowerSkill(),
+                new BreachingFix(),
             };
             cards = new List<FunctionCard> {
                 new ClassicBlade(),
@@ -41,12 +43,14 @@ namespace SanguoshaServer.Package
                 new Comb1(),
                 new Comb2(),
                 new Comb3(),
+                new Breachingtower(),
             };
 
             related_skills = new Dictionary<string, List<string>>
             {
                 { ClassicBlade.ClassName, new List<string> { "#blade-target-mod" } },
                 { QuenchedKnife.ClassName, new List<string> { "#QuenchedKnife-tm" } },
+                { Breachingtower.ClassName, new List<string> { "#Breachingtower" } },
             };
         }
     }
@@ -817,5 +821,169 @@ namespace SanguoshaServer.Package
             room.DrawCards(player, player.MaxHp - player.HandcardNum, Name);
             return false;
         }
+    }
+
+    //大攻车
+    public class Breachingtower : Treasure
+    {
+        public static string ClassName = "Breachingtower";
+        public Breachingtower() : base(ClassName) { }
+        public override void OnUninstall(Room room, Player player, WrappedCard card)
+        {
+            player.SetMark("Breachingtower_draw", player.GetMark(Name));
+            player.SetMark(Name, 0);
+            player.SetMark("Breachingtower_target", 0);
+            player.SetMark("Breachingtower_ignore", 0);
+            player.SetMark("Breachingtower_discard", 0);
+            room.RemovePlayerStringMark(player, Name);
+            base.OnUninstall(room, player, card);
+        }
+    }
+
+    public class BreachingtowerSkill : TreasureSkill
+    {
+        public BreachingtowerSkill() : base(Breachingtower.ClassName)
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.BeforeCardsMove,
+                TriggerEvent.Damage, TriggerEvent.CardTargetAnnounced, TriggerEvent.TargetChosen };
+            view_as_skill = new BreachingVS();
+            frequency = Frequency.Compulsory;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.BeforeCardsMove && data is CardsMoveOneTimeStruct move)
+            {
+                if (move.From != null && move.From_places.Contains(Player.Place.PlaceEquip) && move.To_pile_name != "#virtual_cards")
+                {
+                    int catapult = -1, card_index = -1;
+                    foreach (int id in move.Card_ids)
+                    {
+                        int index = move.Card_ids.IndexOf(id);
+                        if (move.From_places[index] == Player.Place.PlaceEquip && Engine.GetRealCard(id).Name == Name)
+                        {
+                            catapult = id;
+                            card_index = index;
+                            break;
+                        }
+                    }
+
+                    if (catapult > -1)
+                    {
+                        move.From_places.RemoveAt(card_index);
+                        move.Card_ids.Remove(catapult);
+                        if (move.Reason.Card != null)
+                        {
+                            List<int> subs = room.GetSubCards(move.Reason.Card);
+                            subs.RemoveAll(t => t == catapult);
+                        }
+                        data = move;
+
+                        Player holder = room.Players[0];
+                        room.AddToPile(holder, "#virtual_cards", catapult, false);
+                    }
+                }
+            }
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent ==  TriggerEvent.EventPhaseStart && player.Phase == Player.PlayerPhase.Play && base.Triggerable(player, room))
+                return new TriggerStruct(Name, player);
+            else if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use && use.Card.GetSkillName() == Name && player.GetMark("Breachingtower_target") > 0)
+                return new TriggerStruct(Name, player);
+            else if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct _use && _use.Card.GetSkillName() == Name && _use.To.Count > 0 && player.GetMark("Breachingtower_ignore") > 0)
+                return new TriggerStruct(Name, player, _use.To);
+            else if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && damage.Card != null && damage.Card.GetSkillName() == Name && player.Alive && !damage.Transfer
+                && !damage.Chain && damage.To.Alive && !damage.To.IsNude() && RoomLogic.CanDiscard(room, player, damage.To, "he"))
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            {
+                List<Player> targets = new List<Player>();
+                foreach (Player p in room.GetOtherPlayers(player))
+                {
+                    if (!use.To.Contains(p) && Slash.Instance.ExtratargetFilter(room, use.To, p, player, use.Card))
+                        targets.Add(p);
+                }
+
+                if (targets.Count > 0)
+                {
+                    room.SetTag("extra_target_skill", data);                   //for AI
+                    List<Player> players = room.AskForPlayersChosen(player, targets, Name, 0, player.GetMark("Breachingtower_target"),
+                        string.Format("@Breachingtower-extra:::{0}:{1}", use.Card.Name, player.GetMark("Breachingtower_target")), true, info.SkillPosition);
+                    room.RemoveTag("extra_target_skill");
+                    if (players.Count > 0)
+                    {
+                        room.NotifySkillInvoked(player, Name);
+                        LogMessage log = new LogMessage
+                        {
+                            Type = "$extra_target",
+                            From = player.Name,
+                            Card_str = RoomLogic.CardToString(room, use.Card),
+                            Arg = Name
+                        };
+                        log.SetTos(players);
+                        room.SendLog(log);
+
+                        use.To.AddRange(players);
+                        room.SortByActionOrder(ref use);
+                        data = use;
+                    }
+                }
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart)
+            {
+                WrappedCard card = room.AskForUseCard(player, FunctionCard.RespondType.Skill, "@@Breachingtower", "@Breachingtower", null, -1, FunctionCard.HandlingMethod.MethodUse);
+            }
+            else if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage)
+            {
+                int count = System.Math.Min(damage.To.GetCardCount(true), 1 + player.GetMark("Breachingtower_discard"));
+                List<string> patterns = new List<string>();
+                for (int i = 0; i < count; i++)
+                    patterns.Add("he^false^discard");
+
+                List<int> ids = room.AskForCardsChosen(player, damage.To, patterns, Name);
+                room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, damage.To.Name, Name, string.Empty), damage.To, player);
+            }
+            else if (data is CardUseStruct _use)
+            {
+                player.AddQinggangTag(RoomLogic.CardToString(room, _use.Card));
+                return false;
+            }
+
+            return false;
+        }
+    }
+
+    public class BreachingVS : ViewAsSkill
+    {
+        public BreachingVS() : base(Breachingtower.ClassName) { response_pattern = "@@Breachingtower"; }
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => false;
+        public override bool IsAvailable(Room room, Player invoker, CardUseStruct.CardUseReason reason, FunctionCard.RespondType respond, string pattern, string position = null) =>
+            reason == CardUseStruct.CardUseReason.CARD_USE_REASON_RESPONSE_USE && pattern == response_pattern;
+        public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
+        {
+            WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_Breachingtower" };
+            if (player.GetMark("Breachingtower_ignore") > 0)
+                slash.DistanceLimited = false;
+            List<WrappedCard> result = new List<WrappedCard> { slash };
+            return result;
+        }
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count == 1 && cards[0].IsVirtualCard())
+                return cards[0];
+            return null;
+        }
+    }
+
+    public class BreachingFix : FixCardSkill
+    {
+        public BreachingFix() : base("#Breachingtower") { }
+        public override bool IsCardFixed(Room room, Player from, Player to, string flags, FunctionCard.HandlingMethod method) => method == FunctionCard.HandlingMethod.MethodDiscard
+            && to != null && to.Treasure.Value == Breachingtower.ClassName && flags.Contains("t") && to.GetMark(Breachingtower.ClassName) == 0;
     }
 }

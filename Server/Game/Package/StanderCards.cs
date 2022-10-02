@@ -2076,16 +2076,9 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            CardUseStruct use = (CardUseStruct)data;
-            if (!base.Triggerable(player, room))
-                return new TriggerStruct();
+            if (base.Triggerable(player, room) && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && use.To.Count > 0)
+                return new TriggerStruct(Name, player, use.To);
 
-            if (use.Card != null)
-            {
-                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                if (fcard is Slash && use.To.Count > 0)
-                    return new TriggerStruct(Name, player, use.To);
-            }
             return new TriggerStruct();
         }
 

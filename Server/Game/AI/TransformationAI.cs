@@ -972,29 +972,29 @@ namespace SanguoshaServer.AI
             return null;
         }
 
-        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> target, int min, int max)
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
-            if (player.HasFlag(Name))
+            CardUseStruct use = new CardUseStruct(new WrappedCard("YongjinCard") { Mute = true, Skill = Name, ShowSkill = Name }, player, new List<Player>());
+
+            ai.Target[Name] = null;
+            ai.Choice[Name] = string.Empty;
+            Player p = FindTarget(ai, player);
+            if (p != null && ai.Target[Name] != null)
             {
-                ai.Target[Name] = null;
-                ai.Choice[Name] = string.Empty;
-                Player p = FindTarget(ai, player);
-                if (p != null) return new List<Player> { p };
-            }
-            else if (ai.Target[Name] != null)
-            {
-                return new List<Player> { ai.Target[Name] };
+                use.To.Add(p);
+                use.To.Add(ai.Target[Name]);
+                return use;
             }
 
-            return null;
+            return new CardUseStruct();
         }
 
-        public override List<int> OnCardsChosen(TrustedAI ai, Player from, Player to, string flags, int min, int max, List<int> disable_ids)
+        public override int OnMoveStargeCard(TrustedAI ai, Player player, Player target1, Player target2, List<int> available)
         {
-            if (!string.IsNullOrEmpty(ai.Choice[Name]) && int.TryParse(ai.Choice[Name], out int id) && !disable_ids.Contains(id))
-                return new List<int> { id };
+            if (!string.IsNullOrEmpty(ai.Choice[Name]) && int.TryParse(ai.Choice[Name], out int id) && available.Contains(id))
+                return id;
 
-            return new List<int>();
+            return -1;
         }
     }
 
@@ -1007,6 +1007,7 @@ namespace SanguoshaServer.AI
             Room room = ai.Room;
             int count = 0;
             Dictionary<Player, List<int>> player_location = new Dictionary<Player, List<int>>();
+            List<Player> targets = new List<Player>();
             foreach (Player p in room.GetAlivePlayers())
             {
                 foreach (int id in p.GetEquips())
@@ -1021,6 +1022,11 @@ namespace SanguoshaServer.AI
                             if (ai.IsFriend(_p) && RoomLogic.CanPutEquip(_p, room.GetCard(id)) && ai.GetSameEquip(room.GetCard(id), _p) == null
                                 && (!player_location.ContainsKey(_p) || !player_location[_p].Contains(location)))
                             {
+                                if (count == 0)
+                                {
+                                    targets.Add(p);
+                                    targets.Add(_p);
+                                }
                                 count++;
                                 List<int> locations = player_location.ContainsKey(_p) ? new List<int>(player_location[_p]) : new List<int>();
                                 locations.Add(location);
@@ -1035,11 +1041,11 @@ namespace SanguoshaServer.AI
                     if (count >= 3)
                     {
                         use.Card = card;
+                        use.To = targets;
                         return;
                     }
                 }
             }
-            
         }
     }
 

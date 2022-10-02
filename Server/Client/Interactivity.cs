@@ -124,6 +124,7 @@ namespace SanguoshaServer
             callbacks[CommandType.S_COMMAND_SKILL_MOVECARDS] = new Action<List<string>>(OnGuanxingRespond);
             callbacks[CommandType.S_COMMAND_SKILL_SORTCARDS] = new Action<List<string>>(OnSortCardRespond);
             callbacks[CommandType.S_COMMAND_GENERAL_PICK] = new Action<List<string>>(OnGeneralPickRespond);
+            callbacks[CommandType.S_COMMAND_STAGE_CARD_MOVE] = new Action<List<string>>(OnMoveStageCardRespond);
         }
 
         public bool ControlGame(MyData data)
@@ -606,6 +607,7 @@ namespace SanguoshaServer
             skill_invoke = write_step;
             hightlight_skill = reason;
             skill_owner = player;
+            ok_enable = false;
             cancel_able = can_refuse;
             cancel_enable = can_refuse;
             this.max_num = max_num;
@@ -630,7 +632,7 @@ namespace SanguoshaServer
 
             Operate arg = GetPacket2Client(true);
             m_do_request = false;
-            return room.DoRequest(player, CommandType.S_COMMAND_SKILL_MOVECARDS, new List<string> { JsonUntity.Object2Json(arg) }, true);
+            return room.DoRequest(player, ExpectedReplyCommand, new List<string> { JsonUntity.Object2Json(arg) }, true);
         }
         public bool SortCardRequest(Room room, Player player, string reason, List<int> cards, bool visible, string position)
         {
@@ -658,16 +660,97 @@ namespace SanguoshaServer
             available_head_skills.Clear();
             available_deputy_skills.Clear();
             available_equip_skills.Clear();
-
-            guanxing.Moves = new List<int>(cards);
-            guanxing.Top = new List<int>();
-            guanxing.Bottom = new List<int>();
-            guanxing.Success = false;
+            
             ex_information = new List<string> { JsonUntity.Object2Json(cards), string.Empty, string.Empty };
+            Operate arg = GetPacket2Client(true);
+            m_do_request = false;
+            return room.DoRequest(player, ExpectedReplyCommand, new List<string> { JsonUntity.Object2Json(arg) }, true);
+        }
+
+        public bool MoveStargeCardRequest(Room room, Player player, string reason, Player target1, Player target2, List<int> cards, StageArea area, bool can_refuse, string position)
+        {
+            this.room = room;
+            ExpectedReplyCommand = CommandType.S_COMMAND_STAGE_CARD_MOVE;
+            requestor = player;
+            move_card_visible = false;
+            m_do_request = true;
+            skill_position = position;
+            pending_skill = null;
+            skill_invoke = false;
+            hightlight_skill = reason;
+            skill_owner = player;
+            cancel_able = can_refuse;
+            cancel_enable = can_refuse;
+
+            available_cards.Clear();
+            guhuo_cards.Clear();
+            selected_cards.Clear();
+            prepends.Clear();
+            appends.Clear();
+            selected_guhuo = null;
+            available_targets.Clear();
+            selected_targets.Clear();
+            available_head_skills.Clear();
+            available_deputy_skills.Clear();
+            available_equip_skills.Clear();
+
+            List<int> p1_cards = new List<int>(), p2_cards = new List<int>();
+            if (area == StageArea.Both || area == StageArea.Equip)
+            {
+                p1_cards.Add(target1.Weapon.Key);
+                p1_cards.Add(target1.Armor.Key);
+                p1_cards.Add(target1.OffensiveHorse.Key);
+                p1_cards.Add(target1.DefensiveHorse.Key);
+                p1_cards.Add(target1.Treasure.Key);
+                if (target1.GetSpecialEquip()) p1_cards[2] = target1.Special.Key;
+
+                p2_cards.Add(target2.Weapon.Key);
+                p2_cards.Add(target2.Armor.Key);
+                p2_cards.Add(target2.OffensiveHorse.Key);
+                p2_cards.Add(target2.DefensiveHorse.Key);
+                p2_cards.Add(target2.Treasure.Key);
+                if (target1.GetSpecialEquip()) p1_cards[2] = target1.Special.Key;
+            }
+            if (area == StageArea.Both || area == StageArea.Judge)
+            {
+                int light = -1, supply = -1, indu = -1;
+                foreach (int id in target1.GetCards("j"))
+                {
+                    WrappedCard card = room.GetCard(id);
+                    if (card.Name == Lightning.ClassName)
+                        light = id;
+                    else if (card.Name == SupplyShortage.ClassName)
+                        supply = id;
+                    else
+                        indu = id;
+                }
+                p1_cards.Add(light);
+                p1_cards.Add(supply);
+                p1_cards.Add(indu);
+                
+                light = -1;
+                supply = -1;
+                indu = -1;
+                foreach (int id in target2.GetCards("j"))
+                {
+                    WrappedCard card = room.GetCard(id);
+                    if (card.Name == Lightning.ClassName)
+                        light = id;
+                    else if (card.Name == SupplyShortage.ClassName)
+                        supply = id;
+                    else
+                        indu = id;
+                }
+                p2_cards.Add(light);
+                p2_cards.Add(supply);
+                p2_cards.Add(indu);
+            }
+
+            ex_information = new List<string> { target1.Name, target2.Name, JsonUntity.Object2Json(p1_cards), JsonUntity.Object2Json(p2_cards), JsonUntity.Object2Json(cards), area.ToString() };
 
             Operate arg = GetPacket2Client(true);
             m_do_request = false;
-            return room.DoRequest(player, CommandType.S_COMMAND_SKILL_SORTCARDS, new List<string> { JsonUntity.Object2Json(arg) }, true);
+            return room.DoRequest(player, ExpectedReplyCommand, new List<string> { JsonUntity.Object2Json(arg) }, true);
         }
 
         private void CheckMoveCards()
@@ -1550,6 +1633,10 @@ namespace SanguoshaServer
                 {
                     packet.AddRange(ClientReply);
                 }
+                else if (type == CommandType.S_COMMAND_STAGE_CARD_MOVE)
+                {
+                    packet.AddRange(ClientReply);
+                }
             }
 
             viewas_card = null;
@@ -1813,6 +1900,33 @@ namespace SanguoshaServer
             if (error)
             {
                 room.Debug(string.Format("request type: {0} got error message {1}", ExpectedReplyCommand.ToString(), JsonUntity.Object2Json(args)));
+            }
+
+            mutex.ReleaseMutex();
+        }
+
+        private void OnMoveStageCardRespond(List<string> args)
+        {
+            mutex.WaitOne();
+            RequestType type = (RequestType)Enum.Parse(typeof(RequestType), args[0]);
+            bool error = false;
+
+            if (type == RequestType.S_REQUEST_CARD && args.Count == 2 && int.TryParse(args[1], out int card) && card >= 0)
+            {
+                ClientReply = new List<string> { args[1] };
+                Reply2Server(true);
+            }
+            else if (type == RequestType.S_REQUEST_SYS_BUTTON && args.Count == 2 && cancel_able && bool.TryParse(args[1], out bool confirm) && !confirm)
+            {
+                Reply2Server(confirm);
+            }
+            else
+                error = true;
+
+            if (error)
+            {
+                room.Debug(string.Format("request type: {0} got error message {1}", ExpectedReplyCommand.ToString(), JsonUntity.Object2Json(args)));
+                GetPacket2Client(false);
             }
 
             mutex.ReleaseMutex();

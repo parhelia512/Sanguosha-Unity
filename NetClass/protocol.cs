@@ -98,6 +98,12 @@ namespace CommonClassLibrary
         GameNotification
     }
 
+    public enum StageArea
+    {
+        Equip,
+        Judge,
+        Both,
+    }
     public enum ProcessInstanceType
     {
         S_SERVER_INSTANCE,
@@ -243,6 +249,7 @@ namespace CommonClassLibrary
         S_COMMAND_UPDATE_CARD_FOOTNAME,
         S_COMMAND_SHOWDISTANCE,
         S_COMMAND_GENERAL_PICK,
+        S_COMMAND_STAGE_CARD_MOVE,
     };
 
     public enum GameEventType

@@ -27,9 +27,7 @@ namespace SanguoshaServer.Game
     {
         public Client Host { get; private set; }
         public Player Current { get; private set; }
-
         public List<Player> GetAlivePlayers() => new List<Player>(_alivePlayers);
-
         public List<Client> Clients { get; private set; } = new List<Client>();
         public List<Player> Players => new List<Player>(m_players);
         public RoomThread RoomThread { get; private set; }
@@ -57,7 +55,6 @@ namespace SanguoshaServer.Game
         public string PreWinner { private set; get; }
         public GameHall Hall { get; private set; }
         public ConcurrentDictionary<Interactivity, bool> Surrender = new ConcurrentDictionary<Interactivity, bool>();
-
         private Thread thread;
         private Dictionary<Player, Client> player_client = new Dictionary<Player, Client>();
         private Dictionary<Player, TrustedAI> player_ai = new Dictionary<Player, TrustedAI>();
@@ -91,6 +88,7 @@ namespace SanguoshaServer.Game
         private Player _m_raceWinner;
         //private Client _m_raceClientWinner;
         private Player _m_AIraceWinner;
+        
         public Room(GameHall hall, int room_id, Client host, GameSetting setting)
         {
             this.Hall = hall;
@@ -10168,6 +10166,136 @@ namespace SanguoshaServer.Game
                 Success = success
             };
             return returns;
+        }
+
+        public int AskforMoveStageCard(Player chooser, string skill_name, Player target1, Player target2, StageArea area, bool can_refuse, string position)
+        {
+            int card_id = -1;
+            NotifyMoveFocus(chooser, CommandType.S_COMMAND_CHOOSE_CARD);
+            Thread.Sleep(300);
+
+            List<int> available = GetStageMoveCards(target1, target2, area);
+            if (available.Count == 1)
+            {
+                card_id = available[0];
+            }
+            else
+            {
+                TrustedAI ai = GetAI(chooser);
+                if (ai != null)
+                {
+                    Thread.Sleep(500);
+                    card_id = ai.AskForMoveStageCard(chooser, skill_name, target1, target2, available, can_refuse);
+                    if (!available.Contains(card_id)) card_id = -1;
+                    if (card_id == -1 && !can_refuse)
+                    {
+                        Shuffle.shuffle(ref available);
+                        card_id = available[0];
+                    }
+                }
+                else
+                {
+                    Interactivity client = GetInteractivity(chooser);
+                    bool success = false;
+                    if (client != null)
+                        success = client.MoveStargeCardRequest(this, chooser, skill_name, target1, target2, available, area, can_refuse, position);
+                    
+                    List<string> clientReply = client?.ClientReply;
+                    if (!success || clientReply == null || clientReply.Count != 1 || !int.TryParse(clientReply[0], out int replay_id))
+                    {
+                        Shuffle.shuffle(ref available);
+                        card_id = available[0];
+                    }
+                    else
+                    {
+                        card_id = replay_id;
+                    }
+                }
+            }
+            DoBroadcastNotify(CommandType.S_COMMAND_UNKNOWN, new List<string> { false.ToString() });
+
+            if (card_id != -1)
+            {
+                string flag = area == StageArea.Both ? "ej" : area == StageArea.Equip ? "e" : "j";
+                List<int> cards = target1.GetCards(flag);
+                Player from = cards.Contains(card_id) ? target1 : target2;
+                Player to = from == target1 ? target2 : target1;
+                object decisionData = string.Format("stageCard:{0}:{1}:{2}:{3}", skill_name, card_id, from.Name, to.Name);
+                RoomThread.Trigger(TriggerEvent.ChoiceMade, this, chooser, ref decisionData);
+            }
+
+            return card_id;
+        }
+
+        public List<int> GetStageMoveCards(Player from, Player to, StageArea area)
+        {
+            List<int> available = new List<int>();
+            string flag = area == StageArea.Both ? "ej" : area == StageArea.Equip ? "e" : "j";
+            foreach (int id in from.GetCards(flag))
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(GetCard(id).Name);
+                if (fcard is EquipCard equip)
+                {
+                    int equip_index = (int)equip.EquipLocation();
+                    if (to.CanPutEquip(equip_index) && to.GetEquip(equip_index) == -1)
+                        available.Add(id);
+                }
+                else if (to.JudgingAreaAvailable && !RoomLogic.PlayerContainsTrick(this, to, GetCard(id).Name) && RoomLogic.IsProhibited(this, null, to, GetCard(id)) == null)
+                {
+                    available.Add(id);
+                }
+            }
+            foreach (int id in to.GetCards(flag))
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(GetCard(id).Name);
+                if (fcard is EquipCard equip)
+                {
+                    int equip_index = (int)equip.EquipLocation();
+                    if (from.CanPutEquip(equip_index) && from.GetEquip(equip_index) == -1)
+                        available.Add(id);
+                }
+                else if (from.JudgingAreaAvailable && !RoomLogic.PlayerContainsTrick(this, from, GetCard(id).Name) && RoomLogic.IsProhibited(this, null, from, GetCard(id)) == null)
+                {
+                    available.Add(id);
+                }
+            }
+
+            return available;
+        }
+
+        public bool CheckStageCardMove(Player from, Player to, StageArea area)
+        {
+            string flag = area == StageArea.Both ? "ej" : area == StageArea.Equip ? "e" : "j";
+            foreach (int id in from.GetCards(flag))
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(GetCard(id).Name);
+                if (fcard is EquipCard equip)
+                {
+                    int equip_index = (int)equip.EquipLocation();
+                    if (to.CanPutEquip(equip_index) && to.GetEquip(equip_index) == -1)
+                        return true;
+                }
+                else if (to.JudgingAreaAvailable && !RoomLogic.PlayerContainsTrick(this, to, GetCard(id).Name) && RoomLogic.IsProhibited(this, null, to, GetCard(id)) == null)
+                {
+                    return true;
+                }
+            }
+            foreach (int id in to.GetCards(flag))
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(GetCard(id).Name);
+                if (fcard is EquipCard equip)
+                {
+                    int equip_index = (int)equip.EquipLocation();
+                    if (from.CanPutEquip(equip_index) && from.GetEquip(equip_index) == -1)
+                        return true;
+                }
+                else if (from.JudgingAreaAvailable && !RoomLogic.PlayerContainsTrick(this, from, GetCard(id).Name) && RoomLogic.IsProhibited(this, null, from, GetCard(id)) == null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public void HideGeneral(Player player, bool head_general)

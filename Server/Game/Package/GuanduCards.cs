@@ -108,7 +108,7 @@ namespace SanguoshaServer.Package
                 if (damage.To.GetArmor()) ids.Add(damage.To.Armor.Key);
                 if (damage.To.GetDefensiveHorse()) ids.Add(damage.To.DefensiveHorse.Key);
 
-                room.ThrowCard(ref ids, damage.To, player, Name);
+                room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, damage.To.Name, Name, string.Empty), damage.To, player);
             }
 
             return false;

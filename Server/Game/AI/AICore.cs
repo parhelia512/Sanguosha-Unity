@@ -53,6 +53,7 @@ namespace SanguoshaServer.AI
         public virtual WrappedCard OnPindian(TrustedAI ai, Player requestor, List<Player> players) => null;
         public virtual Player OnYiji(TrustedAI ai, Player player, List<int> ids, ref int id) => null;
         public virtual List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile) => new List<int>();
+        public virtual int OnMoveStargeCard(TrustedAI ai, Player player, Player target1, Player target2, List<int> available) => -1;
 
         //在判断use value 和 keep value时的分数调整
         public virtual double CardValue(TrustedAI ai, Player player, WrappedCard card, bool isUse, Player.Place place) => 0;

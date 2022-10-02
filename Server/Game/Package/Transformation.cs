@@ -1578,95 +1578,40 @@ namespace SanguoshaServer.Package
     }
     public class YongjinCard : SkillCard
     {
-        public YongjinCard() : base("YongjinCard")
+        public YongjinCard() : base("YongjinCard") {}
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
         {
-            target_fixed = true;
+            if (targets.Count == 0)
+                return true;
+            else if (targets.Count == 1)
+                return room.CheckStageCardMove(targets[0], to_select, StageArea.Equip);
+            return false;
         }
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card) => targets.Count == 2;
         public override void OnUse(Room room, CardUseStruct card_use)
         {
-            room.SetPlayerMark(card_use.From, "@yong", 0);
-            room.BroadcastSkillInvoke("yongjin", card_use.From, card_use.Card.SkillPosition);
-            room.DoSuperLightbox(card_use.From, card_use.Card.SkillPosition, "yongjin");
+            if (card_use.From.GetMark("@yong") > 0)
+            {
+                room.SetPlayerMark(card_use.From, "@yong", 0);
+                room.BroadcastSkillInvoke("yongjin", card_use.From, card_use.Card.SkillPosition);
+                room.DoSuperLightbox(card_use.From, card_use.Card.SkillPosition, "yongjin");
+            }
             base.OnUse(room, card_use);
         }
         public override void Use(Room room, CardUseStruct card_use)
         {
-            int n = 3;
-            List<Player> targets = new List<Player>();
-            foreach (Player p in room.GetAlivePlayers())
-        if (CanTransfer(room, p).Count > 0)
-                targets.Add(p);
-
+            card_use.From.AddMark("yongjin");
             string position = card_use.Card.SkillPosition;
-            while (n > 0 && targets.Count > 0)
+            int card_id = room.AskforMoveStageCard(card_use.From, "yongjin", card_use.To[0], card_use.To[1], StageArea.Equip, false, position);
+            if (card_id >= 0)
             {
-                card_use.From.SetFlags("yongjin");     //for ai
-                Player target = room.AskForPlayerChosen(card_use.From, targets, "yongjin", "@yongjin", true, false, position);
-                card_use.From.SetFlags("-yongjin");     //for ai
-                int card_id = -1;
-                if (target != null)
-                {
-                    List<int> available_cards = CanTransfer(room, target);
-                    List<int> disable_ids = new List<int>();
-                    foreach (int id in target.GetEquips()) {
-                        if (!available_cards.Contains(id))
-                            disable_ids.Add(id);
-                    }
-
-                    card_id = room.AskForCardChosen(card_use.From, target, "e", "yongjin", false, HandlingMethod.MethodNone, disable_ids);
-                }
-
-                if (card_id >= 0)
-                {
-                    WrappedCard card = room.GetCard(card_id);
-                    int equip_index = -1;
-                    EquipCard equip = (EquipCard)(Engine.GetFunctionCard(card.Name));
-                    equip_index = (int)equip.EquipLocation();
-
-                    List<Player> tos = new List<Player>();
-                    foreach (Player p in room.GetOtherPlayers(target)) {
-                        if (p.GetEquip(equip_index) == -1)
-                            tos.Add(p);
-                    }
-
-                    room.SetTag("YongjinTarget", target);     //for ai
-                    Player to = room.AskForPlayerChosen(card_use.From, tos, "yongjin", "@yongjin-to:::" + card.Name, false, true, position);
-                    room.RemoveTag("YongjinTarget");
-                    if (to != null)
-                    {
-                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, target.Name, to.Name);
-
-                        room.MoveCardTo(card, target, to, Place.PlaceEquip,
-                            new CardMoveReason(MoveReason.S_REASON_TRANSFER, card_use.From.Name, "yongjin", null));
-                    }
-                }
-                else
-                    break;
-
-                --n;
-                targets.Clear();
-                foreach (Player p in room.GetAlivePlayers())
-            if (CanTransfer(room, p).Count > 0)
-                    targets.Add(p);
+                Player from = card_use.To[0].GetCards("e").Contains(card_id) ? card_use.To[0] : card_use.To[1];
+                Player to = from == card_use.To[0] ? card_use.To[1] : card_use.To[0];
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, from.Name, to.Name);
+                room.MoveCardTo(room.GetCard(card_id), from, to, Place.PlaceEquip, new CardMoveReason(MoveReason.S_REASON_TRANSFER, card_use.From.Name, "yongjin", null));
             }
-            card_use.From.SetFlags("-yongjin");
-        }
-        List<int> CanTransfer(Room room, Player player)
-        {
-            List<int> cards = new List<int>();
-            if (player.GetEquips().Count > 0)
-            {
-                foreach (Player p in room.GetOtherPlayers(player)) {
-                    foreach (int id in player.GetEquips()) {
-                        WrappedCard card = room.GetCard(id);
-                        EquipCard equip = (EquipCard)(Engine.GetFunctionCard(card.Name));
-                        int equip_index = (int)equip.EquipLocation();
-                        if (p.GetEquip(equip_index) == -1 && !cards.Contains(id))
-                            cards.Add(id);
-                    }
-                }
-            }
-            return cards;
+            if (card_use.From.Alive && card_use.From.GetMark("yongjin") < 3)
+                room.AskForUseCard(card_use.From, RespondType.Skill, "@@yongjin", "@yongjin", null, -1, HandlingMethod.MethodUse, true, position);
         }
     }
     public class Yongjin : ZeroCardViewAsSkill
@@ -1675,6 +1620,7 @@ namespace SanguoshaServer.Package
         {
             frequency = Frequency.Limited;
             limit_mark = "@yong";
+            response_pattern = "@@yongjin";
         }
         public override WrappedCard ViewAs(Room room, Player player)
         {

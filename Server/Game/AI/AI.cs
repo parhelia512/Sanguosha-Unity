@@ -6717,5 +6717,20 @@ namespace SanguoshaServer.AI
             else
                 return room.ForceToExchange(self, min_num, pattern, expand_pile);
         }
+        public virtual int AskForMoveStageCard(Player requestor, string reason, Player target1, Player target2, List<int> available, bool can_refuse)
+        {
+            SkillEvent e = Engine.GetSkillEvent(reason);
+            if (e != null)
+            {
+                int card_id = e.OnMoveStargeCard(this, requestor, target1, target2, available);
+                if (card_id >= 0 && available.Contains(card_id))
+                    return card_id;
+            }
+
+            if (can_refuse)
+                return -1;
+            else
+                return available[0];
+        }
     }
 }

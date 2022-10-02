@@ -986,7 +986,7 @@ namespace SanguoshaServer.Package
             if (phase == PlayerPhase.Draw)
                 return targets.Count <= 2 && targets.Count > 0;
             else if (phase == PlayerPhase.Play)
-                return targets.Count == 1;
+                return targets.Count == 2;
             return false;
         }
         public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard qiaobian)
@@ -996,30 +996,10 @@ namespace SanguoshaServer.Package
                 return targets.Count < 2 && to_select != Self && RoomLogic.CanGetCard(room, Self, to_select, "h");
             else if (phase == PlayerPhase.Play)
             {
-                if (targets.Count > 0)
-                    return false;
-                foreach (WrappedCard card in RoomLogic.GetPlayerEquips(room, to_select))
-                {
-                    FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                    EquipCard equip = (EquipCard)fcard;
-
-                    int equip_index = (int)equip.EquipLocation();
-                    foreach (Player p in room.GetAlivePlayers())
-                    {
-                        if (p == to_select) continue;
-                        if (p.GetEquip(equip_index) < 0)
-                            return true;
-                    }
-                }
-                foreach (WrappedCard card in RoomLogic.GetPlayerJudgingArea(room, to_select))
-                {
-                    foreach (Player p in room.GetAlivePlayers())
-                    {
-                        if (p == to_select) continue;
-                        if (!RoomLogic.PlayerContainsTrick(room, p, card.Name))
-                            return true;
-                    }
-                }
+                if (targets.Count == 0)
+                    return true;
+                else if (targets.Count == 1)
+                    return room.CheckStageCardMove(targets[0], to_select, StageArea.Both);
             }
             return false;
         }
@@ -1057,57 +1037,24 @@ namespace SanguoshaServer.Package
             }
             else if (phase == PlayerPhase.Play)
             {
-                if (targets.Count == 0)
-                    return;
-
-                Player from = targets[0];
-                if (from.GetCards("ej").Count == 0)
-                    return;
-
-                room.SetTag("QiaobianTarget", from);
-                int card_id = room.AskForCardChosen(card_use.From, from, "ej", "qiaobian");
-                WrappedCard card = room.GetCard(card_id);
+                int card_id = room.AskforMoveStageCard(card_use.From, "qiaobian", card_use.To[0], card_use.To[1], StageArea.Both, false, card_use.Card.SkillPosition);
+                Player from = card_use.To[0].GetCards("ej").Contains(card_id) ? card_use.To[0] : card_use.To[1];
+                Player to = from == card_use.To[0] ? card_use.To[1] : card_use.To[0];
                 Place place = room.GetCardPlace(card_id);
 
-                FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                int equip_index = -1;
-                if (place == Place.PlaceEquip)
+                if ((place == Place.PlaceDelayedTrick && from != card_use.From) || (place == Place.PlaceEquip && to != card_use.From))
                 {
-                    EquipCard equip = (EquipCard)fcard;
-                    equip_index = (int)equip.EquipLocation();
+                    ResultStruct result = card_use.From.Result;
+                    result.Assist++;
+                    card_use.From.Result = result;
                 }
 
-                List<Player> tos = new List<Player>();
-                foreach (Player p in room.GetAlivePlayers())
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, from.Name, to.Name);
+                CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_TRANSFER, card_use.From.Name, "qiaobian", null)
                 {
-                    if (equip_index != -1)
-                    {
-                        if (p.GetEquip(equip_index) < 0 && RoomLogic.CanPutEquip(p, card))
-                            tos.Add(p);
-                    }
-                    else if (RoomLogic.IsProhibited(room, null, p, card) == null && !RoomLogic.PlayerContainsTrick(room, p, card.Name) && p.JudgingAreaAvailable)
-                            tos.Add(p);
-                }
-
-                string position = card_use.Card.SkillPosition;
-                Player to = room.AskForPlayerChosen(card_use.From, tos, "qiaobian", "@qiaobian-to:::" + card.Name, false, false, position);
-                if (to != null)
-                {
-                    if ((place == Place.PlaceDelayedTrick && from != card_use.From) || (place == Place.PlaceEquip && to != card_use.From))
-                    {
-                        ResultStruct result = card_use.From.Result;
-                        result.Assist++;
-                        card_use.From.Result = result;
-                    }
-
-                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, from.Name, to.Name);
-                    CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_TRANSFER, card_use.From.Name, "qiaobian", null)
-                    {
-                        Card = card
-                    };
-                    room.MoveCardTo(card, from, to, place, reason);
-                }
-                room.RemoveTag("QiaobianTarget");
+                    Card = room.GetCard(card_id)
+                };
+                room.MoveCardTo(room.GetCard(card_id), from, to, place, reason);
             }
         }
     }
