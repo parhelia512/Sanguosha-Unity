@@ -801,7 +801,7 @@ namespace SanguoshaServer.Package
             {
                 WrappedCard card = room.GetCard(card_use.Card.GetEffectiveId());
                 if (card_use.From.Alive)
-                    room.ObtainCard(from, card, new CardMoveReason(MoveReason.S_REASON_RECYCLE, card_use.From.Name, from.Name, "yingshi", string.Empty));
+                    room.ObtainCard(card_use.From, card, new CardMoveReason(MoveReason.S_REASON_RECYCLE, card_use.From.Name, from.Name, "yingshi", string.Empty));
                 else
                     room.MoveCardTo(card, null, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, card_use.From.Name, "yingshi", string.Empty));
             }
@@ -4066,8 +4066,20 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (data is CardsMoveOneTimeStruct move && move.From_places.Contains(Place.PlaceHand) && (move.Reason.Reason == MoveReason.S_REASON_USE || move.Reason.Reason == MoveReason.S_REASON_LETUSE)
-                && move.Card_ids.Count == 1 && WrappedCard.IsRed(room.GetCard(move.Card_ids[0]).Suit) && move.Is_last_handcard && base.Triggerable(move.From, room))
-                return new TriggerStruct(Name, move.From);
+                && move.Card_ids.Count == 1 && WrappedCard.IsRed(room.GetCard(move.Card_ids[0]).Suit) && base.Triggerable(move.From, room))
+            {
+                bool check = true;
+                foreach (int id in player.GetCards("h"))
+                {
+                    if (WrappedCard.IsRed(room.GetCard(id).Suit))
+                    {
+                        check = false;
+                        break;
+                    }
+                }
+                
+                if (check) return new TriggerStruct(Name, move.From);
+            }
             return new TriggerStruct();
         }
 
@@ -4092,15 +4104,17 @@ namespace SanguoshaServer.Package
     {
         public MiaoxianVS() : base("miaoxian") { }
 
-        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => false;
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => selected.Count == 0 && WrappedCard.IsBlack(to_select.Suit);
         public override bool IsEnabledAtPlay(Room room, Player player)
         {
-            if (player.HandcardNum == 1 && !player.HasUsed("ViewAsSkill_miaoxianCard"))
+            if (!player.HasUsed("ViewAsSkill_miaoxianCard") && !player.IsKongcheng())
             {
-                int id = player.GetCards("h")[0];
-                WrappedCard card = room.GetCard(id);
-                if (WrappedCard.IsBlack(card.Suit) && !RoomLogic.IsCardLimited(room, player, card, HandlingMethod.MethodUse))
-                    return true;
+                int count = 0;
+                foreach (int id in player.GetCards("h"))
+                    if (WrappedCard.IsBlack(room.GetCard(id).Suit))
+                        count++;
+
+                return count == 1;
             }
             return false;
         }
@@ -4108,12 +4122,15 @@ namespace SanguoshaServer.Package
         public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
         {
             List<WrappedCard> result = new List<WrappedCard>();
-            foreach (string card_name in ViewAsSkill.GetGuhuoCards(room, "t"))
+            if (cards.Count == 1)
             {
-                WrappedCard card = new WrappedCard(card_name) { Skill = Name };
-                card.AddSubCards(player.GetCards("h"));
-                card = RoomLogic.ParseUseCard(room, card);
-                result.Add(card);
+                foreach (string card_name in ViewAsSkill.GetGuhuoCards(room, "t"))
+                {
+                    WrappedCard card = new WrappedCard(card_name) { Skill = Name };
+                    card.AddSubCards(cards);
+                    card = RoomLogic.ParseUseCard(room, card);
+                    result.Add(card);
+                }
             }
             return result;
         }

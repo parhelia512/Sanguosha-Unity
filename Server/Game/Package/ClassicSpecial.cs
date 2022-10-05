@@ -13477,7 +13477,7 @@ namespace SanguoshaServer.Package
         {
             List<Player> targets = new List<Player>();
             if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && Engine.GetFunctionCard(use.Card.Name).TypeID != CardType.TypeSkill
-                 && player.GetTag(Name) is Dictionary<string, List<int>> record)
+                 && player.GetTag("fuman") is Dictionary<string, List<int>> record)
             {
                 foreach (int id in use.Card.SubCards)
                 {
@@ -13493,7 +13493,7 @@ namespace SanguoshaServer.Package
                 }
                 player.SetTag("fuman", record);
             }
-            else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && player.ContainsTag("fuman") && player.GetTag("fuman") is Dictionary<string, List<int>> _record)
+            else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && player.GetTag("fuman") is Dictionary<string, List<int>> _record)
             {
                 foreach (int id in resp.Card.SubCards)
                 {
@@ -14438,13 +14438,12 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.DamageCaused && base.Triggerable(player, room) && !player.HasFlag(Name) && player.Phase != PlayerPhase.NotActive
-                && data is DamageStruct damage && damage.To != player)
+            if (triggerEvent == TriggerEvent.DamageCaused && base.Triggerable(player, room) && !player.HasFlag(Name) && data is DamageStruct damage && damage.To != player)
             {
                 return new TriggerStruct(Name, player);
             }
             else if (triggerEvent == TriggerEvent.DamageInflicted && data is DamageStruct _damage && _damage.From != null && _damage.From != player && _damage.From.Alive
-                && base.Triggerable(player, room) && !player.HasFlag(Name) && _damage.From.Phase != PlayerPhase.NotActive)
+                && base.Triggerable(player, room) && !player.HasFlag(Name))
             {
                 return new TriggerStruct(Name, player);
             }

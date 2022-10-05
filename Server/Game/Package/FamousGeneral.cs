@@ -11793,7 +11793,7 @@ namespace SanguoshaServer.Package
 
         public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
         {
-            if (MatchAnaleptic(respond))
+            if (MatchPeach(respond))
             {
                 WrappedCard peach = new WrappedCard(Analeptic.ClassName);
                 FunctionCard fcard = Analeptic.Instance;
