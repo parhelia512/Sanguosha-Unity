@@ -230,6 +230,9 @@ namespace SanguoshaServer.Package
                 new Piaoping(),
                 new Tuoxian(),
                 new Zhuili(),
+                new Xiaoxi(),
+                new Xiongrao(),
+                new XiongraoInvalid(),
 
                 new Guolun(),
                 new Songsang(),
@@ -410,6 +413,7 @@ namespace SanguoshaServer.Package
                 { "xiecui", new List<string>{ "#xiecui" } },
                 { "jixu", new List<string>{ "#jixu" } },
                 { "quanjian", new List<string>{ "#quanjian", "#quanjian-pro" } },
+                { "xiongrao", new List<string>{ "#xiongrao" } },
             };
         }
     }
@@ -14120,6 +14124,148 @@ namespace SanguoshaServer.Package
             }
 
             return false;
+        }
+    }
+
+    public class Xiaoxi : TriggerSkill
+    {
+        public Xiaoxi() : base("xiaoxi")
+        {
+            events.Add(TriggerEvent.EventPhaseStart);
+            skill_type = SkillType.Attack;
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && player.Phase == PlayerPhase.Play)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<string> choices = new List<string> { "1" };
+            if (player.MaxHp > 1) choices.Add("2");
+            string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@xiaoxi-hp" });
+            int count = int.Parse(choice);
+            room.LoseMaxHp(player, count);
+            if (player.Alive)
+            {
+                List<Player> targets = new List<Player>();
+                WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_xiaoxi" };
+                foreach (Player p in room.GetOtherPlayers(player))
+                {
+                    if (RoomLogic.InMyAttackRange(room, player, p) && (!p.IsNude() && RoomLogic.CanGetCard(room, player, p, "he") || RoomLogic.IsProhibited(room, player, p, slash) == null))
+                        targets.Add(p);
+                }
+
+                if (targets.Count > 0)
+                {
+                    Player target = room.AskForPlayerChosen(player, targets, Name, "@xiaoxi", false, true, info.SkillPosition);
+                    if (target != null)
+                    {
+                        choices.Clear();
+                        if (!target.IsNude() && RoomLogic.CanGetCard(room, player, target, "he")) choices.Add("getcard");
+                        if (RoomLogic.IsProhibited(room, player, target, slash) == null) choices.Add("slash");
+                        choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target);
+                        if (choice == "getcard")
+                        {
+                            List<string> patterns = new List<string>();
+                            for (int i = 0; i < Math.Max(1, Math.Min(count, target.GetCardCount(true))); i++)
+                                patterns.Add("he^false^get");
+
+                            List<int> ids = room.AskForCardsChosen(player, target, patterns, Name);
+                            CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_EXTRACTION, player.Name, target.Name, Name, string.Empty);
+                            room.ObtainCard(player, ref ids, reason, false);
+                        }
+                        else
+                        {
+                            while (count > 0 && player.Alive && target.Alive && RoomLogic.IsProhibited(room, player, target, slash) == null)
+                            {
+                                count--;
+                                WrappedCard card = new WrappedCard(Slash.ClassName) { Skill = "_xiaoxi", DistanceLimited = false };
+                                room.UseCard(new CardUseStruct(card, player, target), false, true);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class Xiongrao : PhaseChangeSkill
+    {
+        public Xiongrao() : base("xiongrao")
+        {
+            skill_type = SkillType.Replenish;
+            frequency = Frequency.Limited;
+            limit_mark = "@xiongrao";
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && player.Phase == PlayerPhase.Start)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                room.SetPlayerMark(player, limit_mark, 0);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                room.DoSuperLightbox(player, info.SkillPosition, Name);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override bool OnPhaseChange(Room room, Player player, TriggerStruct info)
+        {
+            foreach (Player p in room.GetOtherPlayers(player))
+                p.SetFlags(Name);
+
+            LogMessage log2 = new LogMessage
+            {
+                Type = "#xiongrao",
+                From = player.Name,
+            };
+            room.SendLog(log2);
+
+            if (player.MaxHp != 7)
+            {
+                int count = 7 - player.MaxHp;
+                player.MaxHp = 7;
+                room.BroadcastProperty(player, "MaxHp");
+
+                LogMessage log = new LogMessage
+                {
+                    Type = "$GainMaxHp",
+                    From = player.Name,
+                    Arg = count.ToString()
+                };
+                room.SendLog(log);
+
+                room.RoomThread.Trigger(TriggerEvent.MaxHpChanged, room, player);
+                if (count > 0 && player.Alive)
+                    room.DrawCards(player, count, Name);
+            }
+
+            return false;
+        }
+    }
+
+    public class XiongraoInvalid : InvalidSkill
+    {
+        public XiongraoInvalid() : base("#xiongrao") { }
+        public override bool Invalid(Room room, Player player, string skill)
+        {
+            Skill s = Engine.GetSkill(skill);
+            if (s == null || s.SkillFrequency >= Frequency.Compulsory || s.Attached_lord_skill) return false;
+            if (player.HasEquip(skill)) return false;
+            return player.HasFlag("xiongrao");
         }
     }
 
