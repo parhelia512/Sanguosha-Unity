@@ -5138,9 +5138,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (data is CardsMoveOneTimeStruct move && move.To_place == Place.DiscardPile &&
-                (move.Reason.Reason == MoveReason.S_REASON_JUDGEDONE ||
-                (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD))
+            if (data is CardsMoveOneTimeStruct move)
             {
                 List<int> ids = new List<int>();
                 foreach (int id in move.Card_ids)
