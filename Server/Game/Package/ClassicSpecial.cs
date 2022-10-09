@@ -4244,8 +4244,8 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> result = new List<TriggerStruct>();
-            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.To_place == Place.DiscardPile && (move.Reason.Reason == MoveReason.S_REASON_JUDGEDONE
-                || (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD) && room.Current != null && room.Current.Phase == PlayerPhase.Play)
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.To_place == Place.DiscardPile && 
+                (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && room.Current != null && room.Current.Phase == PlayerPhase.Play)
             {
                 List<int> ids = new List<int>();
                 foreach (int id in move.Card_ids)
