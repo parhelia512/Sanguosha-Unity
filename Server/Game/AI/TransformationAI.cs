@@ -991,7 +991,7 @@ namespace SanguoshaServer.AI
 
         public override int OnMoveStargeCard(TrustedAI ai, Player player, Player target1, Player target2, List<int> available)
         {
-            if (!string.IsNullOrEmpty(ai.Choice[Name]) && int.TryParse(ai.Choice[Name], out int id) && available.Contains(id))
+            if (ai.Choice.ContainsKey(Name) && !string.IsNullOrEmpty(ai.Choice[Name]) && int.TryParse(ai.Choice[Name], out int id) && available.Contains(id))
                 return id;
 
             return -1;
@@ -1008,6 +1008,7 @@ namespace SanguoshaServer.AI
             int count = 0;
             Dictionary<Player, List<int>> player_location = new Dictionary<Player, List<int>>();
             List<Player> targets = new List<Player>();
+            int card_id = -1;
             foreach (Player p in room.GetAlivePlayers())
             {
                 foreach (int id in p.GetEquips())
@@ -1026,6 +1027,7 @@ namespace SanguoshaServer.AI
                                 {
                                     targets.Add(p);
                                     targets.Add(_p);
+                                    card_id = id;
                                 }
                                 count++;
                                 List<int> locations = player_location.ContainsKey(_p) ? new List<int>(player_location[_p]) : new List<int>();
@@ -1040,6 +1042,7 @@ namespace SanguoshaServer.AI
                     }
                     if (count >= 3)
                     {
+                        ai.Choice["yongjin"] = card_id.ToString();
                         use.Card = card;
                         use.To = targets;
                         return;

@@ -206,7 +206,6 @@ namespace SanguoshaServer.AI
 
         public override AskForMoveCardsStruct OnMoveCards(TrustedAI ai, Player player, List<int> ups, List<int> downs, int min, int max)
         {
-
             AskForMoveCardsStruct move = new AskForMoveCardsStruct
             {
                 Success = true,

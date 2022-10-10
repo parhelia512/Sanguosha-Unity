@@ -625,6 +625,7 @@ namespace SanguoshaServer.AI
                 any = false;
             }
 
+            List<WrappedCard> result = new List<WrappedCard>();
             foreach (int id in ids)
             {
                 WrappedCard card = ai.Room.GetCard(id);
@@ -637,10 +638,10 @@ namespace SanguoshaServer.AI
                     };
                     slash.AddSubCard(card);
                     slash = RoomLogic.ParseUseCard(room, slash);
-                    return new List<WrappedCard> { slash };
+                    result.Add(slash);
                 }
             }
-            return null;
+            return result;
         }
 
         public override double UseValueAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
@@ -660,6 +661,7 @@ namespace SanguoshaServer.AI
             {
                 any = false;
             }
+            List<int> cards = new List<int>();
             if (any || WrappedCard.IsRed(card.Suit))
             {
                 WrappedCard slash = new WrappedCard(Slash.ClassName)

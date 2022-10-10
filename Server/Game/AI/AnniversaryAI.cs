@@ -117,6 +117,8 @@ namespace SanguoshaServer.AI
                 new ShawuAI(),
                 new HuapingAI(),
                 new JinggongAI(),
+                new XiaoxiAI(),
+                new XiongraoAI(),
             };
 
             use_cards = new List<UseCard>
@@ -4936,5 +4938,60 @@ namespace SanguoshaServer.AI
                     damage.Damage = count;
             }
         }
+    }
+
+    public class XiaoxiAI : SkillEvent
+    {
+        public XiaoxiAI() : base("xiaoxi") { }
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data)
+        {
+            if (data is Player target)
+                return ai.Choice[Name];
+            else
+                return "1";
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            WrappedCard slash = new WrappedCard(Slash.ClassName);
+            List<ScoreStruct> gets = new List<ScoreStruct>();
+            List<ScoreStruct> slashes = ai.CaculateSlashIncome(player, new List<WrappedCard> { slash }, targets, false);
+            foreach (Player p in targets)
+            {
+                if (!p.IsNude() && RoomLogic.CanDiscard(ai.Room, player, p , "he"))
+                {
+                    ScoreStruct score = ai.FindCards2Discard(player, p, Name, "he", HandlingMethod.MethodGet);
+                    score.Players = new List<Player> { p };
+                    gets.Add(score);
+                }
+            }
+            if (gets.Count > 0)
+            {
+                gets.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+                if (slashes.Count > 0)
+                {
+                    if (slashes[0].Score > gets[0].Score)
+                    {
+                        ai.Choice[Name] = "slash";
+                        return new List<Player> { slashes[0].Players[0] };
+                    }
+                    else
+                    {
+                        ai.Choice[Name] = "getcard";
+                        return gets[0].Players;
+                    }
+                }
+                else
+                    return gets[0].Players;
+            }
+            else
+                return new List<Player> { slashes[0].Players[0] };
+        }
+    }
+
+    public class XiongraoAI : SkillEvent
+    {
+        public XiongraoAI() : base("xiongrao") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => player.Hp == 1 && player.MaxHp < 7 || player.MaxHp < 3;
     }
 }

@@ -43,6 +43,8 @@ namespace SanguoshaServer.AI
                 new ShanzhuanAI(),
                 new YuanzhiAI(),
                 new LiejieAI(),
+                new KanpoDZAI(),
+                new GenzhanAI(),
 
                 new ChongzhenAI(),
                 new MizhaoAI(),
@@ -3663,6 +3665,111 @@ namespace SanguoshaServer.AI
                         result.Add(cards[i]);
             }
             return result;
+        }
+    }
+
+    public class KanpoDZAI : SkillEvent
+    {
+        public KanpoDZAI() : base("kanpo_dz") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
+        public override int OnPickAG(TrustedAI ai, Player player, List<int> card_ids, bool refusable)
+        {
+            Player target = null;
+            Room room = ai.Room;
+            foreach (Player p in room.GetOtherPlayers(player))
+            {
+                if (p.HasFlag("gongxin_target"))
+                {
+                    target = p;
+                    break;
+                }
+            }
+
+            if (!ai.IsFriend(target) && card_ids.Count > 0)
+            {
+                ai.SortByUseValue(ref card_ids);
+                return card_ids[0];
+            }
+            return -1;
+        }
+
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            List<WrappedCard> result = new List<WrappedCard>();
+            if (player.UsedTimes("ViewAsSkill_kanpo_dzCard") < 1)
+            {
+                Room room = ai.Room;
+                List<int> ids = player.GetCards("h");
+                ids.AddRange(player.GetHandPile());
+
+                foreach (int id in ids)
+                {
+                    if (room.GetCard(id).Name != Slash.ClassName)
+                    {
+                        WrappedCard slash = new WrappedCard(Slash.ClassName)
+                        {
+                            Skill = Name,
+                            ShowSkill = Name
+                        };
+                        slash.AddSubCard(id);
+                        slash = RoomLogic.ParseUseCard(room, slash);
+                        result.Add(slash);
+                    }
+                }
+            }
+            
+            return result;
+        }
+
+        public override WrappedCard ViewAs(TrustedAI ai, Player player, int id, bool current, Place place)
+        {
+            if (player.UsedTimes("ViewAsSkill_kanpo_dzCard") < 1 && (place == Place.PlaceHand || place == Place.PlaceSpecial))
+            {
+                Room room = ai.Room;
+                WrappedCard card = room.GetCard(id);
+                if (card.Name != Slash.ClassName)
+                {
+                    WrappedCard slash = new WrappedCard(Slash.ClassName)
+                    {
+                        Skill = Name,
+                        ShowSkill = Name
+                    };
+                    slash.AddSubCard(card);
+                    slash = RoomLogic.ParseUseCard(room, slash);
+                    return slash;
+                }
+            }
+
+            return null;
+        }
+    }
+
+    public class GenzhanAI : SkillEvent
+    {
+        public GenzhanAI() : base("genzhan") { }
+        public override AskForMoveCardsStruct OnMoveCards(TrustedAI ai, Player player, List<int> ups, List<int> downs, int min, int max)
+        {
+            AskForMoveCardsStruct move = new AskForMoveCardsStruct
+            {
+                Success = true,
+                Top = ups,
+                Bottom = downs
+            };
+            if (player.HasFlag("DimengTarget"))
+            {
+                foreach (Player p in ai.Room.GetOtherPlayers(player))
+                {
+                    if (p.HasFlag("DimengTarget") && !ai.IsFriend(p))
+                    {
+                        move.Top.Clear();
+                        move.Bottom.Clear();
+                        move.Success = false;
+                        return move;
+                    }
+                }
+            }
+
+            return move;
         }
     }
 
