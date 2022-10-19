@@ -4451,16 +4451,26 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Juece : PhaseChangeSkill
+    public class Juece : TriggerSkill
     {
         public Juece() : base("juece")
         {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.CardsMoveOneTime };
             skill_type = SkillType.Attack;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && room.Current != null && room.Current.Alive && move.From != null
+                && move.From != room.Current && (move.From_places.Contains(Place.PlaceHand) || move.From_places.Contains(Place.PlaceEquip)))
+            {
+                move.From.SetFlags(Name);
+            }
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish)
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish)
             {
                 foreach (Player p in room.GetOtherPlayers(player))
                     if (p.IsKongcheng()) return new TriggerStruct(Name, player);
@@ -4473,7 +4483,7 @@ namespace SanguoshaServer.Package
         {
             List<Player> targets = new List<Player>();
             foreach (Player p in room.GetOtherPlayers(player))
-                if (p.IsKongcheng()) targets.Add(p);
+                if (p.HasFlag(Name)) targets.Add(p);
 
             if (targets.Count > 0)
             {
@@ -4489,7 +4499,7 @@ namespace SanguoshaServer.Package
             return new TriggerStruct();
         }
 
-        public override bool OnPhaseChange(Room room, Player player, TriggerStruct info)
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             Player target = room.FindPlayer((string)player.GetTag(Name), true);
             if (target.Alive)
@@ -4555,17 +4565,30 @@ namespace SanguoshaServer.Package
             Player target = card_use.To[0];
             if (target.Alive && !target.IsNude())
             {
-                List<int> ids = room.AskForExchange(target, "mieji", 1, 1, "@mieji-discard", string.Empty, "..!", string.Empty);
+                List<int> ids = room.AskForExchange(target, "mieji", 1, 1, "@mieji:" + player.Name, string.Empty, "^TrickCard!#TrickCard", string.Empty);
                 if (ids.Count > 0)
                 {
                     bool trick = Engine.GetFunctionCard(room.GetCard(ids[0]).Name) is TrickCard;
-                    room.ThrowCard(ref ids, target);
-
-                    if (!trick && !target.IsNude())
+                    if (trick)
                     {
-                        ids = room.AskForExchange(target, "mieji", 1, 1, "@mieji-notrick", string.Empty, "^TrickCard!", string.Empty);
-                        if (ids.Count > 0)
-                            room.ThrowCard(ref ids, target);
+                        room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, target.Name, player.Name, "mieji", string.Empty));
+                    }
+                    else
+                    {
+                        room.ThrowCard(ref ids, target);
+                        if (target.Alive && !target.IsNude())
+                        {
+                            ids.Clear();
+                            foreach (int id in player.GetCards("he"))
+                                if (!(Engine.GetFunctionCard(room.GetCard(ids[0]).Name) is TrickCard) && RoomLogic.CanDiscard(room, target, target, id))
+                                    ids.Add(id);
+
+                            if (ids.Count > 1)
+                                ids = room.AskForExchange(target, "mieji", 1, 1, "@mieji-notrick", string.Empty, "^TrickCard!", string.Empty);
+
+                            if (ids.Count > 0)
+                                room.ThrowCard(ref ids, target);
+                        }
                     }
                 }
             }

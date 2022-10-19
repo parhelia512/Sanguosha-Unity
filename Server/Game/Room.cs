@@ -9132,8 +9132,7 @@ namespace SanguoshaServer.Game
             return true;
         }
 
-        public List<int> NotifyChooseCards(Player player, List<int> cards, string reason,
-                                   int max_num, int min_num, string prompt, string pattern, string position)
+        public List<int> NotifyChooseCards(Player player, List<int> cards, string reason, int max_num, int min_num, string prompt, string pattern, string position)
         {
             player.PileChange("#" + reason, cards);
             List<int> result = AskForExchange(player, reason, max_num, min_num, prompt, "#" + reason, pattern, position);
@@ -9142,8 +9141,7 @@ namespace SanguoshaServer.Game
             return result;
         }
 
-        public List<int> AskForExchange(Player player, string reason, int exchange_num, int min_num,
-                                string prompt, string _expand_pile, string pattern, string position)
+        public List<int> AskForExchange(Player player, string reason, int exchange_num, int min_num, string prompt, string _expand_pile, string pattern, string position)
         {
             if (!player.Alive)
                 return new List<int>();
