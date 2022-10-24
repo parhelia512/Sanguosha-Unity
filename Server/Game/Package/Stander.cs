@@ -169,6 +169,7 @@ namespace SanguoshaServer.Package
                 new FenxunCard(),
                 new YijiCard(),
                 new KuangfuCard(),
+                new MouduanCard(),
             };
             related_skills = new Dictionary<string, List<string>>
             {
@@ -5630,6 +5631,7 @@ namespace SanguoshaServer.Package
         public Mouduan() : base("mouduan")
         {
             events = new List<TriggerEvent> { TriggerEvent.CardUsedAnnounced, TriggerEvent.EventPhaseStart, TriggerEvent.EventPhaseChanging };
+            view_as_skill = new MouduanVS();
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
@@ -5674,88 +5676,56 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.AskForSkillInvoke(player, Name, null, info.SkillPosition))
-            {
-                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
-                return info;
-            }
+            room.AskForUseCard(player, RespondType.Skill, "@@mouduan", "@mouduan", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
             return new TriggerStruct();
         }
+    }
 
-        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+    public class MouduanVS : ZeroCardViewAsSkill
+    {
+        public MouduanVS() : base("mouduan") { response_pattern = "@@mouduan"; }
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(MouduanCard.ClassName) { Skill = Name, ShowSkill = Name };
+    }
+
+    public class MouduanCard : SkillCard
+    {
+        public static string ClassName = "MouduanCard";
+        public MouduanCard() : base(ClassName)
         {
-            List<Player> targets = new List<Player>();
-            foreach (Player p in room.GetAlivePlayers())
-            {
-                if (p.GetCards("ej").Count > 0)
-                    targets.Add(p);
-            }
-            if (targets.Count > 0) {
-                Player target1 = room.AskForPlayerChosen(player, targets, Name, "@mouduan1", true, false, info.SkillPosition);
-                if (target1 != null) {
-                    int card_id = room.AskForCardChosen(player, target1, "ej", Name);
-                    WrappedCard card = room.GetCard(card_id);
-                    Place place = room.GetCardPlace(card_id);
+        }
 
-                    FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                    int equip_index = -1;
-                    if (place == Place.PlaceEquip)
-                    {
-                        EquipCard equip = (EquipCard)fcard;
-                        equip_index = (int)equip.EquipLocation();
-                    }
-
-                    List<Player> tos = new List<Player>();
-                    foreach (Player p in room.GetAlivePlayers())
-                    {
-                        if (equip_index != -1)
-                        {
-                            if (p.GetEquip(equip_index) < 0 && RoomLogic.CanPutEquip(p, card))
-                                tos.Add(p);
-                        }
-                        else if (RoomLogic.IsProhibited(room, null, p, card) == null && !RoomLogic.PlayerContainsTrick(room, p, card.Name) && p.JudgingAreaAvailable)
-                                tos.Add(p);
-                    }
-
-                    room.SetTag("MouduanTarget", target1);
-                    string position = info.SkillPosition;
-                    Player to = room.AskForPlayerChosen(player, tos, Name, "@mouduan-to:::" + card.Name, false, false, position);
-                    room.RemoveTag("MouduanTarget");
-                    if (to != null)
-                    {
-                        if ((place == Place.PlaceDelayedTrick && target1 != player) || (place == Place.PlaceEquip && to != player))
-                        {
-                            ResultStruct result = player.Result;
-                            result.Assist++;
-                            player.Result = result;
-                        }
-
-                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, target1.Name, to.Name);
-                        CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_TRANSFER, player.Name, Name, null)
-                        {
-                            Card = card
-                        };
-                        room.MoveCardTo(card, target1, to, place, reason);
-                        /*
-                        if (place == Place.PlaceDelayedTrick)
-                        {
-                            CardUseStruct use = new CardUseStruct(card, null, to);
-                            object _data = use;
-                            room.RoomThread.Trigger(TriggerEvent.TargetConfirming, room, to, ref _data);
-                            CardUseStruct new_use = (CardUseStruct)_data;
-                            if (new_use.To.Count == 0)
-                                fcard.OnNullified(room, to, card);
-
-                            foreach (Player p in room.GetAllPlayers())
-                                room.RoomThread.Trigger(TriggerEvent.TargetConfirmed, room, p, ref _data);
-                        }
-                        */
-                    }
-                }
-            }
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card) => targets.Count == 2;
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard qiaobian)
+        {
+            if (targets.Count == 0)
+                return true;
+            else if (targets.Count == 1)
+                return room.CheckStageCardMove(targets[0], to_select, StageArea.Both);
             return false;
         }
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            int card_id = room.AskforMoveStageCard(card_use.From, "mouduan", card_use.To[0], card_use.To[1], StageArea.Both, false, card_use.Card.SkillPosition);
+            Player from = card_use.To[0].GetCards("ej").Contains(card_id) ? card_use.To[0] : card_use.To[1];
+            Player to = from == card_use.To[0] ? card_use.To[1] : card_use.To[0];
+            Place place = room.GetCardPlace(card_id);
+
+            if ((place == Place.PlaceDelayedTrick && from != card_use.From) || (place == Place.PlaceEquip && to != card_use.From))
+            {
+                ResultStruct result = card_use.From.Result;
+                result.Assist++;
+                card_use.From.Result = result;
+            }
+
+            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, from.Name, to.Name);
+            CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_TRANSFER, card_use.From.Name, "mouduan", null)
+            {
+                Card = room.GetCard(card_id)
+            };
+            room.MoveCardTo(room.GetCard(card_id), from, to, place, reason);
+        }
     }
+
     public class KurouCard : SkillCard
     {
         public KurouCard() : base("KurouCard")

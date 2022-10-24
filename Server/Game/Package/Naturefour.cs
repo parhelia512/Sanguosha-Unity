@@ -109,6 +109,7 @@ namespace SanguoshaServer.Package
                 new ShensuJXCard(),
                 new HaoshiCCard(),
                 new DimengCCard(),
+                new JieweiCard(),
             };
             related_skills = new Dictionary<string, List<string>>
             {
@@ -2103,26 +2104,86 @@ namespace SanguoshaServer.Package
     }
 
     //曹仁
-    public class JieweiVS : OneCardViewAsSkill
+    public class JieweiVS : ViewAsSkill
     {
         public JieweiVS() : base("jiewei")
         {
-            filter_pattern = ".|.|.|equipped";
-            response_pattern = "Nullification";
-            skill_type = SkillType.Alter;
         }
-        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
         {
-            WrappedCard ncard = new WrappedCard(Nullification.ClassName) { Skill = Name };
-            ncard.AddSubCard(card);
-            ncard = RoomLogic.ParseUseCard(room, ncard);
-            return ncard;
+            if (room.GetRoomState().GetCurrentCardUsePattern() == "Nullification")
+                return selected.Count == 0 && room.GetCardPlace(to_select.Id) == Place.PlaceEquip;
+            else
+                return selected.Count == 0 && room.GetCardPlace(to_select.Id) == Place.PlaceHand && RoomLogic.CanDiscard(room, player, player, to_select.Id);
+        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => false;
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern) => pattern == "Nullification" || pattern == "@@jiewei";
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count == 1)
+            {
+                if (room.GetRoomState().GetCurrentCardUsePattern() == "Nullification")
+                {
+                    WrappedCard ncard = new WrappedCard(Nullification.ClassName) { Skill = Name };
+                    ncard.AddSubCards(cards);
+                    ncard = RoomLogic.ParseUseCard(room, ncard);
+                    return ncard;
+                }
+                else
+                {
+                    WrappedCard card = new WrappedCard(JieweiCard.ClassName) { Skill = Name };
+                    card.AddSubCards(cards);
+                    return card;
+                }
+            }
+            return null;
         }
         public override bool IsEnabledAtNullification(Room room, Player player)
         {
             return player.HasEquip();
         }
     }
+
+    public class JieweiCard : SkillCard
+    {
+        public static string ClassName = "JieweiCard";
+        public JieweiCard() : base(ClassName)
+        {
+            will_throw = true;
+        }
+
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card) => targets.Count == 2;
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard qiaobian)
+        {
+            if (targets.Count == 0)
+                return true;
+            else if (targets.Count == 1)
+                return room.CheckStageCardMove(targets[0], to_select, StageArea.Both);
+            return false;
+        }
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            int card_id = room.AskforMoveStageCard(card_use.From, "jiewei", card_use.To[0], card_use.To[1], StageArea.Both, false, card_use.Card.SkillPosition);
+            Player from = card_use.To[0].GetCards("ej").Contains(card_id) ? card_use.To[0] : card_use.To[1];
+            Player to = from == card_use.To[0] ? card_use.To[1] : card_use.To[0];
+            Place place = room.GetCardPlace(card_id);
+
+            if ((place == Place.PlaceDelayedTrick && from != card_use.From) || (place == Place.PlaceEquip && to != card_use.From))
+            {
+                ResultStruct result = card_use.From.Result;
+                result.Assist++;
+                card_use.From.Result = result;
+            }
+
+            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, from.Name, to.Name);
+            CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_TRANSFER, card_use.From.Name, "jiewei", null)
+            {
+                Card = room.GetCard(card_id)
+            };
+            room.MoveCardTo(room.GetCard(card_id), from, to, place, reason);
+        }
+    }
+
     public class JushouJXVS : OneCardViewAsSkill
     {
         public JushouJXVS() : base("jushou_jx")
@@ -2146,6 +2207,26 @@ namespace SanguoshaServer.Package
             };
             jushou.AddSubCard(card);
             return jushou;
+        }
+    }
+
+    public class Jiewei : TriggerSkill
+    {
+        public Jiewei() : base("jiewei")
+        {
+            events.Add(TriggerEvent.TurnedOver);
+            view_as_skill = new JieweiVS();
+            skill_type = SkillType.Wizzard;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            return (base.Triggerable(player, room) && player.FaceUp && player.Alive) ? new TriggerStruct(Name, player) : new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.AskForUseCard(player, RespondType.Skill, "@@jiewei", "@jiewei", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+            return new TriggerStruct();
         }
     }
     public class JushouJX : PhaseChangeSkill
@@ -2213,91 +2294,6 @@ namespace SanguoshaServer.Package
                     room.UseCard(new CardUseStruct(card, caoren, new List<Player>(), true));
             }
 
-            return false;
-        }
-    }
-    public class Jiewei : TriggerSkill
-    {
-        public Jiewei() : base("jiewei")
-        {
-            events.Add(TriggerEvent.TurnedOver);
-            view_as_skill = new JieweiVS();
-            skill_type = SkillType.Wizzard;
-        }
-
-        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
-        {
-            return (base.Triggerable(player, room) && player.FaceUp && player.Alive) ? new TriggerStruct(Name, player) : new TriggerStruct();
-        }
-        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
-        {
-            if (room.AskForDiscard(player, Name, 1, 1, true, true, "@jiewei", true, info.SkillPosition))
-            {
-                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
-                return info;
-            }
-
-            return new TriggerStruct();
-        }
-        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
-        {
-            List<Player> targets = new List<Player>();
-            foreach (Player p in room.GetAlivePlayers())
-            {
-                if (p.GetCards("ej").Count > 0)
-                    targets.Add(p);
-            }
-            if (targets.Count > 0)
-            {
-                Player target1 = room.AskForPlayerChosen(player, targets, Name, "@jiewei1", true, false, info.SkillPosition);
-                if (target1 != null)
-                {
-                    int card_id = room.AskForCardChosen(player, target1, "ej", Name);
-                    WrappedCard card = room.GetCard(card_id);
-                    Place place = room.GetCardPlace(card_id);
-
-                    FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                    int equip_index = -1;
-                    if (place == Place.PlaceEquip)
-                    {
-                        EquipCard equip = (EquipCard)fcard;
-                        equip_index = (int)equip.EquipLocation();
-                    }
-
-                    List<Player> tos = new List<Player>();
-                    foreach (Player p in room.GetAlivePlayers())
-                    {
-                        if (equip_index != -1)
-                        {
-                            if (p.GetEquip(equip_index) < 0 && RoomLogic.CanPutEquip(p, card))
-                                tos.Add(p);
-                        }
-                        else if (RoomLogic.IsProhibited(room, null, p, card) == null && !RoomLogic.PlayerContainsTrick(room, p, card.Name) && p.JudgingAreaAvailable)
-                            tos.Add(p);
-                    }
-
-                    room.SetTag("MouduanTarget", target1);
-                    string position = info.SkillPosition;
-                    Player to = room.AskForPlayerChosen(player, tos, Name, "@jiewei-to:::" + card.Name, false, false, position);
-                    room.RemoveTag("MouduanTarget");
-                    if (to != null)
-                    {
-                        if ((place == Place.PlaceDelayedTrick && target1 != player) || (place == Place.PlaceEquip && to != player))
-                        {
-                            ResultStruct result = player.Result;
-                            result.Assist++;
-                            player.Result = result;
-                        }
-
-                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, target1.Name, to.Name);
-                        CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_TRANSFER, player.Name, Name, null)
-                        {
-                            Card = card
-                        };
-                        room.MoveCardTo(card, target1, to, place, reason);
-                    }
-                }
-            }
             return false;
         }
     }

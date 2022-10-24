@@ -323,65 +323,99 @@ namespace SanguoshaServer.AI
     {
         public MouduanAI() : base("mouduan")
         { }
-
-        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        public override int OnMoveStargeCard(TrustedAI ai, Player player, Player target1, Player target2, List<int> available) => ai.Number[Name] >= 0 ? (int)ai.Number[Name] : -1;
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
-            return true;
-        }
-
-        public override List<int> OnCardsChosen(TrustedAI ai, Player from, Player to, string flags, int min, int max, List<int> disable_ids)
-        {
-            List<int> result = new List<int>();
-            if (flags == "ej")
+            CardUseStruct use = new CardUseStruct { From = player, Card = new WrappedCard(JieweiCard.ClassName) { Skill = Name }, To = new List<Player>() };
+            int card = -1;
+            List<int> cards = player.GetCards("h");
+            ai.SortByKeepValue(ref cards, false);
+            for (int i = 0; i < cards.Count; i++)
             {
-                int id = QiaobianAI.CardForQiaobian(ai, to).Key;
-                if (id >= 0)
-                    result.Add(id);
-            }
-
-            return null;
-        }
-
-        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> target, int min, int max)
-        {
-            List<Player> result = new List<Player>();
-            if (ai.Room.GetTag("MouduanTarget") != null && ai.Room.GetTag("MouduanTarget") is Player from)
-            {
-                Player to = QiaobianAI.CardForQiaobian(ai, from).Value;
-                if (to != null)
-                    result.Add(to);
+                if (ai.IsCard(cards[i], Peach.ClassName, player))
+                {
+                    bool to_discard_peach = true;
+                    foreach (Player fd in ai.GetFriends(player))
+                    {
+                        if (fd.Hp <= 2 && (!ai.HasSkill("niepan", fd) || fd.GetMark("@nirvana") == 0))
+                        {
+                            to_discard_peach = false;
+                            break;
+                        }
+                    }
+                    if (to_discard_peach)
+                    {
+                        card = cards[i];
+                        break;
+                    }
+                }
                 else
-                    ai.Room.Debug("谋断AI出错");
+                {
+                    card = cards[i];
+                    break;
+                }
             }
-            else
+
+            if (card != -1)
             {
+                Player from = null;
                 foreach (Player friend in ai.GetFriends(player))
                 {
-                    if (friend.JudgingArea.Count > 0 && QiaobianAI.CardForQiaobian(ai, friend).Key >= 0)
+                    if (friend.JudgingArea.Count > 0)
                     {
-                        return new List<Player> { friend };
-                    }
-                }
-                foreach (Player friend in ai.FriendNoSelf)
-                {
-                    if (friend.HasEquip() && ai.HasSkill(TrustedAI.LoseEquipSkill, friend) && QiaobianAI.CardForQiaobian(ai, friend).Key >= 0)
-                    {
-                        return new List<Player> { friend };
+                        int id = QiaobianAI.CardForQiaobian(ai, friend).Key;
+                        if (id >= 0)
+                        {
+                            ai.Number[Name] = id;
+                            from = friend;
+                            break;
+                        }
                     }
                 }
 
-                List<Player> enemies = ai.GetEnemies(player);
-                ai.SortByDefense(ref enemies, false);
-                foreach (Player p in enemies)
+                if (from == null)
                 {
-                    if (QiaobianAI.CardForQiaobian(ai, p).Key >= 0)
+                    foreach (Player friend in ai.FriendNoSelf)
                     {
-                        return new List<Player> { p };
+                        if (friend.HasEquip() && ai.HasSkill(TrustedAI.LoseEquipSkill, friend))
+                        {
+                            int id = QiaobianAI.CardForQiaobian(ai, friend).Key;
+                            if (id >= 0)
+                            {
+                                ai.Number[Name] = id;
+                                from = friend;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (from == null)
+                {
+                    foreach (Player p in ai.GetEnemies(player))
+                    {
+                        int id = QiaobianAI.CardForQiaobian(ai, p).Key;
+                        if (id > 0)
+                        {
+                            ai.Number[Name] = id;
+                            from = p;
+                            break;
+                        }
+                    }
+                }
+
+                if (from != null)
+                {
+                    Player to = QiaobianAI.CardForQiaobian(ai, from).Value;
+                    if (to != null)
+                    {
+                        use.To.Add(from);
+                        use.To.Add(to);
+                        return use;
                     }
                 }
             }
-
-            return result;
+            return new CardUseStruct();
         }
     }
 
