@@ -4909,8 +4909,9 @@ namespace SanguoshaServer.Game
             return invoked;
         }
 
-        public string AskForChoice(Player player, string skill_name, string choices, List<string> descriptions = null, object data = null)
+        public string AskForChoice(Player player, string skill_name, string choices, List<string> descriptions = null, object data = null, string position = null)
         {
+            if (position == null) position = string.Empty;
             List<string> validChoices = new List<string>();
             foreach (string choice in choices.Split('|'))
                 validChoices.AddRange(choice.Split('+'));
@@ -4933,7 +4934,7 @@ namespace SanguoshaServer.Game
                 }
                 else
                 {
-                    bool success = DoRequest(player, CommandType.S_COMMAND_MULTIPLE_CHOICE, new List<string> { player.Name, skill_name, choices, JsonUntity.Object2Json(descriptions) }, true);
+                    bool success = DoRequest(player, CommandType.S_COMMAND_MULTIPLE_CHOICE, new List<string> { player.Name, skill_name, choices, JsonUntity.Object2Json(descriptions), position.ToString() }, true);
                     Interactivity client = GetInteractivity(player);
                     List<string> clientReply = client?.ClientReply;
                     if (client == null || !success || clientReply == null || clientReply.Count == 0)
@@ -4971,6 +4972,74 @@ namespace SanguoshaServer.Game
 
             return answer;
         }
+
+        public string AskForSkill(Player player, string skill_name, string choices, string prompt, int min, int max, bool can_refuse, string position)
+        {
+            if (position == null) position = string.Empty;
+            List<string> validChoices = new List<string>();
+            foreach (string choice in choices.Split('|'))
+                validChoices.AddRange(choice.Split('+'));
+            string skillname = skill_name;
+
+            string answer = string.Empty;
+            if (validChoices.Count == min && !can_refuse)
+            {
+                answer = string.Join("+", validChoices);
+            }
+            else
+            {
+                NotifyMoveFocus(player, CommandType.S_COMMAND_MULTIPLE_CHOICE);
+
+                TrustedAI ai = GetAI(player);
+                if (ai != null)
+                {
+                    answer = ai.AskForChoice(skillname, choices, prompt);
+                    Thread.Sleep(400);
+                }
+                else
+                {
+                    bool success = DoRequest(player, CommandType.S_COMMAND_MULTIPLE_CHOICE, new List<string> { player.Name, skill_name, choices, prompt, min.ToString(), max.ToString(), can_refuse.ToString(), position.ToString() }, true);
+                    Interactivity client = GetInteractivity(player);
+                    List<string> clientReply = client?.ClientReply;
+                    bool valid = false;
+                    if (client != null && success && clientReply != null && clientReply.Count != 0)
+                    {
+                        answer = clientReply[0];
+                        List<string> answers = new List<string>(answer.Split('+'));
+                        answers.RemoveAll(t => !validChoices.Contains(t));
+                        if ((can_refuse && answers.Count == 0) || (answers.Count >= min && answers.Count <= max))
+                        {
+                            valid = true;
+                            answer = string.Join("+", answers);
+                        }
+                    }
+                    if (!valid)
+                    {
+                        if (can_refuse)
+                            answer = string.Empty;
+                        else
+                        {
+                            List<string> result = new List<string>();
+                            for (int i = 0; i < Math.Min(min, validChoices.Count); i++)
+                                result.Add(validChoices[i]);
+
+                            answer = string.Join("+", result);
+                        }
+
+                    }
+                }
+                DoBroadcastNotify(CommandType.S_COMMAND_UNKNOWN, new List<string> { false.ToString() });
+            }
+
+            if (RoomThread != null)
+            {
+                object decisionData = "skillChoice:" + skillname + ":" + answer;
+                RoomThread.Trigger(TriggerEvent.ChoiceMade, this, player, ref decisionData);
+            }
+
+            return answer;
+        }
+
         public void AskForLordConvert()
         {
             List<Player> lords = new List<Player>();

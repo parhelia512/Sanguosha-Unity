@@ -192,7 +192,7 @@ namespace SanguoshaServer.Package
             if (target.Alive && !target.IsKongcheng() && RoomLogic.CanGetCard(room, player, target, "h"))
             {
                 target.SetFlags("daoshu_target");
-                string suit = room.AskForChoice(player, "daoshu", string.Join("+", suits));
+                string suit = room.AskForChoice(player, "daoshu", string.Join("+", suits), null, null, card_use.Card.SkillPosition);
                 target.SetFlags("-daoshu_target");
 
                 int id = room.AskForCardChosen(player, target, "h", "daoshu", false, HandlingMethod.MethodGet);

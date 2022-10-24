@@ -1391,23 +1391,25 @@ namespace SanguoshaServer.AI
                     }
                 }
             }
-
+            List<string> result = new List<string>();
+            int count = 1;
+            if (data is string prompt && prompt == "@flamemapskill") count = 2;
             if (choice.Contains("haoshi"))
-                if (check >= 0 && !ai.HasSkill("haoshi") || check > 1) return "haoshiextra";
+                if (check >= 0 && !ai.HasSkill("haoshi") || check > 1) result.Add("haoshiextra");
 
-            if (choice.Contains("shelie"))
+            if (result.Count == 0 && choice.Contains("shelie"))
             {
-                if (n == 2 && (check < 0 || !ai.HasSkill("haoshi"))) return "shelie"; 
+                if (n == 2 && (check < 0 || !ai.HasSkill("haoshi"))) result.Add("shelie"); 
             }
 
-            if (choice.Contains("yingziextra"))
+            if (result.Count < count && !result.Contains("shelie") && choice.Contains("yingziextra"))
             {
-                if (check > 0) return "yingziextra";
+                if (check > 0) result.Add("yingziextra");
             }
 
-            if (choice.Contains("duoshiextra")) return "duoshiextra";
+            if (result.Count < count && choice.Contains("duoshiextra")) result.Add("duoshiextra");
 
-            return "cancel"; 
+            return string.Join("+", result); 
         }
     }
 

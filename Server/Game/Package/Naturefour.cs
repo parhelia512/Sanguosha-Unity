@@ -1576,7 +1576,7 @@ namespace SanguoshaServer.Package
             }
             else
             {
-                string choice = room.AskForChoice(player, Name, "change+remove+cancel");
+                string choice = room.AskForChoice(player, Name, "change+remove+cancel", null, null, info.SkillPosition);
                 if (choice == "cancel") return new TriggerStruct();
                 bool remove = choice == "change";
                 if (remove)
@@ -1675,7 +1675,7 @@ namespace SanguoshaServer.Package
 
                         if (skills.Count > 0)
                         {
-                            string skill = room.AskForChoice(player, Name, string.Join("+", skills));
+                            string skill = room.AskForSkill(player, Name, string.Join("+", skills), "@choose-skill", 1, 1, false, info.SkillPosition);
                             player.SetTag("huashen_skill", skill);
                             room.HandleAcquireDetachSkills(player, skill, true);
                             room.FilterCards(player, player.GetCards("he"), true);
@@ -2195,7 +2195,7 @@ namespace SanguoshaServer.Package
                 if (fcard is EquipCard && fcard.IsAvailable(room, caoren, card))
                 {
                     if (RoomLogic.CanDiscard(room, caoren, caoren, id))
-                        discard = room.AskForChoice(caoren, Name, "use+discard") == "discard";
+                        discard = room.AskForChoice(caoren, Name, "use+discard", null, null, info.SkillPosition) == "discard";
                     else
                         discard = false;
                 }
@@ -2434,7 +2434,7 @@ namespace SanguoshaServer.Package
             CardUseStruct use = (CardUseStruct)data;
             while (choices.Count > 0)
             {
-                string choice = room.AskForChoice(player, Name, string.Join("+", choices));
+                string choice = room.AskForChoice(player, Name, string.Join("+", choices), null, info.SkillPosition);
                 if (choice == "nojink")
                 {
                     LogMessage log = new LogMessage
@@ -2619,7 +2619,7 @@ namespace SanguoshaServer.Package
             List<string> choices = new List<string> { "draw" };
             if (player.IsWounded())
                 choices.Add("recover");
-            string result = room.AskForChoice(player, Name, string.Join("+", choices), null);
+            string result = room.AskForChoice(player, Name, string.Join("+", choices), null, info.SkillPosition);
             if (result == "draw")
                 room.DrawCards(player, 1, Name);
             else
@@ -2717,7 +2717,7 @@ namespace SanguoshaServer.Package
                 for (int i = player.Hp; i > 0; i--)
                     choices.Add(i.ToString());
 
-                int lose = int.Parse(room.AskForChoice(player, "qimou", string.Join("+", choices), new List<string> { "@qimou-lose" }));
+                int lose = int.Parse(room.AskForChoice(player, "qimou", string.Join("+", choices), new List<string> { "@qimou-lose" }, null, card_use.Card.SkillPosition));
                 room.LoseHp(player, lose);
 
                 if (player.Alive)
@@ -2817,7 +2817,7 @@ namespace SanguoshaServer.Package
             {
                 choices.Add("recover");
             }
-            if (room.AskForChoice(player, Name, string.Join("+", choices)) == "recover")
+            if (room.AskForChoice(player, Name, string.Join("+", choices), null, null, info.SkillPosition) == "recover")
             {
                 RecoverStruct recover = new RecoverStruct
                 {
@@ -3249,7 +3249,7 @@ namespace SanguoshaServer.Package
 
             if (pangtong.Alive)
             {
-                string skill = room.AskForChoice(pangtong, Name, "bazhen+huoji_jx+kanpo_jx");
+                string skill = room.AskForSkill(pangtong, Name, "bazhen+huoji_jx+kanpo_jx", "@choose-skill", 1, 1, false, info.SkillPosition);
                 room.HandleAcquireDetachSkills(pangtong, skill, true);
             }
 
@@ -4146,7 +4146,7 @@ namespace SanguoshaServer.Package
             xiaoqiao.SetFlags("-tianxiang_invoke");
             DamageStruct damage = (DamageStruct)data;
             room.SetTag("TianxiangDamage", data);
-            string choice = room.AskForChoice(xiaoqiao, "tianxiang_jx", "damage+losehp", new List<string> { "@to-player:" + target.Name });
+            string choice = room.AskForChoice(xiaoqiao, "tianxiang_jx", "damage+losehp", new List<string> { "@to-player:" + target.Name }, null, info.SkillPosition);
             room.RemoveTag("TianxiangDamage");
             xiaoqiao.RemoveTag("tianxiang_target");
 

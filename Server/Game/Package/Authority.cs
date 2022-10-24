@@ -1707,7 +1707,7 @@ namespace SanguoshaServer.Package
                 result.Assist++;
                 target.Result = result;
 
-                string choice = room.AskForChoice(card_use.From, "xuanhuo", string.Join("+", skills));
+                string choice = room.AskForSkill(card_use.From, "xuanhuo", string.Join("+", skills), "@choose-skill", 1, 1, false, card_use.Card.SkillPosition);
                 card_use.From.SetFlags("xuanhuo");
                 room.HandleAcquireDetachSkills(card_use.From, choice);
             }
@@ -2348,7 +2348,7 @@ namespace SanguoshaServer.Package
             List<string> choices = new List<string> { "draw" };
             if (player.IsWounded())
                 choices.Add("recover");
-            string result = room.AskForChoice(player, Name, string.Join("+", choices), null);
+            string result = room.AskForChoice(player, Name, string.Join("+", choices), null, null, info.SkillPosition);
             if (result == "draw")
                 room.DrawCards(player, 1, Name);
             else
@@ -3327,7 +3327,7 @@ namespace SanguoshaServer.Package
 
             if (skills.Count > 0)
             {
-                string skill = room.AskForChoice(player, Name, string.Join("+", skills));
+                string skill = room.AskForSkill(player, Name, string.Join("+", skills), "@choose-skill", 1, 1, false, info.SkillPosition);
                 if (skills.Contains(skill))
                     room.AcquireSkill(player, skill, true, true);
             }

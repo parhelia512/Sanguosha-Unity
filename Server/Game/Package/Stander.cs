@@ -1269,7 +1269,7 @@ namespace SanguoshaServer.Package
                     if (fcard is EquipCard && fcard.IsAvailable(room, caoren, card))
                     {
                         if (RoomLogic.CanDiscard(room, caoren, caoren, id))
-                            discard = room.AskForChoice(caoren, Name, "use+discard") == "discard";
+                            discard = room.AskForChoice(caoren, Name, "use+discard", null, null, info.SkillPosition) == "discard";
                         else
                             discard = false;
                     }
@@ -2646,7 +2646,7 @@ namespace SanguoshaServer.Package
             List<string> choices = new List<string> { "draw" };
             if (player.IsWounded())
                 choices.Add("recover");
-            string result = room.AskForChoice(player, Name, string.Join("+", choices), null);
+            string result = room.AskForChoice(player, Name, string.Join("+", choices), null, info.SkillPosition);
             if (result == "draw")
                 room.DrawCards(player, 1, Name);
             else
@@ -4553,7 +4553,7 @@ namespace SanguoshaServer.Package
 
             if (!string.IsNullOrEmpty(target.General2) && !target.General2.Contains("sujiang"))
                 choices.Add("deputy_general");
-            string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@duanchang-target:" + target.Name }, target);
+            string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@duanchang-target:" + target.Name }, target, info.SkillPosition);
             LogMessage log = new LogMessage
             {
                 Type = choice == "head_general" ? "#DuanchangLoseHeadSkills" : "#DuanchangLoseDeputySkills",
@@ -5151,7 +5151,7 @@ namespace SanguoshaServer.Package
             if (equiplist.Contains(card_id))
                 choicelist.Add("move");
 
-            string choice = room.AskForChoice(panfeng, "kuangfu", string.Join("+", choicelist), new List<string> { "@kuangfu:::" + card.Name });
+            string choice = room.AskForChoice(panfeng, "kuangfu", string.Join("+", choicelist), new List<string> { "@kuangfu:::" + card.Name }, null, info.SkillPosition);
             GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, panfeng, Name, info.SkillPosition);
             if (choice.Contains("move"))
             {
@@ -6379,7 +6379,7 @@ namespace SanguoshaServer.Package
                 {
                     to.SetFlags("YinghunTarget");
                     List<string> descriptions = new List<string> { "@to-player:" + to.Name, "@d1tx:::" + x.ToString(), "@dxt1:::" + x.ToString() };
-                    string choice = room.AskForChoice(sunjian, Name,  "d1tx+dxt1", descriptions);
+                    string choice = room.AskForChoice(sunjian, Name,  "d1tx+dxt1", descriptions, to, info.SkillPosition);
                     to.SetFlags("-YinghunTarget");
                     if (choice.Contains("d1tx"))
                     {

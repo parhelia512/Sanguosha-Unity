@@ -2533,7 +2533,7 @@ namespace SanguoshaServer.Package
                 if (player.GetLostHp() > 0)
                     choices.Add("recover");
 
-                if (room.AskForChoice(player, Name, string.Join("+", choices)) == "recover")
+                if (room.AskForChoice(player, Name, string.Join("+", choices), null, null, info.SkillPosition) == "recover")
                 {
                     RecoverStruct recover = new RecoverStruct
                     {
@@ -2594,7 +2594,7 @@ namespace SanguoshaServer.Package
 
             if (result != -1)
             {
-                string choice = room.AskForChoice(player, "gongxin", "discard+piletop", null, result);
+                string choice = room.AskForChoice(player, "gongxin", "discard+piletop", null, result, card_use.Card.SkillPosition);
                 if (choice == "discard")
                     room.ThrowCard(result, target, player);
                 else
@@ -2970,7 +2970,7 @@ namespace SanguoshaServer.Package
                     if (!RoomLogic.CanDiscard(room, player, player, card_use.Card.GetEffectiveId()))
                         hand = false;
                     else if (target.GetEquip(equip_index) < 0 && RoomLogic.CanPutEquip(target, equip_card))
-                        hand = room.AskForChoice(player, "jieyin_jx", "discard+put", new List<string> { "@to-player:" + target.Name }, target) == "discard";
+                        hand = room.AskForChoice(player, "jieyin_jx", "discard+put", new List<string> { "@to-player:" + target.Name }, target, card_use.Card.SkillPosition) == "discard";
                 }
             }
 

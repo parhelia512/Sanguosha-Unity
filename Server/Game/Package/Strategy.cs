@@ -418,7 +418,7 @@ namespace SanguoshaServer.Package
                 }
             }
 
-            if (room.AskForChoice(use.From, Name, "use+nulli", new List<string> { "@to-player:" + liushan.Name }, data) == "nulli")
+            if (room.AskForChoice(use.From, Name, "use+nulli", new List<string> { "@to-player:" + liushan.Name }, data, info.SkillPosition) == "nulli")
             {
                 CardBasicEffect effect = use.EffectCount[i];
                 effect.Nullified = true;
@@ -630,7 +630,7 @@ namespace SanguoshaServer.Package
 
                 if (choices.Count > 0)
                 {
-                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + use.From.Name }, use.From);
+                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + use.From.Name }, use.From, info.SkillPosition);
                     if (choice == "discard")
                     {
                         int count = Math.Min(use.From.HandcardNum, use.From.MaxHp);
@@ -830,7 +830,7 @@ namespace SanguoshaServer.Package
                 if (check) choices.Add("damage");
                 if (choices.Count > 0)
                 {
-                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + use.From.Name }, use.From);
+                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + use.From.Name }, use.From, info.SkillPosition);
                     if (choice == "discard")
                     {
                         List<string> patterns = new List<string>();

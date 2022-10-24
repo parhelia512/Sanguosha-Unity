@@ -1945,7 +1945,7 @@ namespace SanguoshaServer.Package
                 }
                 target.AddMark(mark);
 
-                string choice = room.AskForChoice(player, "feijun", string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target);
+                string choice = room.AskForChoice(player, "feijun", string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target, card_use.Card.SkillPosition);
                 if (choice == "handcard")
                 {
                     List<int> ids = room.AskForExchange(target, "feijun", 1, 1, "@feijun-give:" + player.Name, string.Empty, "..", string.Empty);
@@ -2373,7 +2373,7 @@ namespace SanguoshaServer.Package
                 }
             }
 
-            string choice = room.AskForChoice(player, "jueyan", string.Join("+", choices));
+            string choice = room.AskForChoice(player, "jueyan", string.Join("+", choices), null, null, card_use.Card.SkillPosition);
             switch (choice)
             {
                 case "Weapon":
@@ -2611,7 +2611,7 @@ namespace SanguoshaServer.Package
 
             bool draw = card_use.To.Count <= count;
             if (draw && hp == count)
-                draw = room.AskForChoice(player, "kuizhu", "draw+damage", null, card_use.To) == "draw";
+                draw = room.AskForChoice(player, "kuizhu", "draw+damage", null, card_use.To, card_use.Card.SkillPosition) == "draw";
 
             foreach (Player p in card_use.To)
             {
@@ -2977,7 +2977,7 @@ namespace SanguoshaServer.Package
             if (player.Hp > 0) choice.Add("losehp");
             if (player.GetMark("@tangerine") > 0) choice.Add("remove");
 
-            if (room.AskForChoice(player, Name, string.Join("+", choice)) == "losehp")
+            if (room.AskForChoice(player, Name, string.Join("+", choice), null, null, info.SkillPosition) == "losehp")
                 room.LoseHp(player);
             else
                 room.AddPlayerMark(player, "@tangerine", -1);

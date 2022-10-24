@@ -767,7 +767,7 @@ namespace SanguoshaServer.Package
             string choice;
             if (!player.IsSkipped(Player.PlayerPhase.Judge) && !player.IsSkipped(Player.PlayerPhase.Discard))
             {
-                choice = room.AskForChoice(player, Name, "judge_phase+discard_phase+cancel", new List<string> { "@Comb2" });
+                choice = room.AskForChoice(player, Name, "judge_phase+discard_phase+cancel", new List<string> { "@Comb2" }, null, info.SkillPosition);
                 if (choice == "cancel") return new TriggerStruct();
             }
             else

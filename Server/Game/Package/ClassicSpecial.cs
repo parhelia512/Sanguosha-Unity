@@ -1028,7 +1028,7 @@ namespace SanguoshaServer.Package
                     choices.Add("OffensiveHorse");
                 if (choices.Count > 0)
                 {
-                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@juezhu-bolish" });
+                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@juezhu-bolish" }, null, info.SkillPosition);
                     if (choice == "DefensiveHorse")
                     {
                         room.AbolisheEquip(player, 2, Name);
@@ -2322,7 +2322,7 @@ namespace SanguoshaServer.Package
                     || (use.Card.Name == Collateral.ClassName && !ask_who.GetWeapon()))
                     transfer = false;
                 if (transfer) choices.Add("transfer");
-                string choice = room.AskForChoice(ask_who, Name, string.Join("+", choices), new List<string> { "@zhenwei-card:::" + use.Card.Name }, data);
+                string choice = room.AskForChoice(ask_who, Name, string.Join("+", choices), new List<string> { "@zhenwei-card:::" + use.Card.Name }, data, info.SkillPosition);
 
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
                 if (choice == "transfer")
@@ -3239,21 +3239,21 @@ namespace SanguoshaServer.Package
                     }
 
                     player.SetFlags("lingren_basic");
-                    string basic_choice = room.AskForChoice(player, Name, "has+nohas", new List<string> { "@lingren-basic:" + target.Name }, target);
+                    string basic_choice = room.AskForChoice(player, Name, "has+nohas", new List<string> { "@lingren-basic:" + target.Name }, target, info.SkillPosition);
                     player.SetFlags("-lingren_basic");
 
                     if ((basic_choice == "has" && basic) || (basic_choice != "has" && !basic))
                         correct++;
 
                     player.SetFlags("lingren_equip");
-                    string equip_choice = room.AskForChoice(player, Name, "has+nohas", new List<string> { "@lingren-equip:" + target.Name }, target);
+                    string equip_choice = room.AskForChoice(player, Name, "has+nohas", new List<string> { "@lingren-equip:" + target.Name }, target, info.SkillPosition);
                     player.SetFlags("-lingren_equip");
 
                     if ((equip_choice == "has" && equip) || (equip_choice != "has" && !equip))
                         correct++;
 
                     player.SetFlags("lingren_trick");
-                    string trick_choice = room.AskForChoice(player, Name, "has+nohas", new List<string> { "@lingren-trick:" + target.Name }, target);
+                    string trick_choice = room.AskForChoice(player, Name, "has+nohas", new List<string> { "@lingren-trick:" + target.Name }, target, info.SkillPosition);
                     player.SetFlags("-lingren_trick");
 
                     if ((trick_choice == "has" && trick) || (trick_choice != "has" && !trick))
@@ -3685,7 +3685,7 @@ namespace SanguoshaServer.Package
                         skills.Remove(skill);
                 }
 
-                string choice = room.AskForChoice(player, Name, string.Join("+", skills), new List<string> { "@tuogu-from:" + ask_who.Name }, ask_who);
+                string choice = room.AskForSkill(player, Name, string.Join("+", skills), "@tuogu-from:" + ask_who.Name, 1, 1, false, info.SkillPosition);
                 ask_who.SetTag(Name, choice);
                 room.SetPlayerStringMark(ask_who, Name, choice);
                 room.HandleAcquireDetachSkills(ask_who, choice, true);
@@ -5364,7 +5364,7 @@ namespace SanguoshaServer.Package
                 if (!kingdoms.Contains(p.Kingdom))
                     kingdoms.Add(p.Kingdom);
 
-            string choice = room.AskForChoice(player, Name, string.Join("+", kingdoms));
+            string choice = room.AskForChoice(player, Name, string.Join("+", kingdoms), null, null, info.SkillPosition);
             room.SetPlayerStringMark(player, Name, choice);
             player.SetTag(Name, choice);
             foreach (Player p in room.GetAlivePlayers())
@@ -5975,7 +5975,7 @@ namespace SanguoshaServer.Package
             List<string> choices = new List<string> { "draw", "cancel" };
             if (RoomLogic.CanDiscard(room, ask_who, player, "he")) choices.Insert(1, "discard");
             player.SetFlags("moukui_target");
-            string choice = room.AskForChoice(ask_who, Name, string.Join("+", choices), new List<string> { "@to-player:" + player.Name }, data);
+            string choice = room.AskForChoice(ask_who, Name, string.Join("+", choices), new List<string> { "@to-player:" + player.Name }, data, info.SkillPosition);
             player.SetFlags("-moukui_target");
             if (choice != "cancel")
             {
@@ -7035,7 +7035,7 @@ namespace SanguoshaServer.Package
                             Arg = judge.Reason
                         };
 
-                        string choic = room.AskForChoice(ask_who, Name, "spade+heart", new List<string> { string.Format("@zhenyi:{0}::{1}", player.Name, judge.Reason) }, data);
+                        string choic = room.AskForChoice(ask_who, Name, "spade+heart", new List<string> { string.Format("@zhenyi:{0}::{1}", player.Name, judge.Reason) }, data, info.SkillPosition);
                         if (choic == "spade")
                         {
                             judge.Card.SetSuit(WrappedCard.CardSuit.Spade);
@@ -7301,7 +7301,7 @@ namespace SanguoshaServer.Package
             room.SendCompulsoryTriggerLog(ask_who, Name);
             room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
 
-            string choice = room.AskForChoice(ask_who, Name, "draw+letdraw", null, player);
+            string choice = room.AskForChoice(ask_who, Name, "draw+letdraw", null, player, info.SkillPosition);
             if (choice == "draw")
                 room.DrawCards(ask_who, 1, Name);
             else
@@ -7740,7 +7740,7 @@ namespace SanguoshaServer.Package
                 List<string> choices = new List<string>();
                 if (from.GetMark("@dragon") > 0 && to.GetMark("@dragon") == 0) choices.Add("@dragon");
                 if (from.GetMark("@phenix") > 0 && to.GetMark("@phenix") == 0) choices.Add("@phenix");
-                string mark = room.AskForChoice(player, "jianjie", string.Join("+", choices), new List<string> { string.Format("@jianjie-from:{0}:{1}", from.Name, to.Name) });
+                string mark = room.AskForChoice(player, "jianjie", string.Join("+", choices), new List<string> { string.Format("@jianjie-from:{0}:{1}", from.Name, to.Name) }, null, card_use.Card.SkillPosition);
                 if (mark == "@dragon")
                 {
                     room.SetPlayerMark(from, "@dragon", 0);
@@ -7900,7 +7900,7 @@ namespace SanguoshaServer.Package
             Player player = card_use.From, target = card_use.To[0];
             player.AddMark("lueming");
             room.SetPlayerStringMark(player, "lueming", player.GetMark("lueming").ToString());
-            string number = room.AskForChoice(target, "lueming", "A+2+3+4+5+6+7+8+9+10+J+Q+K", new List<string> { "@lueming-judge:" + player.Name });
+            string number = room.AskForChoice(target, "lueming", "A+2+3+4+5+6+7+8+9+10+J+Q+K", new List<string> { "@lueming-judge:" + player.Name }, null, card_use.Card.SkillPosition);
 
             JudgeStruct judge = new JudgeStruct
             {
@@ -8207,7 +8207,7 @@ namespace SanguoshaServer.Package
             Player player = card_use.From, target = card_use.To[0];
             bool infi = true;
             if (!target.IsAllNude() && RoomLogic.CanGetCard(room, player, target, "hej"))
-                infi = room.AskForChoice(target, "tanbei", "got+infi", new List<string> { "@tanbei:" + player.Name }, player) == "infi";
+                infi = room.AskForChoice(target, "tanbei", "got+infi", new List<string> { "@tanbei:" + player.Name }, player, card_use.Card.SkillPosition) == "infi";
 
             if (infi)
             {
@@ -9426,7 +9426,7 @@ namespace SanguoshaServer.Package
                 bool draw = target == player;
                 if (target == player && (player.HasEquip() || player.JudgingArea.Count > 0) && RoomLogic.CanGetCard(room, player, player, "ej"))
                 {
-                    string choice = room.AskForChoice(player, Name, "draw+get");
+                    string choice = room.AskForChoice(player, Name, "draw+get", null, null, info.SkillPosition);
                     draw = choice == "draw";
                 }
 
@@ -10079,7 +10079,7 @@ namespace SanguoshaServer.Package
             {
                 choices.Add("recover");
             }
-            if (room.AskForChoice(player, Name, string.Join("+", choices)) == "recover")
+            if (room.AskForChoice(player, Name, string.Join("+", choices), null, null, info.SkillPosition) == "recover")
             {
                 RecoverStruct recover = new RecoverStruct
                 {
@@ -10518,7 +10518,7 @@ namespace SanguoshaServer.Package
                     }
 
                     old = next;
-                    string choice = room.AskForChoice(player, Name, "big+small", new List<string> { "@jizhan:::" + next.ToString() }, next);
+                    string choice = room.AskForChoice(player, Name, "big+small", new List<string> { "@jizhan:::" + next.ToString() }, next, info.SkillPosition);
                     big = choice == "big";
                     LogMessage log = new LogMessage()
                     {
@@ -10574,7 +10574,7 @@ namespace SanguoshaServer.Package
             if (room.GetTag(Name) is Player target)
             {
                 room.RemoveTag(Name);
-                string choice = room.AskForChoice(target, Name, "jizhan+fengzi");
+                string choice = room.AskForSkill(target, Name, "jizhan+fengzi", "@choose-skill", 1, 1, false, info.SkillPosition);
                 room.HandleAcquireDetachSkills(target, choice, true);
             }
             return false;
@@ -10657,7 +10657,7 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.GameStart)
             {
-                string choice = room.AskForChoice(player, Name, "Comb1+Comb2+Comb3");
+                string choice = room.AskForChoice(player, Name, "Comb1+Comb2+Comb3", null, null, info.SkillPosition);
                 foreach (int id in room.RoomCards)
                 {
                     WrappedCard card = room.GetCard(id);
@@ -11160,12 +11160,12 @@ namespace SanguoshaServer.Package
             if (triggerEvent == TriggerEvent.EventPhaseStart)
             {
                 List<string> result = new List<string>(), choices = new List<string> { "draw", "slash", "cancel" };
-                string choice = room.AskForChoice(player, Name, string.Join("+", choices));
+                string choice = room.AskForChoice(player, Name, string.Join("+", choices), null, null, info.SkillPosition);
                 if (choice != "cancel")
                 {
                     result.Add(choice);
                     choices.Remove(choice);
-                    choice = room.AskForChoice(player, Name, string.Join("+", choices));
+                    choice = room.AskForChoice(player, Name, string.Join("+", choices), null, null, info.SkillPosition);
                     if (choice != "cancel") result.Add(choice);
                 }
                 room.SendCompulsoryTriggerLog(player, Name);
@@ -11519,7 +11519,7 @@ namespace SanguoshaServer.Package
 
                 if (choices.Count > 0)
                 {
-                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target);
+                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target, info.SkillPosition);
                     room.HandleAcquireDetachSkills(target, choice, true);
                 }
                 if (target.Alive && player.Alive)
@@ -11883,7 +11883,7 @@ namespace SanguoshaServer.Package
             {
                 List<string> prompts = new List<string> { string.Empty, "@liangzhu-let:" + player.Name };
                 player.SetFlags(Name);
-                string choice = room.AskForChoice(ask_who, Name, "let_draw+draw_self", prompts, player);
+                string choice = room.AskForChoice(ask_who, Name, "let_draw+draw_self", prompts, player, info.SkillPosition);
                 player.SetFlags("-liangzhu");
                 if (choice == "let_draw")
                 {
@@ -12009,7 +12009,7 @@ namespace SanguoshaServer.Package
                             string.Format("@fengpo:{0}::{1}", skill_target.Name, use.Card.Name),
                             "@fengpo-draw:::" + count.ToString(),
                             "@fengpo-damage:::" + count.ToString()
-                        }, skill_target);
+                        }, skill_target, info.SkillPosition);
                     room.RemoveTag(Name);
                     if (choice == "draw")
                         room.DrawCards(machao, count, Name);
@@ -12064,7 +12064,7 @@ namespace SanguoshaServer.Package
 
             choices.Add("cancel");
 
-            string choice = room.AskForChoice(caopi, Name, string.Join("+", choices));
+            string choice = room.AskForChoice(caopi, Name, string.Join("+", choices), null, null, info.SkillPosition);
             if (choice != "cancel")
             {
                 room.NotifySkillInvoked(caopi, Name);
@@ -13416,7 +13416,7 @@ namespace SanguoshaServer.Package
                 choices.Add("trick");
             }
 
-            string choice = room.AskForChoice(player, "jianyan", string.Join("+", choices), new List<string> { "@jianyan" });
+            string choice = room.AskForChoice(player, "jianyan", string.Join("+", choices), new List<string> { "@jianyan" }, null, card_use.Card.SkillPosition);
             List<int> ids = new List<int>();
             foreach (int id in room.DrawPile)
             {
@@ -13810,7 +13810,7 @@ namespace SanguoshaServer.Package
                 choices.Add("discard");
 
             target.SetFlags(Name);
-            string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target);
+            string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target, info.SkillPosition);
             target.SetFlags("-bingzheng");
             if (choice == "draw")
             {
@@ -14427,7 +14427,7 @@ namespace SanguoshaServer.Package
                 }
             }
 
-            string choice = room.AskForChoice(player, "youlong", string.Join("+", choices), new List<string> { "@youlong" });
+            string choice = room.AskForChoice(player, "youlong", string.Join("+", choices), new List<string> { "@youlong" }, null, use.Card.SkillPosition);
             int index = -1;
             switch (choice)
             {
@@ -14500,7 +14500,7 @@ namespace SanguoshaServer.Package
                 }
             }
 
-            string choice = room.AskForChoice(player, "youlong", string.Join("+", choices), new List<string> { "@youlong" });
+            string choice = room.AskForChoice(player, "youlong", string.Join("+", choices), new List<string> { "@youlong" }, null, card.SkillPosition);
             int index = -1;
             switch (choice)
             {
@@ -14723,7 +14723,7 @@ namespace SanguoshaServer.Package
 
             if (choices.Count > 0)
             {
-                string choice = room.AskForChoice(player, Name, string.Join("+", choices));
+                string choice = room.AskForChoice(player, Name, string.Join("+", choices), null, null, info.SkillPosition);
                 if (choice == "discard")
                 {
                     int count = hands.Count;
@@ -14917,7 +14917,7 @@ namespace SanguoshaServer.Package
                             choices.Add(snatch.Name);
 
                         if (i == 1) choices.Add("cancel");
-                        string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target);
+                        string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target, info.SkillPosition);
                         if (choice != "cancel")
                         {
                             count++;
@@ -15453,7 +15453,7 @@ namespace SanguoshaServer.Package
 
                 if (choices.Count > 0)
                 {
-                    string choice = room.AskForChoice(target, "dingpan", string.Join("+", choices), prompt, player);
+                    string choice = room.AskForChoice(target, "dingpan", string.Join("+", choices), prompt, player, card_use.Card.SkillPosition);
                     if (choice == "discard")
                     {
                         int id = room.AskForCardChosen(player, target, "e", "dingpan", false, HandlingMethod.MethodDiscard);
@@ -15735,7 +15735,7 @@ namespace SanguoshaServer.Package
                 List<string> choices = new List<string>();
                 if (RoomLogic.CanGetCard(room, player, target, card_id) && Engine.GetFunctionCard(room.GetCard(card_id).Name) is Armor) choices.Add("get");
                 if (RoomLogic.CanDiscard(room, player, target, card_id)) choices.Add("discard");
-                if (room.AskForChoice(player, Name, string.Join("+", choices), null, card_id) == "get")
+                if (room.AskForChoice(player, Name, string.Join("+", choices), null, card_id, info.SkillPosition) == "get")
                 {
                     room.ObtainCard(player, card_id);
                     player.SetFlags("mumu_decrease");
@@ -16692,7 +16692,7 @@ namespace SanguoshaServer.Package
             if (player.Hp <= ask_who.Hp && player.IsWounded()) choices.Add("recover");
 
             player.SetFlags(Name);
-            string choice = room.AskForChoice(ask_who, Name, string.Join("+", choices), new List<string> { "@to-player:" + player.Name }, player);
+            string choice = room.AskForChoice(ask_who, Name, string.Join("+", choices), new List<string> { "@to-player:" + player.Name }, player, info.SkillPosition);
             player.SetFlags("-weiyi");
 
             if (choice == "losehp")
@@ -17248,7 +17248,7 @@ namespace SanguoshaServer.Package
             if (choices.Count > 0)
             {
                 choices.Add("cancel");
-                string choice = room.AskForChoice(player, Name, string.Join("+", choices));
+                string choice = room.AskForChoice(player, Name, string.Join("+", choices), null, null, info.SkillPosition);
                 if (choice != "cancel")
                 {
                     room.NotifySkillInvoked(player, Name);
@@ -17436,7 +17436,7 @@ namespace SanguoshaServer.Package
                 if (player.Alive)
                 {
                     player.SetFlags(Name);
-                    string choice = room.AskForChoice(player, "aichen", string.Join("+", choices));
+                    string choice = room.AskForChoice(player, "aichen", string.Join("+", choices), null, null, info.SkillPosition);
                     player.SetFlags("-luochong");
 
                     LogMessage log = new LogMessage

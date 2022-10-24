@@ -393,7 +393,7 @@ namespace SanguoshaServer.Package
                 foreach (WrappedCard.CardSuit suit in suits)
                     choices.Add(WrappedCard.GetSuitString(suit));
                 choices.Add("cancel");
-                string choice = room.AskForChoice(zl, Name, string.Join("+", choices), new List<string> { string.Format("@midao-suit:{0}::{1}", player.Name, use.Card.Name) }, data);
+                string choice = room.AskForChoice(zl, Name, string.Join("+", choices), new List<string> { string.Format("@midao-suit:{0}::{1}", player.Name, use.Card.Name) }, data, info.SkillPosition);
                 if (choice != "cancel")
                 {
                     LogMessage log = new LogMessage
@@ -419,7 +419,7 @@ namespace SanguoshaServer.Package
                     List<string> slashes = new List<string> { Slash.ClassName, FireSlash.ClassName, ThunderSlash.ClassName };
                     slashes.Remove(use.Card.Name);
                     slashes.Add("cancel");
-                    choice = room.AskForChoice(zl, Name, string.Join("+", slashes), new List<string> { string.Format("@midao-slash:{0}::{1}", player.Name, use.Card.Name) }, data);
+                    choice = room.AskForChoice(zl, Name, string.Join("+", slashes), new List<string> { string.Format("@midao-slash:{0}::{1}", player.Name, use.Card.Name) }, data, info.SkillPosition);
 
                     LogMessage log = new LogMessage
                     {
@@ -810,7 +810,7 @@ namespace SanguoshaServer.Package
                     List<int> ids = new List<int>(dm.SubCards);
                     room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISCARD, ask_who.Name, Name, string.Empty), ask_who);
                 }
-                else if (!ss.Alive || room.AskForChoice(ask_who, Name, string.Join("+", choices)) == "losehp")
+                else if (!ss.Alive || room.AskForChoice(ask_who, Name, string.Join("+", choices), null, info.SkillPosition) == "losehp")
                 {
                     room.LoseHp(ask_who);
                 }

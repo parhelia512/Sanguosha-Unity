@@ -778,7 +778,7 @@ namespace SanguoshaServer.Package
             PindianStruct pindian = (PindianStruct)data;
             bool isFrom = pindian.From == sunce;
 
-            string choice = room.AskForChoice(sunce, Name, "jia3+jian3", null, data);
+            string choice = room.AskForChoice(sunce, Name, "jia3+jian3", null, data, info.SkillPosition);
 
             int index = 2;
             if (choice == "jia3")
@@ -1080,7 +1080,7 @@ namespace SanguoshaServer.Package
         {
             room.SendCompulsoryTriggerLog(dongzhuo, Name);
 
-            string result = room.AskForChoice(dongzhuo, Name, "hp+maxhp");
+            string result = room.AskForChoice(dongzhuo, Name, "hp+maxhp", null, null, info.SkillPosition);
             int index = (result == "hp") ? 2 : 1;
             GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, dongzhuo, Name, "head");
             room.BroadcastSkillInvoke(Name, "male", index, gsk.General, gsk.SkinId);

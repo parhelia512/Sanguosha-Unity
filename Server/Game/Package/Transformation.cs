@@ -841,13 +841,11 @@ namespace SanguoshaServer.Package
                         }
                     }
 
-                    string answer = "cancel";
+                    string answer = string.Empty;
                     if (skills.Count > 0)
-                    {
-                        skills.Add("cancel");
-                        answer = room.AskForChoice(card_use.From, "xiongsuan", string.Join("+", skills), new List<string> { "#xiongsuan::" + target.Name });
-                    }
-                    if (answer != "cancel")
+                        answer = room.AskForSkill(card_use.From, "xiongsuan", string.Join("+", skills), "#xiongsuan::" + target.Name, 1, 1, true, card_use.Card.SkillPosition);
+
+                    if (!string.IsNullOrEmpty(answer))
                     {
                         Skill skill = Engine.GetSkill(answer);
                         if (skill.SkillFrequency ==  Skill.Frequency.Limited && !string.IsNullOrEmpty(skill.LimitMark))
@@ -2176,21 +2174,23 @@ namespace SanguoshaServer.Package
         public FlameMapSkill() : base("flamemapskill")
         {
             global = true;
-            events.Add(TriggerEvent.EventPhaseStart);
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.EventPhaseStart };
         }
-        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (player.Phase == PlayerPhase.NotActive && player.GetMark(Name) > 0)
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.ContainsTag(Name))
             {
                 List<string> skills = new List<string>();
                 foreach (string skill in (List<string>)player.GetTag(Name))
-                skills.Add("-" + skill);
-
-                player.SetMark(Name, 0);
+                    skills.Add("-" + skill);
+                
                 player.RemoveTag(Name);
                 room.HandleAcquireDetachSkills(player, skills, true);
             }
-            else if (player.Phase == PlayerPhase.Start)
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && player.Phase == PlayerPhase.Start)
             {
                 Player sunquan = RoomLogic.GetLord(room, player.Kingdom);
                 if (sunquan != null && sunquan.Alive && sunquan.GetPile("flame_map").Count > 0 && player.HasShownOneGeneral() && player.Kingdom == "wu")
@@ -2203,7 +2203,7 @@ namespace SanguoshaServer.Package
         {
             Player sunquan = RoomLogic.GetLord(room, player.Kingdom);
             int num = sunquan.GetPile("flame_map").Count;
-            List<string> skills = new List<string>(), answers = new List<string>();
+            List<string> skills = new List<string>();
             if (num >= 1)
                 skills.Add("yingziextra");
             if (num >= 2)
@@ -2212,35 +2212,18 @@ namespace SanguoshaServer.Package
                 skills.Add("shelie");
             if (num >= 4)
                 skills.Add("duoshiextra");
-            skills.Add("cancel");
 
-            string answer = room.AskForChoice(player, Name, string.Join("+", skills));
-            if (answer != "cancel")
+            string answer = room.AskForSkill(player, Name, string.Join("+", skills), num >= 5 ? "@flamemapskill" : "@choose-skill", 1, num >= 5 ? 2: 1, true, string.Empty);
+            List<string> answers = new List<string>(answer.Split('+'));
+            if (answers.Count > 0)
             {
                 answers.Add(answer);
-                player.SetMark(Name, 1);
                 player.SetTag(Name, answers);
                 room.HandleAcquireDetachSkills(player, answers);
 
                 ResultStruct result = sunquan.Result;
                 result.Assist++;
                 sunquan.Result = result;
-            }
-
-            if (num >= 5 && answers.Count > 0)
-            {
-                skills.Remove(answer);
-                answer = room.AskForChoice(player, Name, string.Join("+", skills));
-                if (answer != "cancel")
-                {
-                    answers.Add(answer);
-                    player.SetTag(Name, answers);
-                    room.HandleAcquireDetachSkills(player, answer);
-
-                    ResultStruct result = sunquan.Result;
-                    result.Assist++;
-                    sunquan.Result = result;
-                }
             }
 
             return false;

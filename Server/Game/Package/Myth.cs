@@ -361,7 +361,7 @@ namespace SanguoshaServer.Package
             }
             choices.Add("cancel");
 
-            string choice = room.AskForChoice(player, Name, string.Join("+", choices));
+            string choice = room.AskForChoice(player, Name, string.Join("+", choices), null, null, info.SkillPosition);
             if (choice != "cancel")
             {
                 player.SetTag(Name, choice);
@@ -955,7 +955,7 @@ namespace SanguoshaServer.Package
 
         public override void OnDamaged(Room room, Player target, DamageStruct damage, TriggerStruct info)
         {
-            string choice = room.AskForChoice(target, Name, "hand+equip+judge", new List<string> { "@guixin" });
+            string choice = room.AskForChoice(target, Name, "hand+equip+judge", new List<string> { "@guixin" }, null, info.SkillPosition);
             List<Player> targets = new List<Player>();
             foreach (Player p in room.GetOtherPlayers(target))
             {
@@ -1305,7 +1305,7 @@ namespace SanguoshaServer.Package
             if (player.GetMark("baonu") > 0)
                 choices.Add("discard");
 
-            if (room.AskForChoice(player, Name, string.Join("+", choices)) == "lose")
+            if (room.AskForChoice(player, Name, string.Join("+", choices), null, null, info.SkillPosition) == "lose")
             {
                 room.LoseHp(player);
             }
@@ -2535,7 +2535,7 @@ namespace SanguoshaServer.Package
                             choices.Add("discard");
 
                         target.SetFlags("shenfu_target");
-                        string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@shenfu-card-to:" + target.Name });
+                        string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@shenfu-card-to:" + target.Name }, null, info.SkillPosition);
                         target.SetFlags("-shenfu_target");
                         if (choice == "draw")
                         {
@@ -2807,7 +2807,7 @@ namespace SanguoshaServer.Package
 
                 if (choices.Count > 0)
                 {
-                    string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@duorui-skill:" + target.Name }, target);
+                    string choice = room.AskForSkill(player, Name, string.Join("+", choices), "@duorui-skill:" + target.Name, 1, 1, false, info.SkillPosition);
                     target.SetTag(Name, choice);
                 }
 
