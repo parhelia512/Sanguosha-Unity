@@ -17849,12 +17849,16 @@ namespace SanguoshaServer.Package
             }
         }
 
-        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.DamageCaused && data is DamageStruct damage && damage.From != null && damage.From.GetMark(Name) == 1
-                && damage.Card != null && base.Triggerable(room.Current, room) && !room.Current.HasFlag(Name))
-                return new TriggerStruct(Name, room.Current);
-            return new TriggerStruct();
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.DamageCaused && data is DamageStruct damage && damage.From != null && damage.From.GetMark(Name) == 1 && damage.Card != null)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                    if (!p.HasFlag(Name))
+                        triggers.Add(new TriggerStruct(Name, p));
+            }
+            return triggers;
         }
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
