@@ -17838,7 +17838,7 @@ namespace SanguoshaServer.Package
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.DamageCaused && data is DamageStruct damage && damage.From != null && damage.From.Alive && damage.Card != null)
+            if (triggerEvent == TriggerEvent.DamageCaused && data is DamageStruct damage && damage.From != null && damage.From == room.Current && damage.From.Alive && damage.Card != null)
             {
                 damage.From.AddMark(Name);
             }

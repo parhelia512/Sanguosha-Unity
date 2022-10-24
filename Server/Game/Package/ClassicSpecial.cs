@@ -10467,7 +10467,7 @@ namespace SanguoshaServer.Package
                         targets.Add(p);
                 }
                 if (targets.Count > 0)
-                    room.UseCard(new CardUseStruct(card, player, targets, false), true);
+                    room.UseCard(new CardUseStruct(card, player, targets, false), true, true);
             }
             return false;
         }
