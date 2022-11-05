@@ -984,7 +984,7 @@ namespace SanguoshaServer.Scenario
                 General lord_general = Engine.GetGeneral(lord.General1, "Classic");
                 if (lord_general.IsLord() && lord_general.Kingdom[0] == general.Kingdom[0])                           //正规主公，忠臣应尽量选国籍相同的武将
                 {
-                    value += 1;
+                    value += 1.5;
                     if (lord.General1 == "yuanshu" || lord.General1 == "sunliang") value += 0.5;                //袁术孙亮主公还有额外0.5加成
                 }
                 if (lord.General1 == "xizhicai" && (general_name == "jvshou" || general_name == "caorui"))      //主公戏字才，忠臣巨兽曹叡佳
@@ -1046,6 +1046,10 @@ namespace SanguoshaServer.Scenario
                     foreach (string skill in _skills)
                         if (skills.Contains(skill)) value -= 1.5;
                 }
+
+                if ((lord.General1 == "sunce" || lord.General1 == "liubian") && Engine.GetGeneral(general_name, room.Setting.GameMode).Kingdom[0] == general.Kingdom[0])
+                    value -= 5;                                                                                 //孙策、刘辩做主公不能选同势力
+
                 if (lord.General1 == "caocao_god" && general_name == "haozhao") value += 3;                     //郝昭克神曹操 
                 if (general_name == "lusu" || general_name == "liubei" || general_name == "panjun" || general_name == "zhangchangpu")
                     value -= 0.5 * (8 - room.Players.Count);                                                    //以8人局为标准，每少1人强度减少0.5
@@ -1067,6 +1071,10 @@ namespace SanguoshaServer.Scenario
                     foreach (string skill in _skills)
                         if (skills.Contains(skill)) value -= 1.5;
                 }
+
+                if ((lord.General1 == "sunce" || lord.General1 == "liubian") && Engine.GetGeneral(general_name, room.Setting.GameMode).Kingdom[0] == general.Kingdom[0])
+                    value -= 5;                                                                                 //孙策、刘辩做主公不能选同势力
+
                 if (lord.General1 == "simahui" && general_name == "guanyinping") value -= 2;
             }
 

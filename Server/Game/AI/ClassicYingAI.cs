@@ -1614,6 +1614,8 @@ namespace SanguoshaServer.AI
             
             return new List<Player>();
         }
+
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data) => data is Player target && ai.IsFriend(target) ? "draw" : "discard";
     }
 
     public class KongshengAI : SkillEvent

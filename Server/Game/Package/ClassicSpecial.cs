@@ -252,6 +252,9 @@ namespace SanguoshaServer.Package
                 new Juanxia(),
                 new JuanxiaEffect(),
                 new Dingcuo(),
+                new Qiongshou(),
+                new QiongshouMax(),
+                new Fenrui(),
 
                 new Hongyuan(),
                 new Huanshi(),
@@ -402,6 +405,7 @@ namespace SanguoshaServer.Package
                 { "fuman", new List<string>{ "#fuman" } },
                 { "huamu", new List<string>{ "#huamu" } },
                 { "genzhan", new List<string>{ "#genzhan" } },
+                { "qiongshou", new List<string>{ "#qiongshou" } },
             };
         }
     }
@@ -15021,6 +15025,203 @@ namespace SanguoshaServer.Package
             List<int> ids = room.DrawCards(player, 2, Name);
             if (ids.Count == 2 && WrappedCard.IsRed(room.GetCard(ids[0]).Suit) != WrappedCard.IsRed(room.GetCard(ids[1]).Suit) && !player.IsKongcheng())
                 room.AskForDiscard(player, Name, 1, 1, false, false, "@dingcuo", false, info.SkillPosition);
+
+            return false;
+        }
+    }
+
+    public class Qiongshou : TriggerSkill
+    {
+        public Qiongshou() : base("qiongshou")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.GameStart };
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who) => (base.Triggerable(player, room)) ? new TriggerStruct(Name, player) : new TriggerStruct();
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(player, Name);
+            room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+            for (int i = 0; i < 5; i++)
+                if (player.Alive) room.AbolisheEquip(player, i, Name);
+
+            if (player.Alive) room.DrawCards(player, 4, Name);
+            return false;
+        }
+    }
+
+    public class QiongshouMax : MaxCardsSkill
+    {
+        public QiongshouMax() : base("#qiongshou") { }
+        public override int GetExtra(Room room, Player target) => RoomLogic.PlayerHasShownSkill(room, target, "qiongshou") ? 4 : 0;
+    }
+
+    public class Fenrui : TriggerSkill
+    {
+        public Fenrui() : base("fenrui") { events.Add(TriggerEvent.EventPhaseStart); skill_type = SkillType.Attack; }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish && !player.IsNude())
+            {
+                for (int i = 0; i < 5; i++)
+                    if (player.EquipIsBaned(i))
+                        return new TriggerStruct(Name, player);
+            }
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForDiscard(player, Name, 1, 1, true, true, "@fenrui", true, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.Alive)
+            {
+                List<string> choices = new List<string>();
+                for (int i = 0; i < 5; i++)
+                {
+                    if (player.EquipIsBaned(i))
+                    {
+                        switch (i)
+                        {
+                            case 0:
+                                choices.Add("Weapon");
+                                break;
+                            case 1:
+                                choices.Add("Armor");
+                                break;
+                            case 2:
+                                choices.Add("DefensiveHorse");
+                                break;
+                            case 3:
+                                choices.Add("OffensiveHorse");
+                                break;
+                            case 4:
+                                choices.Add("Treasure");
+                                break;
+                        }
+                    }
+                }
+
+                string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@fenrui-recover" }, null, info.SkillPosition);
+                int index = -1;
+                switch (choice)
+                {
+                    case "Weapon":
+                        index = 0;
+                        break;
+                    case "Armor":
+                        index = 1;
+                        break;
+                    case "DefensiveHorse":
+                        index = 2;
+                        break;
+                    case "OffensiveHorse":
+                        index = 3;
+                        break;
+                    case "Treasure":
+                        index = 4;
+                        break;
+                }
+                room.RecoverEquip(player, index);
+
+                int card_id = -1;
+                foreach (int id in room.DrawPile)
+                {
+                    WrappedCard card = room.GetCard(id);
+                    FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                    if (index == 0 && fcard is Weapon && fcard.IsAvailable(room, player, card))
+                    {
+                        card_id = id;
+                        break;
+                    }
+                    else if (index == 1 && fcard is Armor && fcard.IsAvailable(room, player, card))
+                    {
+                        card_id = id;
+                        break;
+                    }
+                    else if (index == 2 && fcard is DefensiveHorse && fcard.IsAvailable(room, player, card))
+                    {
+                        card_id = id;
+                        break;
+                    }
+                    else if (index == 3 && fcard is OffensiveHorse && fcard.IsAvailable(room, player, card))
+                    {
+                        card_id = id;
+                        break;
+                    }
+                    else if (index == 4 && fcard is Treasure && fcard.IsAvailable(room, player, card))
+                    {
+                        card_id = id;
+                        break;
+                    }
+                }
+
+                if (card_id == -1)
+                {
+                    foreach (int id in room.DiscardPile)
+                    {
+                        WrappedCard card = room.GetCard(id);
+                        FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+                        if (index == 0 && fcard is Weapon && fcard.IsAvailable(room, player, card))
+                        {
+                            card_id = id;
+                            break;
+                        }
+                        else if (index == 1 && fcard is Armor && fcard.IsAvailable(room, player, card))
+                        {
+                            card_id = id;
+                            break;
+                        }
+                        else if (index == 2 && fcard is DefensiveHorse && fcard.IsAvailable(room, player, card))
+                        {
+                            card_id = id;
+                            break;
+                        }
+                        else if (index == 3 && fcard is OffensiveHorse && fcard.IsAvailable(room, player, card))
+                        {
+                            card_id = id;
+                            break;
+                        }
+                        else if (index == 4 && fcard is Treasure && fcard.IsAvailable(room, player, card))
+                        {
+                            card_id = id;
+                            break;
+                        }
+                    }
+                }
+
+                if (card_id != -1)
+                    room.UseCard(new CardUseStruct(room.GetCard(card_id), player, new List<Player>(), false));
+
+                if (player.GetMark(Name) == 0 && player.HasEquip())
+                {
+                    int count = player.GetEquips().Count;
+                    List<Player> targets = new List<Player>();
+                    foreach (Player p in room.GetOtherPlayers(player))
+                        if (count > p.GetEquips().Count)
+                            targets.Add(p);
+
+                    if (targets.Count > 0)
+                    {
+                        Player target = room.AskForPlayerChosen(player, targets, Name, "@fenrui-damage", true, true, info.SkillPosition);
+                        if (target != null)
+                        {
+                            player.SetMark(Name, 1);
+                            room.Damage(new DamageStruct(Name, player, target, count - target.GetEquips().Count));
+                        }
+                    }
+                }
+            }
 
             return false;
         }
