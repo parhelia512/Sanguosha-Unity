@@ -11314,14 +11314,11 @@ namespace SanguoshaServer.Package
             if (data is CardsMoveOneTimeStruct move)
             {
                 Player from = null;
-                if (move.From_pile_names.Contains("huamu") && move.From.Alive)
-                {
+                if (move.From_pile_names.Contains("huamu") && move.From != null && move.From.Alive)
                     from = move.From;
-                }
-                else if (move.To_pile_name == "huamu" && move.To.Alive)
-                {
+                else if (move.To_pile_name == "huamu" && move.To != null && move.To.Alive)
                     from = move.To;
-                }
+
                 if (from != null)
                 {
 

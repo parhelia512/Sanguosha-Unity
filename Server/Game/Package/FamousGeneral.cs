@@ -4578,9 +4578,10 @@ namespace SanguoshaServer.Package
                         room.ThrowCard(ref ids, target);
                         if (target.Alive && !target.IsNude())
                         {
+                            FunctionCard fcard = Engine.GetFunctionCard(room.GetCard(ids[0]).Name);
                             ids.Clear();
                             foreach (int id in player.GetCards("he"))
-                                if (!(Engine.GetFunctionCard(room.GetCard(ids[0]).Name) is TrickCard) && RoomLogic.CanDiscard(room, target, target, id))
+                                if (!(fcard is TrickCard) && RoomLogic.CanDiscard(room, target, target, id))
                                     ids.Add(id);
 
                             if (ids.Count > 1)
