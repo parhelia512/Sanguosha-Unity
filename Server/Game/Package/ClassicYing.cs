@@ -2097,20 +2097,68 @@ namespace SanguoshaServer.Package
     {
         public Liangyin() : base("liangyin")
         {
-            events.Add(TriggerEvent.CardsMoveOneTime);
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime, TriggerEvent.EventPhaseChanging };
         }
-
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && (move.To_place == Place.PlaceSpecial || move.From_places.Contains(Place.PlaceSpecial)))
+            {
+                if (move.To_place == Place.PlaceSpecial)
+                {
+                    foreach (Place place in move.From_places)
+                    {
+                        if (place != Place.PlaceSpecial && place != Place.PlaceUnknown)
+                        {
+                            int count = room.ContainsTag(Name) ? (int)room.GetTag(Name) : 0;
+                            count++;
+                            room.SetTag(Name, count);
+                            break;
+                        }
+                    }
+                }
+                else if (move.To_place != Place.PlaceSpecial && move.To_place != Place.PlaceUnknown)
+                {
+                    int count = room.ContainsTag(Name) ? (int)room.GetTag(Name) : 0;
+                    count++;
+                    room.SetTag(Name, count);
+                }
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                room.RemoveTag(Name);
+        }
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            if (data is CardsMoveOneTimeStruct move)
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && room.Current != null && (move.To_place == Place.PlaceSpecial || move.From_places.Contains(Place.PlaceSpecial))
+                && room.ContainsTag(Name) && room.GetTag(Name) is int count && count == 1)
+
             {
                 if ((move.To_place == Place.PlaceSpecial && !move.From_places.Contains(Place.PlaceSpecial) && !move.From_places.Contains(Place.PlaceUnknown))
                     || (move.To != null && move.To_place == Place.PlaceHand && move.From_places.Contains(Place.PlaceSpecial)))
                 {
-                    List<Player> zhoufeis = RoomLogic.FindPlayersBySkillName(room, Name);
-                    foreach (Player p in zhoufeis)
-                        triggers.Add(new TriggerStruct(Name, p));
+                    bool invoke = false;
+                    if (move.To_place == Place.PlaceSpecial)
+                    {
+                        foreach (Place place in move.From_places)
+                        {
+                            if (place != Place.PlaceSpecial && place != Place.PlaceUnknown)
+                            {
+                                invoke = true;
+                                break;
+                            }
+                        }
+                    }
+                    else if (move.To_place != Place.PlaceSpecial && move.To_place != Place.PlaceUnknown)
+                    {
+                        invoke = true;
+                    }
+
+                    if (invoke)
+                    {
+                        List<Player> zhoufeis = RoomLogic.FindPlayersBySkillName(room, Name);
+                        foreach (Player p in zhoufeis)
+                            triggers.Add(new TriggerStruct(Name, p));
+                    }
                 }
             }
 
@@ -2121,36 +2169,12 @@ namespace SanguoshaServer.Package
         {
             if (data is CardsMoveOneTimeStruct move)
             {
-                List<Player> targets = new List<Player>();
-                string prompt = "@liangyin-discard";
-
-                if (move.To_place == Place.PlaceSpecial)
+                Player target = room.AskForPlayerChosen(ask_who, room.GetOtherPlayers(ask_who), Name, "@liangyin", true, true, info.SkillPosition);
+                if (target != null)
                 {
-                    prompt = "@liangyin-draw";
-                    foreach (Player p in room.GetOtherPlayers(ask_who))
-                    {
-                        if (p.HandcardNum > ask_who.HandcardNum)
-                            targets.Add(p);
-                    }
-                }
-                else
-                {
-                    foreach (Player p in room.GetOtherPlayers(ask_who))
-                    {
-                        if (p.HandcardNum < ask_who.HandcardNum && RoomLogic.CanDiscard(room, ask_who, p, "he"))
-                            targets.Add(p);
-                    }
-                }
-
-                if (targets.Count > 0)
-                {
-                    Player target = room.AskForPlayerChosen(ask_who, targets, Name, prompt, true, true, info.SkillPosition);
-                    if (target != null)
-                    {
-                        ask_who.SetTag(Name, target.Name);
-                        room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
-                        return info;
-                    }
+                    ask_who.SetTag(Name, target.Name);
+                    room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                    return info;
                 }
             }
 
@@ -2161,15 +2185,44 @@ namespace SanguoshaServer.Package
         {
             Player target = room.FindPlayer(ask_who.GetTag(Name).ToString());
             ask_who.RemoveTag(Name);
-            if (data is CardsMoveOneTimeStruct move)
+            List<string> choices = new List<string> { "draw" };
+            if ((!target.IsNude() && RoomLogic.CanDiscard(room, target, target, "he")) || (!ask_who.IsNude() && RoomLogic.CanDiscard(room, ask_who, ask_who, "he")))
+                choices.Add("discard");
+            target.SetFlags("liangyin_target");
+            string choice = room.AskForChoice(ask_who, Name, string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target, info.SkillPosition);
+            target.SetFlags("-liangyin_target");
+            List<Player> players = new List<Player> { target, ask_who };
+            room.SortByActionOrder(ref players);
+            if (choice == "draw")
             {
-                if (move.To_place == Place.PlaceSpecial)
+                foreach (Player p in players)
+                    if (p.Alive)
+                        room.DrawCards(p, new DrawCardStruct(1, ask_who, Name));
+            }
+            else
+            {
+                foreach (Player p in players)
+                    if (p.Alive && !p.IsNude() && RoomLogic.CanDiscard(room, p, p, "he"))
+                        room.AskForDiscard(p, Name, 1, 1, false, true, "@liangyin-discard:" + ask_who.Name);
+            }
+
+            if (ask_who.Alive)
+            {
+                int count = ask_who.GetPile("kongsheng").Count;
+                List<Player> targets = new List<Player>();
+                if (ask_who.HandcardNum == count && ask_who.IsWounded()) targets.Add(ask_who);
+                if (target.Alive && target.HandcardNum == count && target.IsWounded()) targets.Add(target);
+                ask_who.SetFlags(Name);
+                Player heal = room.AskForPlayerChosen(ask_who, targets, Name, "@liangyin-recover:::" + count.ToString(), true, true, info.SkillPosition);
+                ask_who.SetFlags("-liangyin");
+                if (heal != null)
                 {
-                    room.DrawCards(target, new DrawCardStruct(1, ask_who, Name));
-                }
-                else
-                {
-                    room.AskForDiscard(target, Name, 1, 1, false, true, "@liangyin-discard-self:" + ask_who.Name);
+                    RecoverStruct recover = new RecoverStruct
+                    {
+                        Who = ask_who,
+                        Recover = 1
+                    };
+                    room.Recover(heal, recover, true);
                 }
             }
 
@@ -2198,7 +2251,9 @@ namespace SanguoshaServer.Package
             bool invoke = false;
             if (player.Phase == PlayerPhase.Start && !player.IsNude())
             {
+                player.SetFlags(Name);
                 List<int> ids = room.AskForExchange(player, Name, player.GetCardCount(true), 0, "@kongsheng", string.Empty, "..", info.SkillPosition);
+                player.SetFlags("-kongsheng");
                 if (ids.Count > 0)
                 {
                     invoke = true;
@@ -2233,27 +2288,38 @@ namespace SanguoshaServer.Package
                 {
                     WrappedCard card = room.GetCard(id);
                     FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                    if (fcard is EquipCard && fcard.IsAvailable(room, player, card))
+                    if (!(fcard is EquipCard))
                         ids.Add(id);
                 }
 
-                while (ids.Count > 0)
-                {
-                    if (ids.Count == 1)
-                    {
-                        room.UseCard(new CardUseStruct(room.GetCard(ids[0]), player, new List<Player>()));
-                        ids.Clear();
-                    }
-                    else
-                    {
-                        List<int> used = room.AskForExchange(player, Name, 1, 1, "@kongsheng-use", Name, string.Format("{0}|.|.|{1}", string.Join("#", ids), Name), info.SkillPosition);
-                        ids.RemoveAll(t => used.Contains(t));
-                        room.UseCard(new CardUseStruct(room.GetCard(used[0]), player, new List<Player>()));
-                    }
-                }
+                if (ids.Count > 0)
+                    room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_EXCHANGE_FROM_PILE, player.Name, Name, string.Empty));
 
-                ids = player.GetPile(Name);
-                room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_EXCHANGE_FROM_PILE, player.Name, Name, string.Empty));
+                if (player.Alive && player.GetPile(Name).Count > 0)
+                {
+                    Player target = room.AskForPlayerChosen(player, room.GetAlivePlayers(), Name, "@kongsheng-target", false, true, info.SkillPosition);
+                    if (target != null)
+                    {
+                        ids = player.GetPile(Name);
+                        while (player.Alive && target.Alive && ids.Count > 0)
+                        {
+                            ids.RemoveAll(t => !Engine.GetFunctionCard(room.GetCard(t).Name).IsAvailable(room, target, room.GetCard(t)));
+                            if (ids.Count == 1)
+                            {
+                                room.UseCard(new CardUseStruct(room.GetCard(ids[0]), target, new List<Player>()));
+                                ids = player.GetPile(Name);
+                            }
+                            else if (ids.Count > 0)
+                            {
+                                List<int> used = room.NotifyChooseCards(target, ids, Name, 1, 1, "@kongsheng-use", string.Empty, info.SkillPosition);
+                                room.UseCard(new CardUseStruct(room.GetCard(used[0]), target, new List<Player>()));
+                                ids = player.GetPile(Name);
+                            }
+                        }
+                    }
+                    if (target.Alive)
+                        room.LoseHp(target);
+                }
             }
 
             return false;

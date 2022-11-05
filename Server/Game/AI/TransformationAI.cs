@@ -447,57 +447,64 @@ namespace SanguoshaServer.AI
     public class SanyaoCardAI : UseCard
     {
         public SanyaoCardAI() : base(SanyaoCard.ClassName) { }
-        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
-        {
-            return 3;
-        }
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 3;
         public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
         {
             Room room = ai.Room;
-            int max = 0;
-            foreach (Player p in room.GetAlivePlayers())
-                if (p.Hp > max)
-                    max = p.Hp;
+            List<int> ids = new List<int>();
+            foreach (int id in player.GetCards("he"))
+                if (RoomLogic.CanDiscard(room, player, player, id))
+                    ids.Add(id);
 
-            List<ScoreStruct> scores = new List<ScoreStruct>();
-            foreach (Player p in room.GetOtherPlayers(player))
+            int card_id = -1;
+            if (ids.Count > 0)
             {
-                if (p.Hp == max)
+                double value = 100;
+                List<double> values = ai.SortByKeepValue(ref ids, false);
+                if (values[0] <= 0)
                 {
-                    DamageStruct damage = new DamageStruct(Name, player, p);
-                    ScoreStruct score = ai.GetDamageScore(damage);
-                    score.Players = new List<Player> { p };
-                    scores.Add(score);
+                    card_id = ids[0];
+                    value = values[0];
                 }
-            }
 
-            if (scores.Count > 0)
-            {
-                ai.CompareByScore(ref scores);
-                List<int> ids = new List<int>();
-                foreach (int id in player.GetCards("he"))
-                    if (RoomLogic.CanDiscard(room, player, player, id))
-                        ids.Add(id);
-
-                if (ids.Count > 0)
+                if (card_id == -1)
                 {
-                    ai.SortByKeepValue(ref ids, false);
-                    if (ai.GetKeepValue(ids[0], player) < 0 && scores[0].Score >= 0)
+                    values = ai.SortByUseValue(ref ids, false);
+                    value = values[0];
+                    if (ai.GetOverflow(player) > 0 && room.GetCardPlace(card_id) == Player.Place.PlaceHand)
+                        value /= 3;
+                    card_id = ids[0];
+                }
+
+                int fix = room.GetCardPlace(card_id) == Player.Place.PlaceHand ? 1 : 0;
+                List<ScoreStruct> scores = new List<ScoreStruct>();
+                foreach (Player p in room.GetOtherPlayers(player))
+                {
+                    if (p.Hp > player.Hp || p.HandcardNum > player.HandcardNum - fix)
                     {
-                        card.AddSubCard(ids[0]);
+                        DamageStruct damage = new DamageStruct(Name, player, p);
+                        ScoreStruct score = ai.GetDamageScore(damage);
+                        score.Players = new List<Player> { p };
+                        scores.Add(score);
+                    }
+                }
+
+                if (scores.Count > 0)
+                {
+                    ai.CompareByScore(ref scores);
+
+
+                    if (scores[0].Score >= 0)
+                    {
+                        card.AddSubCard(card_id);
                         use.Card = card;
                         use.To = scores[0].Players;
                         return;
                     }
 
-                    ai.SortByUseValue(ref ids, false);
-                    double value = ai.GetUseValue(ids[0], player);
-                    if (ai.GetOverflow(player) > 0)
-                        value /= 3;
-
                     if (scores[0].Score > 0 && scores[0].Score > value)
                     {
-                        card.AddSubCard(ids[0]);
+                        card.AddSubCard(card_id);
                         use.Card = card;
                         use.To = scores[0].Players;
                         return;

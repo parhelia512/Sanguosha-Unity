@@ -1377,13 +1377,8 @@ namespace SanguoshaServer.Package
         public SanyaoCard() : base(ClassName) { }
         public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
         {
-            if (targets.Count > 0) return false;
-            int max = -1000;
-            foreach (Player p in room.GetAlivePlayers()) {
-                if (max < p.Hp)
-                    max = p.Hp;
-            }
-            return to_select.Hp == max;
+            int fix = room.GetCardPlace(card.SubCards[0]) == Place.PlaceHand ? 1 : 0;
+            return targets.Count == 0 && (to_select.Hp > Self.Hp || to_select.HandcardNum > Self.HandcardNum - fix);
         }
         public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card)
         {
