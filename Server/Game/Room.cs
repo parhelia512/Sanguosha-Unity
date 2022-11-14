@@ -7965,8 +7965,7 @@ namespace SanguoshaServer.Game
 
             return result;
         }
-        public int AskForCardChosen(Player player, Player who, string flags, string reason, bool handcard_visible = false,
-            HandlingMethod method = HandlingMethod.MethodNone, List<int> disabled_ids = null)
+        public int AskForCardChosen(Player player, Player who, string flags, string reason, bool handcard_visible = false, HandlingMethod method = HandlingMethod.MethodNone, List<int> disabled_ids = null)
         {
             //tryPause();
             NotifyMoveFocus(player, CommandType.S_COMMAND_CHOOSE_CARD);
@@ -8001,11 +8000,8 @@ namespace SanguoshaServer.Game
             }
 
             List<int> available = who.GetCards(flags_copy);
-            foreach (int id in disabled_ids_copy)
-            {
-                if (available.Contains(id))
-                    available.Remove(id);
-            }
+            available.RemoveAll(t => disabled_ids_copy.Contains(t));
+
             if (available.Count == 0) return -1;
             if (handcard_visible && !who.IsKongcheng())
             {
@@ -8029,17 +8025,12 @@ namespace SanguoshaServer.Game
                 TrustedAI ai = GetAI(player);
                 if (ai != null)
                 {
-                    Thread.Sleep(500);
+                    if (!who.HasFlag("continuous_card_chosen")) Thread.Sleep(500);
                     card_id = ai.AskForCardChosen(who, flags_copy, reason.Split('%')[0], method, disabled_ids_copy);
                     if (card_id == -1)
                     {
-                        List<int> cards = who.GetCards(flags_copy);
-                        foreach (int id in who.GetCards(flags_copy))
-                            if (disabled_ids_copy.Contains(id))
-                                cards.Remove(id);
-
-                        Shuffle.shuffle(ref cards);
-                        card_id = cards[0];
+                        Shuffle.shuffle(ref available);
+                        card_id = available[0];
                     }
                 }
                 else
@@ -8072,19 +8063,13 @@ namespace SanguoshaServer.Game
                     if (!success || clientReply == null || clientReply.Count != 2)
                     {
                         // randomly choose a card
-                        List<int> cards = who.GetCards(flags_copy);
-                        foreach (int id in who.GetCards(flags_copy))
-                            if (disabled_ids_copy.Contains(id))
-                                cards.Remove(id);
-
-                        Shuffle.shuffle<int>(ref cards);
-                        card_id = cards[0];
+                        Shuffle.shuffle<int>(ref available);
+                        card_id = available[0];
                     }
                     else
                     {
                         card_id = int.Parse(clientReply[0]);
                         int index = int.Parse(clientReply[1]);
-
                         if (card_id == -1)
                             card_id = handcards[index];
                     }
@@ -8096,6 +8081,132 @@ namespace SanguoshaServer.Game
             if (!who.HasFlag("continuous_card_chosen"))
                 RoomThread.Trigger(TriggerEvent.ChoiceMade, this, player, ref decisionData);
             return card_id;
+        }
+
+        public List<int> AskForCardsChosen(Player player, Player who, string flags, string reason, int min, int max, bool handcard_visible = false, HandlingMethod method = HandlingMethod.MethodNone, List<int> disabled_ids = null)
+        {
+            List<int> result = new List<int>();
+            NotifyMoveFocus(player, CommandType.S_COMMAND_CHOOSE_CARD);
+            Thread.Sleep(300);
+
+            List<int> disabled_ids_copy = disabled_ids != null ? new List<int>(disabled_ids) : new List<int>();
+            string flags_copy = flags;
+            List<int> card_ids = who.GetCards(flags);
+            if (method == HandlingMethod.MethodDiscard)
+            {
+                foreach (int id in card_ids)
+                    if (!RoomLogic.CanDiscard(this, player, who, id))
+                        disabled_ids_copy.Add(id);
+                if (flags_copy.Contains("h") && !RoomLogic.CanDiscard(this, player, who, "h"))
+                    flags_copy = flags_copy.Replace("h", string.Empty);
+                if (flags_copy.Contains("e") && !RoomLogic.CanDiscard(this, player, who, "e"))
+                    flags_copy = flags_copy.Replace("e", string.Empty);
+                if (flags_copy.Contains("j") && !RoomLogic.CanDiscard(this, player, who, "j"))
+                    flags_copy = flags_copy.Replace("j", string.Empty);
+            }
+            if (method == HandlingMethod.MethodGet)
+            {
+                foreach (int id in card_ids)
+                    if (!RoomLogic.CanGetCard(this, player, who, id))
+                        disabled_ids_copy.Add(id);
+                if (flags_copy.Contains("h") && !RoomLogic.CanGetCard(this, player, who, "h"))
+                    flags_copy = flags_copy.Replace("h", string.Empty);
+                if (flags_copy.Contains("e") && !RoomLogic.CanGetCard(this, player, who, "e"))
+                    flags_copy = flags_copy.Replace("e", string.Empty);
+                if (flags_copy.Contains("j") && !RoomLogic.CanGetCard(this, player, who, "j"))
+                    flags_copy = flags_copy.Replace("j", string.Empty);
+            }
+
+            List<int> available = who.GetCards(flags_copy);
+            available.RemoveAll(t => disabled_ids_copy.Contains(t));
+
+            if (available.Count > 0 && available.Count <= min)
+            {
+                result = available;
+            }
+            else if (available.Count > 0)
+            {
+                if (handcard_visible && !who.IsKongcheng())
+                {
+                    List<int> handcards = who.GetCards("h");
+                    List<string> arg = new List<string> { who.Name, JsonUntity.Object2Json(handcards) };
+                    DoNotify(GetClient(player), CommandType.S_COMMAND_SET_KNOWN_CARDS, arg);
+                }
+
+                TrustedAI ai = GetAI(player);
+                if (ai != null)
+                {
+                    who.SetFlags("continuous_card_chosen");
+                    while (result.Count < max && available.Count > 0)
+                    {
+                        int card_id = ai.AskForCardChosen(who, flags_copy, reason.Split('%')[0], method, disabled_ids_copy);
+                        if (card_id == -1 && result.Count < min)
+                        {
+                            Shuffle.shuffle(ref available);
+                            card_id = available[0];
+                        }
+
+                        if (card_id != -1)
+                        {
+                            disabled_ids_copy.Add(card_id);
+                            available.Remove(card_id);
+                        }
+                        else
+                            break;
+                    }
+
+                    who.SetFlags("-continuous_card_chosen");
+                }
+                else
+                {
+                    List<int> equip = new List<int>(), judge = new List<int>();
+                    if (flags_copy.Contains("e")) equip = who.GetCards("e");
+                    if (flags_copy.Contains("j")) judge = who.GetCards("j");
+                    List<string> arg = new List<string> { player.Name, who.Name, flags_copy, reason, min.ToString(), max.ToString(), handcard_visible.ToString(), JsonUntity.Object2Json(equip),
+                        JsonUntity.Object2Json(judge),  JsonUntity.Object2Json(disabled_ids_copy) };
+                    bool success = DoRequest(player, CommandType.S_COMMAND_CHOOSE_CARD, arg, true);
+
+                    //@todo: check if the card returned is valid
+                    Interactivity client = GetInteractivity(player);
+                    List<string> clientReply = client?.ClientReply;
+                    if (!success || clientReply == null || clientReply.Count != 1)
+                    {
+                        // randomly choose card
+                        while (result.Count < min && available.Count > 0)
+                        {
+                            result.Add(available[0]);
+                            available.RemoveAt(0);
+                        }
+                    }
+                    else
+                    {
+                        List<int> reply = JsonUntity.Json2List<int>(clientReply[0]);
+                        List<int> hands = reply.FindAll(t => t == -1);          //首先筛选出选择未知手牌的情况
+                        reply.RemoveAll(t => !available.Contains(t));           //返回中其次移除无效选项
+                        if (flags_copy.Contains("h") && hands.Count > 0)
+                        {
+                            List<int> available_hands = who.GetCards("h").FindAll(t => !reply.Contains(t) && available.Contains(t));        //筛选出有效的手牌
+                            Shuffle.shuffle(ref available_hands);
+                            for (int i = 0; i < Math.Min(hands.Count, available_hands.Count); i++)
+                                reply.Add(available_hands[i]);
+                        }
+                        available.RemoveAll(t => reply.Contains(t));
+
+                        while (reply.Count < min && available.Count > 0)
+                        {
+                            reply.Add(available[0]);
+                            available.RemoveAt(0);
+                        }
+                        result = reply;
+                    }
+                }
+            }
+            
+            DoBroadcastNotify(CommandType.S_COMMAND_UNKNOWN, new List<string> { false.ToString() });
+
+            object decisionData = string.Format("cardChosen:{0}:{1}:{2}:{3}", reason, string.Join("+", JsonUntity.IntList2StringList(result)), player.Name, who.Name);
+            RoomThread.Trigger(TriggerEvent.ChoiceMade, this, player, ref decisionData);
+            return result;
         }
 
         public List<int> AskForCardsChosen(Player chooser, Player choosee, List<string> handle_list, string reason)
@@ -8132,10 +8243,8 @@ namespace SanguoshaServer.Game
             choosee.SetFlags("-continuous_card_chosen");
             RemoveTag("askforCardsChosen");
 
-            object decisionData = string.Format("cardChosen:{0}:{1}:{2}:{3}", reason, string.Join("+", JsonUntity.IntList2StringList(result)),
-                chooser.Name, choosee.Name);
+            object decisionData = string.Format("cardChosen:{0}:{1}:{2}:{3}", reason, string.Join("+", JsonUntity.IntList2StringList(result)), chooser.Name, choosee.Name);
             RoomThread.Trigger(TriggerEvent.ChoiceMade, this, chooser, ref decisionData);
-
             return result;
         }
 

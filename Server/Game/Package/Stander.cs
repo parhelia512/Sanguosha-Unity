@@ -6976,10 +6976,8 @@ namespace SanguoshaServer.Package
             result.Assist += Math.Abs(n1 - n2);
             card_use.From.Result = result;
 
-            CardsMoveStruct move1 = new CardsMoveStruct(a.GetCards("h"), b, Place.PlaceHand,
-                new CardMoveReason(MoveReason.S_REASON_SWAP, a.Name, b.Name, "dimeng", null));
-            CardsMoveStruct move2 = new CardsMoveStruct(b.GetCards("h"), a, Place.PlaceHand,
-                new CardMoveReason(MoveReason.S_REASON_SWAP, b.Name, a.Name, "dimeng", null));
+            CardsMoveStruct move1 = new CardsMoveStruct(a.GetCards("h"), b, Place.PlaceHand, new CardMoveReason(MoveReason.S_REASON_SWAP, a.Name, b.Name, "dimeng", null));
+            CardsMoveStruct move2 = new CardsMoveStruct(b.GetCards("h"), a, Place.PlaceHand, new CardMoveReason(MoveReason.S_REASON_SWAP, b.Name, a.Name, "dimeng", null));
             List<CardsMoveStruct> exchangeMove = new List<CardsMoveStruct> { move1, move2 };
             room.MoveCards(exchangeMove, false);
 

@@ -4135,12 +4135,11 @@ namespace SanguoshaServer.Package
                     player.SetTag(Name, ids);
 
                 room.DrawCards(player, draw, Name);
-                while (damage.From != null && damage.From.Alive && count > 0 && !damage.From.IsNude() && RoomLogic.CanDiscard(room, player, damage.From, "he") && room.AskForSkillInvoke(player, Name, damage.From, info.SkillPosition))
+                if (damage.From != null && damage.From.Alive && count > 0 && !damage.From.IsNude() && RoomLogic.CanDiscard(room, player, damage.From, "he") && room.AskForSkillInvoke(player, Name, damage.From, info.SkillPosition))
                 {
-                    count--;
                     room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, damage.From.Name);
-                    int id = room.AskForCardChosen(player, damage.From, "he", Name, false, HandlingMethod.MethodDiscard);
-                    room.ThrowCard(id, damage.From, damage.From);
+                    List<int> cards = room.AskForCardsChosen(player, damage.From, "he", Name, 1, count, false, HandlingMethod.MethodDiscard);
+                    room.ThrowCard(ref cards, damage.From, player);
                 }
             }
             return false;

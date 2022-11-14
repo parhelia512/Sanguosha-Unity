@@ -281,6 +281,7 @@ namespace CommonClassLibrary
         S_GAME_EVENT_HUASHEN,
         S_GAME_EVENT_REFRESH_SKILLS,
         S_GAME_EVENT_ARMOR_SHIELD,
+        S_GAME_EVENT_SKILL_GEYUAN,
     };
 
     public enum MoveCardType

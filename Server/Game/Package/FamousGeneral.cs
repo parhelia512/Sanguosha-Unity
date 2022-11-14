@@ -11936,24 +11936,7 @@ namespace SanguoshaServer.Package
         }
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player skill_target, ref object data, Player machao, TriggerStruct info)
         {
-            List<int> cards = new List<int>();
-            skill_target.SetFlags("continuous_card_chosen");
-            room.SetTag("askforCardsChosen", skill_target.GetCards("he"));
-            room.SetTag(Name, data);
-            string prompt;
-            do
-            {
-                cards.Add(room.AskForCardChosen(machao, skill_target, "he", Name, false, HandlingMethod.MethodNone, cards));
-                prompt = string.Format("@pojun:{0}::{1}:{2}", skill_target.Name, skill_target.Hp, cards.Count);
-                machao.SetTag(Name, cards);
-            }
-            while (cards.Count < skill_target.Hp && cards.Count < skill_target.GetCardCount(true) && room.AskForSkillInvoke(machao, Name, prompt, info.SkillPosition));
-            skill_target.SetFlags("-continuous_card_chosen");
-            room.RemoveTag("askforCardsChosen");
-
-            room.RemoveTag(Name);
-            machao.RemoveTag(Name);
-
+            List<int> cards = room.AskForCardsChosen(machao, skill_target, "he", Name, 1, Math.Min(skill_target.Hp, skill_target.GetCardCount(true)));
             room.AddToPile(skill_target, Name, cards, false);
 
             List<int> equips = new List<int>();
