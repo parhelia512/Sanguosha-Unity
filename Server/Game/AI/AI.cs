@@ -4687,7 +4687,7 @@ namespace SanguoshaServer.AI
         private readonly List<string> kingdoms = new List<string> { "wei", "shu", "wu", "qun" };
         public virtual void Event(TriggerEvent triggerEvent, Player player, object data)
         {
-            if (triggerEvent == TriggerEvent.GameStart && player == self)
+            if (triggerEvent == TriggerEvent.GameStart && player == null)
             {
                 foreach (string skill in room.Skills)
                 {

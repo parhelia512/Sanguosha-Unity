@@ -112,14 +112,11 @@ namespace SanguoshaServer.AI
 
             base.Event(triggerEvent, player, data);
 
-            if (player != null && player == self)
+            if (player == null && triggerEvent == TriggerEvent.GameStart)
             {
-                if (triggerEvent == TriggerEvent.GameStart)
-                {
-                    //根据场面选将决定初始身份倾向
-                    InitRoleTendency();
-                    UpdatePlayers();
-                }
+                //根据场面选将决定初始身份倾向
+                InitRoleTendency();
+                UpdatePlayers();
             }
             if (triggerEvent == TriggerEvent.EventPhaseStart || triggerEvent == TriggerEvent.RemoveStateChanged
                 || triggerEvent == TriggerEvent.BuryVictim)
