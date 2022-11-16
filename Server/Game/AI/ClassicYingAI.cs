@@ -1555,7 +1555,7 @@ namespace SanguoshaServer.AI
             else
             {
                 //寻找友方摸牌
-                if (ai.Target["kongsheng"] != null)
+                if (ai.Target.ContainsKey("kongsheng") && ai.Target["kongsheng"] != null)
                 {
                     Player target = ai.Target["kongsheng"];
                     ai.Target["kongsheng"] = null;
@@ -1650,6 +1650,7 @@ namespace SanguoshaServer.AI
         }
         public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
         {
+            ai.Target[Name] = null;
             List<int> result = new List<int>();
             Room room = ai.Room;
             if (!player.HasFlag(Name))
@@ -1673,7 +1674,6 @@ namespace SanguoshaServer.AI
             }
             else if (!room.ContainsTag("liangyin"))
             {
-                ai.Target[Name] = null;
                 List<Player> friends = ai.FriendNoSelf;
                 bool draw = friends.Count > 0;
                 int count = 1000, self = player.GetCardCount(true);

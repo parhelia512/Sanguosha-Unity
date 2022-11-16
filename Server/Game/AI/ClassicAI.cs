@@ -612,7 +612,7 @@ namespace SanguoshaServer.AI
             });
         }
 
-        public void UpdatePlayers()
+        public override void UpdatePlayers()
         {
             CountPlayers();
             //分析身份

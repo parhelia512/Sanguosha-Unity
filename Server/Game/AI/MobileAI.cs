@@ -1930,6 +1930,7 @@ namespace SanguoshaServer.AI
         }
         public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
         {
+            ai.UpdatePlayers();
             foreach (Player p in targets)
                 if (ai.IsFriend(p)) return new List<Player> { p };
 

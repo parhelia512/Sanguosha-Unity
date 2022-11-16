@@ -306,6 +306,10 @@ namespace SanguoshaServer.Package
                 new Wanglu(),
                 new Xianzhu(),
                 new Chaixie(),
+                new Huishu(),
+                new HuishuEffect(),
+                new Yishu(),
+                new Ligong(),
             };
 
             skill_cards = new List<FunctionCard>
@@ -423,6 +427,7 @@ namespace SanguoshaServer.Package
                 { "quanjian", new List<string>{ "#quanjian", "#quanjian-pro" } },
                 { "xiongrao", new List<string>{ "#xiongrao" } },
                 { "jieshu", new List<string>{ "#jieshu" } },
+                { "huishu", new List<string>{ "#huishu" } },
             };
         }
     }
@@ -18840,6 +18845,344 @@ namespace SanguoshaServer.Package
             int count = ask_who.GetMark("Breachingtower_draw");
             ask_who.SetMark("Breachingtower_draw", 0);
             room.DrawCards(ask_who, count, Name);
+            return false;
+        }
+    }
+
+    public class Huishu : TriggerSkill
+    {
+        public Huishu() : base("huishu")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseEnd, TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill, TriggerEvent.EventLoseSkill };
+            skill_type = SkillType.Replenish;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if ((triggerEvent == TriggerEvent.GameStart && base.Triggerable(player, room)) || (triggerEvent == TriggerEvent.EventAcquireSkill && data is InfoStruct info && info.Info == Name))
+            {
+                int draw_count = player.GetMark("huishu_draw") + 3;
+                int discard_count = player.GetMark("huishu_discard") + 1;
+                int trick_count = player.GetMark("huishu_trick") + 2;
+
+                room.SetPlayerStringMark(player, "huishu_draw", draw_count.ToString());
+                room.SetPlayerStringMark(player, "huishu_discard", discard_count.ToString());
+                room.SetPlayerStringMark(player, "huishu_trick", trick_count.ToString());
+            }
+            else if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct _info && _info.Info == Name)
+            {
+                player.SetMark("huishu_draw", 0);
+                player.SetMark("huishu_discard", 0);
+                player.SetMark("huishu_trick", 0);
+
+                room.RemovePlayerStringMark(player, "huishu_draw");
+                room.RemovePlayerStringMark(player, "huishu_discard");
+                room.RemovePlayerStringMark(player, "huishu_trick");
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseEnd && base.Triggerable(player, room) && player.Phase == PlayerPhase.Draw)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                player.SetFlags(Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int count = player.GetMark("huishu_draw") + 3;
+            if (count > 0) room.DrawCards(player, count, Name);
+            if (player.Alive && !player.IsKongcheng() && RoomLogic.CanDiscard(room, player, player, "h"))
+            {
+                count = player.GetMark("huishu_discard") + 1;
+                if (count > 0) room.AskForDiscard(player, Name, count, count, false, false, "@huishu-discard:::" + count.ToString(), false, info.SkillPosition);
+            }
+            return false;
+        }
+    }
+
+    public class HuishuEffect : TriggerSkill
+    {
+        public HuishuEffect() : base("#huishu")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime };
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.From.HasFlag("huishu") && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD
+                && (move.From_places.Contains(Place.PlaceHand) || move.From_places.Contains(Place.PlaceEquip)))
+            {
+                int count = move.From.GetMark("huishu_trick") + 2;
+                if (move.Card_ids.Count > count) return new TriggerStruct(Name, move.From);
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int id = -1;
+            foreach (int card in room.DiscardPile)
+            {
+                if (Engine.GetFunctionCard(room.GetCard(card).Name) is TrickCard)
+                {
+                    id = card;
+                    break;
+                }
+            }
+            if (id >= 0)
+            {
+                room.SendCompulsoryTriggerLog(ask_who, "huishu");
+                room.BroadcastSkillInvoke("huishu", ask_who, info.SkillPosition);
+                room.ObtainCard(ask_who, room.GetCard(id), new CardMoveReason(MoveReason.S_REASON_RECYCLE, ask_who.Name, "huishu", string.Empty));
+            }
+
+            return false;
+        }
+    }
+
+    public class Yishu : TriggerSkill
+    {
+        public Yishu() : base("yishu")
+        {
+            events.Add(TriggerEvent.CardsMoveOneTime);
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardsMoveOneTimeStruct move && base.Triggerable(move.From, room) && move.From.Phase != PlayerPhase.Play && ((move.From_places.Contains(Place.PlaceEquip) && move.To_place != Place.PlaceHand)
+                || move.From_places.Contains(Place.PlaceHand)))
+                return new TriggerStruct(Name, move.From);
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int draw_count = ask_who.GetMark("huishu_draw") + 3;
+            int discard_count = ask_who.GetMark("huishu_discard") + 1;
+            int trick_count = ask_who.GetMark("huishu_trick") + 2;
+            room.SendCompulsoryTriggerLog(ask_who, Name);
+            room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+
+            int max = Math.Max(draw_count, Math.Max(trick_count, discard_count));
+            int min = Math.Min(draw_count, Math.Min(trick_count, discard_count));
+            List<string> choices_max = new List<string>();
+
+            List<string> choices_min = new List<string>();
+            List<string> description = new List<string> { "@yishu-min" };
+            if (draw_count == min)
+            {
+                choices_max.Add("draw");
+                description.Add("@yishu-draw:::" + draw_count.ToString());
+            }
+            if (discard_count == min)
+            {
+                choices_max.Add("discard");
+                description.Add("@yishu-discard:::" + discard_count.ToString());
+            }
+            if (trick_count == min)
+            {
+                choices_max.Add("trick");
+                description.Add("@yishu-trick:::" + trick_count.ToString());
+            }
+            string choice = room.AskForChoice(ask_who, Name, string.Join("+", choices_max), description, null, info.SkillPosition);
+            switch (choice)
+            {
+                case "draw":
+                    ask_who.AddMark("huishu_draw", 2);
+                    room.SetPlayerStringMark(ask_who, "huishu_draw", (draw_count + 2).ToString());
+                    break;
+                case "discard":
+                    ask_who.AddMark("huishu_discard", 2);
+                    room.SetPlayerStringMark(ask_who, "huishu_discard", (discard_count + 2).ToString());
+                    break;
+                case "trick":
+                    ask_who.AddMark("huishu_trick", 2);
+                    room.SetPlayerStringMark(ask_who, "huishu_trick", (trick_count + 2).ToString());
+                    break;
+            }
+            description = new List<string> { "@yishu-max" };
+            choices_max.Clear();
+            if (draw_count == max)
+            {
+                choices_max.Add("draw");
+                description.Add("@yishu-draw:::" + draw_count.ToString());
+            }
+            if (discard_count == max)
+            {
+                choices_max.Add("discard");
+                description.Add("@yishu-discard:::" + discard_count.ToString());
+            }
+            if (trick_count == max)
+            {
+                choices_max.Add("trick");
+                description.Add("@yishu-trick:::" + trick_count.ToString());
+            }
+
+            choice = room.AskForChoice(ask_who, Name, string.Join("+", choices_max), description, null, info.SkillPosition);
+            switch (choice)
+            {
+                case "draw":
+                    ask_who.AddMark("huishu_draw", -1);
+                    room.SetPlayerStringMark(ask_who, "huishu_draw", (draw_count - 1).ToString());
+                    break;
+                case "discard":
+                    ask_who.AddMark("huishu_discard", -1);
+                    room.SetPlayerStringMark(ask_who, "huishu_discard", (discard_count -1).ToString());
+                    break;
+                case "trick":
+                    ask_who.AddMark("huishu_trick", -1);
+                    room.SetPlayerStringMark(ask_who, "huishu_trick", (trick_count - 1).ToString());
+                    break;
+            }
+
+            return false;
+        }
+    }
+
+    public class Ligong : PhaseChangeSkill
+    {
+        public Ligong() : base("ligong")
+        {
+            frequency = Frequency.Wake;
+        }
+
+        private List<string> generals = new List<string>
+        {
+            "daqiao_jx", "xiaoqiao", "sunshangxiang", "zhoufei", "wuguotai", "bulianshi", "sunluban", "sunluyu", "xushi", "zhaoyan", "zhangxuan", "sunru_sp", "zhangyao", "tenggongzhu", "zhouyi", "erqiao", "panshu_sp"
+        };
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (player.Phase == PlayerPhase.Start && base.Triggerable(player, room) && player.GetMark(Name) == 0 && (player.GetMark("huishu_draw") + 3 >= 5 || player.GetMark("huishu_discard") + 1 >= 5 || player.GetMark("huishu_trick") + 2 >= 5))
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override bool OnPhaseChange(Room room, Player player, TriggerStruct info)
+        {
+            room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+            room.DoSuperLightbox(player, info.SkillPosition, Name);
+            room.SetPlayerMark(player, Name, 1);
+            room.SendCompulsoryTriggerLog(player, Name);
+
+            player.MaxHp++;
+            room.BroadcastProperty(player, "MaxHp");
+
+            LogMessage log = new LogMessage
+            {
+                Type = "$GainMaxHp",
+                From = player.Name,
+                Arg = "1"
+            };
+            room.SendLog(log);
+
+            room.RoomThread.Trigger(TriggerEvent.MaxHpChanged, room, player);
+            RecoverStruct recover = new RecoverStruct
+            {
+                Who = player,
+                Recover = 1
+            };
+            room.Recover(player, recover, true);
+            room.HandleAcquireDetachSkills(player, "-yishu", false);
+
+            if (player.Alive)
+            {
+                List<string> choices = new List<string>();
+                Shuffle.shuffle(ref generals);
+                foreach (string general in generals)
+                {
+                    if (!room.UsedGeneral.Contains(general))
+                    {
+                        choices.Add(general);
+                        if (choices.Count >= 4)
+                            break;
+                    }
+                }
+                List<string> skills = new List<string>();
+                Dictionary<string, string> general_skill = new Dictionary<string, string>();
+                int count = 0;
+                foreach (string general_name in generals)
+                {
+                    count++;
+                    List<string> sks = Engine.GetGeneralSkills(general_name, room.Setting.GameMode);
+                    skills.Add(string.Join("+", sks));
+                    foreach (string sk in sks)
+                        general_skill.Add(sk, general_name);
+                    if (count >= 4) break;
+                }
+                string skill_choice = room.AskForSkill(player, Name, string.Join("|", skills), "@ligong", 0, 2, true, info.SkillPosition);
+                bool draw = false;
+                if (!string.IsNullOrEmpty(skill_choice))
+                {
+                    room.HandleAcquireDetachSkills(player, "-huishu", false);
+                    List<string> selected = new List<string>(skill_choice.Split('+'));
+                    foreach (string skill in selected)
+                    {
+                        if (!room.Skills.Contains(skill))
+                        {
+                            room.Skills.Add(skill);
+                            Skill main = Engine.GetSkill(skill);
+                            if (main is TriggerSkill tskill)
+                                room.RoomThread.AddTriggerSkill(tskill);
+                        }
+
+                        foreach (Skill _skill in Engine.GetRelatedSkills(skill))
+                        {
+                            if (!room.Skills.Contains(_skill.Name))
+                            {
+                                room.Skills.Add(_skill.Name);
+                                if (_skill is TriggerSkill tskill)
+                                    room.RoomThread.AddTriggerSkill(tskill);
+                            }
+                        }
+
+                        string from_general = general_skill[skill];
+                        room.HandleUsedGeneral(from_general);
+                        foreach (string skill2 in Engine.GetGeneralRelatedSkills(from_general, room.Setting.GameMode))
+                        {
+                            if (!room.Skills.Contains(skill2))
+                            {
+                                room.Skills.Add(skill2);
+                                Skill main = Engine.GetSkill(skill2);
+                                if (main is TriggerSkill tskill)
+                                    room.RoomThread.AddTriggerSkill(tskill);
+                            }
+
+                            foreach (Skill _skill in Engine.GetRelatedSkills(skill2))
+                            {
+                                if (!room.Skills.Contains(_skill.Name))
+                                {
+                                    room.Skills.Add(_skill.Name);
+                                    if (_skill is TriggerSkill tskill)
+                                        room.RoomThread.AddTriggerSkill(tskill);
+                                }
+                            }
+                        }
+                    }
+                    room.HandleAcquireDetachSkills(player, selected, true);
+                }
+                else
+                    draw = true;
+                room.SendPlayerSkillsToOthers(player);
+                room.FilterCards(player, player.GetCards("he"), true);
+                if (draw) room.DrawCards(player, 2, Name);
+            }
+
             return false;
         }
     }

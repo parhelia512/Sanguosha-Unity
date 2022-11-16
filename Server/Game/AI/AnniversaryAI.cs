@@ -2884,13 +2884,14 @@ namespace SanguoshaServer.AI
             else if (player.HasFlag("zhiren_j")) flag = "j";
             Room room = ai.Room;
             List<ScoreStruct> scores = new List<ScoreStruct>();
-            foreach (Player p in room.GetAlivePlayers())
-            {
-                if (RoomLogic.CanDiscard(room, player, p, flag) && p.GetCards(flag).Count > 0)
-                    scores.Add(ai.FindCards2Discard(player, p, Name, flag, HandlingMethod.MethodDiscard));
-            }
+            foreach (Player p in targets)
+                scores.Add(ai.FindCards2Discard(player, p, Name, flag, HandlingMethod.MethodDiscard));
+
             scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
-            return scores[0].Players;
+
+            //room.Debug(string.Format("first {0} last {1}", scores[0].Score, scores[scores.Count - 1].Score));
+            if (scores[0].Score > 0) return scores[0].Players;
+            return new List<Player>();
         }
 
         public override AskForMoveCardsStruct OnMoveCards(TrustedAI ai, Player player, List<int> ups, List<int> downs, int min, int max) => ai.Guanxing(ups);

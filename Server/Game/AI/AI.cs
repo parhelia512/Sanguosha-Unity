@@ -125,6 +125,9 @@ namespace SanguoshaServer.AI
                 card_lack[p] = new List<string>();
             }
         }
+        public virtual void UpdatePlayers()
+        {
+        }
 
         public bool IsFriend(Player other, Player another = null)
         {
