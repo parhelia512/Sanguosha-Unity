@@ -1433,6 +1433,7 @@ namespace SanguoshaServer.AI
         public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
             CardUseStruct use = new CardUseStruct { From = player, Card = new WrappedCard(JieweiCard.ClassName) { Skill = Name }, To = new List<Player>() };
+            ai.Number[Name] = -1;
             int card = -1;
             List<int> cards = player.GetCards("h");
             ai.SortByKeepValue(ref cards, false);
@@ -1501,7 +1502,7 @@ namespace SanguoshaServer.AI
                     foreach (Player p in ai.GetEnemies(player))
                     {
                         int id = QiaobianAI.CardForQiaobian(ai, p).Key;
-                        if (id > 0)
+                        if (id >= 0)
                         {
                             ai.Number[Name] = id;
                             from = p;
@@ -1510,7 +1511,7 @@ namespace SanguoshaServer.AI
                     }
                 }
 
-                if (from != null)
+                if (from != null && ai.Number[Name] >= 0)
                 {
                     Player to = QiaobianAI.CardForQiaobian(ai, from).Value;
                     if (to != null)

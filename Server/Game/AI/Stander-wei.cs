@@ -1274,13 +1274,13 @@ namespace SanguoshaServer.AI
                         ai.SortByDefense(ref friends, false);
                         foreach (Player p in friends)
                         {
-                            if (ai.GetSameEquip(card, p) == null && (ai.HasSkill(TrustedAI.LoseEquipSkill, p) || ai.HasSkill(TrustedAI.NeedEquipSkill, p)))
+                            if (ai.GetSameEquip(card, p) == null && RoomLogic.CanPutEquip(p, card) && (ai.HasSkill(TrustedAI.LoseEquipSkill, p) || ai.HasSkill(TrustedAI.NeedEquipSkill, p)))
                                 return new KeyValuePair<int, Player>(result_id, p);
                         }
 
                         foreach (Player p in friends)
                         {
-                            if (ai.GetSameEquip(card, p) == null)
+                            if (ai.GetSameEquip(card, p) == null && RoomLogic.CanPutEquip(p, card))
                                 return new KeyValuePair<int, Player>(result_id, p);
                         }
                     }
@@ -1288,13 +1288,13 @@ namespace SanguoshaServer.AI
                     {
                         foreach (Player p in friends)
                         {
-                            if (ai.GetSameEquip(card, p) == null && (ai.HasSkill(TrustedAI.LoseEquipSkill, p) || ai.HasSkill(TrustedAI.NeedEquipSkill, p)))
+                            if (ai.GetSameEquip(card, p) == null && RoomLogic.CanPutEquip(p, card) && (ai.HasSkill(TrustedAI.LoseEquipSkill, p) || ai.HasSkill(TrustedAI.NeedEquipSkill, p)))
                                 return new KeyValuePair<int, Player>(result_id, p);
                         }
 
                         foreach (Player p in friends)
                         {
-                            if (ai.GetSameEquip(card, p) == null)
+                            if (ai.GetSameEquip(card, p) == null && RoomLogic.CanPutEquip(p, card))
                                 return new KeyValuePair<int, Player>(result_id, p);
                         }
                     }

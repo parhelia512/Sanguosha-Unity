@@ -326,7 +326,8 @@ namespace SanguoshaServer.AI
         public override int OnMoveStargeCard(TrustedAI ai, Player player, Player target1, Player target2, List<int> available) => ai.Number[Name] >= 0 ? (int)ai.Number[Name] : -1;
         public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
-            CardUseStruct use = new CardUseStruct { From = player, Card = new WrappedCard(JieweiCard.ClassName) { Skill = Name }, To = new List<Player>() };
+            CardUseStruct use = new CardUseStruct { From = player, Card = new WrappedCard(MouduanCard.ClassName) { Skill = Name }, To = new List<Player>() };
+            ai.Number[Name] = -1;
             int card = -1;
             List<int> cards = player.GetCards("h");
             ai.SortByKeepValue(ref cards, false);
