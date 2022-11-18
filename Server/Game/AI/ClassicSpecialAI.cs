@@ -98,6 +98,7 @@ namespace SanguoshaServer.AI
                 new FengziAI(),
                 new JizhanAI(),
                 new FusongAI(),
+                new JuguanAI(),
 
                 new XuejiAI(),
                 new LiangzhuAI(),
@@ -7429,6 +7430,46 @@ namespace SanguoshaServer.AI
             return new List<Player>();
         }
     }
+
+    public class JuguanAI : SkillEvent
+    {
+        public JuguanAI() : base("juguan") { }
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            Room room = ai.Room;
+            List<WrappedCard> result = new List<WrappedCard>();
+            if (player.UsedTimes("ViewAsSkill_juguanCard") < 1)
+            {
+                List<int> ids = player.GetCards("h");
+                ids.AddRange(player.GetHandPile());
+                foreach (int id in ids)
+                {
+                    WrappedCard slash = new WrappedCard(Slash.ClassName)
+                    {
+                        Skill = Name,
+                        ShowSkill = Name
+                    };
+                    slash.AddSubCard(id);
+                    slash = RoomLogic.ParseUseCard(room, slash);
+                    result.Add(slash);
+
+                    WrappedCard duel = new WrappedCard(Duel.ClassName)
+                    {
+                        Skill = Name,
+                        ShowSkill = Name
+                    };
+                    duel.AddSubCard(id);
+                    duel = RoomLogic.ParseUseCard(room, duel);
+                    result.Add(duel);
+                }
+            }
+            
+            return result;
+        }
+
+        public override double UseValueAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => card.GetSkillName() == Name ? 4 : 0;
+    }
+
 
     public class HongyuanAI : SkillEvent
     {

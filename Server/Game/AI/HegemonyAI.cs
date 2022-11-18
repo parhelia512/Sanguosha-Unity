@@ -441,7 +441,7 @@ namespace SanguoshaServer.AI
             });
         }
 
-        public void UpdatePlayers()
+        public override void UpdatePlayers()
         {
             friends.Clear();
             enemies.Clear();

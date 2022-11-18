@@ -31,6 +31,10 @@ namespace SanguoshaServer.AI
                 new SongciAI(),
                 new JigongAI(),
                 new ShifeiAI(),
+                new JieliangAI(),
+                new FuyuanGDAI(),
+                new ZhongjieAI(),
+
                 new JushouJXAI(),
                 new JieweiAI(),
                 new DuanliangJXAI(),
@@ -1332,6 +1336,68 @@ namespace SanguoshaServer.AI
             return value;
         }
     }
+
+    public class JieliangAI : SkillEvent
+    {
+        public JieliangAI() : base("jieliang") { }
+        public override List<int> OnDiscard(TrustedAI ai, Player player, List<int> ids, int min, int max, bool option)
+        {
+            Room room = ai.Room;
+            if (ai.IsEnemy(room.Current))
+            {
+                List<int> cards = new List<int>();
+                foreach (int id in player.GetCards("he"))
+                    if (RoomLogic.CanDiscard(room, player, player, id))
+                        cards.Add(id);
+
+                if (cards.Count > 0)
+                {
+                    List<double> values = ai.SortByKeepValue(ref cards, false);
+                    if (values[0] < 4 || cards.Count > 1)
+                        return new List<int> { cards[0] };
+                }
+            }
+            return new List<int>();
+        }
+
+        public override AskForMoveCardsStruct OnMoveCards(TrustedAI ai, Player player, List<int> ups, List<int> downs, int min, int max)
+        {
+            AskForMoveCardsStruct move = new AskForMoveCardsStruct
+            {
+                Top = new List<int>(ups),
+                Bottom = new List<int>(),
+                Success = true
+            };
+
+            ai.SortByKeepValue(ref ups);
+            move.Bottom.Add(ups[0]);
+            move.Top.Remove(ups[0]);
+            return move;
+        }
+    }
+
+    public class FuyuanGDAI : SkillEvent
+    {
+        public FuyuanGDAI() : base("fuyuan_gd") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is Player target)
+                return ai.IsFriend(target);
+            return true;
+        }
+    }
+
+    public class ZhongjieAI : SkillEvent
+    {
+        public ZhongjieAI() : base("zhongjie") { }
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            List<Player> friends = ai.FriendNoSelf;
+            ai.SortByDefense(ref friends, false);
+            return new List<Player> { friends[0] };
+        }
+    }
+
 
     public class JushouJXAI : SkillEvent
     {

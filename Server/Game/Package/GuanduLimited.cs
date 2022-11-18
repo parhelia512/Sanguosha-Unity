@@ -1083,13 +1083,13 @@ namespace SanguoshaServer.Package
             if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.From.GetMark(Name) > 0
                 && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
             {
-                List<int> ids = player.ContainsTag(Name) ? (List<int>)player.GetTag(Name) : new List<int>();
+                List<int> ids = move.From.ContainsTag(Name) ? (List<int>)move.From.GetTag(Name) : new List<int>();
                 for (int i = 0; i < move.Card_ids.Count; i--)
                 {
                     if ((move.From_places[i] == Place.PlaceHand || move.From_places.Contains(Place.PlaceEquip)) && !ids.Contains(move.Card_ids[i]))
                         ids.Add(move.Card_ids[i]);
                 }
-                if (ids.Count > 0) player.SetTag(Name, ids);
+                if (ids.Count > 0) move.From.SetTag(Name, ids);
             }
             else if (triggerEvent == TriggerEvent.EventPhaseProceeding && player.Phase == PlayerPhase.Draw && data is int count && player.GetMark(Name) > 0)
             {

@@ -28,6 +28,7 @@ namespace SanguoshaServer.Package
                 new Comb3Skill(),
                 new BreachingtowerSkill(),
                 new BreachingFix(),
+                new TrebuchetSkill(),
             };
             cards = new List<FunctionCard> {
                 new ClassicBlade(),
@@ -44,6 +45,7 @@ namespace SanguoshaServer.Package
                 new Comb2(),
                 new Comb3(),
                 new Breachingtower(),
+                new Trebuchet(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -985,5 +987,81 @@ namespace SanguoshaServer.Package
         public BreachingFix() : base("#Breachingtower") { }
         public override bool IsCardFixed(Room room, Player from, Player to, string flags, FunctionCard.HandlingMethod method) => method == FunctionCard.HandlingMethod.MethodDiscard
             && to != null && to.Treasure.Value == Breachingtower.ClassName && flags.Contains("t") && to.GetMark(Breachingtower.ClassName) == 0;
+    }
+
+    //霹雳车（宝物）
+    public class Trebuchet : Treasure
+    {
+        public static string ClassName = "Trebuchet";
+        public Trebuchet() : base(ClassName) { }
+    }
+
+    public class TrebuchetSkill : TreasureSkill
+    {
+        public TrebuchetSkill() : base(Trebuchet.ClassName)
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.BeforeCardsMove, TriggerEvent.CardResponded };
+            frequency = Frequency.Compulsory;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.BeforeCardsMove && data is CardsMoveOneTimeStruct move)
+            {
+                if (move.From != null && move.From_places.Contains(Player.Place.PlaceEquip) && move.To_pile_name != "#virtual_cards")
+                {
+                    int catapult = -1, card_index = -1;
+                    foreach (int id in move.Card_ids)
+                    {
+                        int index = move.Card_ids.IndexOf(id);
+                        if (move.From_places[index] == Player.Place.PlaceEquip && Engine.GetRealCard(id).Name == Name)
+                        {
+                            catapult = id;
+                            card_index = index;
+                            break;
+                        }
+                    }
+
+                    if (catapult > -1)
+                    {
+                        move.From_places.RemoveAt(card_index);
+                        move.Card_ids.Remove(catapult);
+                        if (move.Reason.Card != null)
+                        {
+                            List<int> subs = room.GetSubCards(move.Reason.Card);
+                            subs.RemoveAll(t => t == catapult);
+                        }
+                        data = move;
+
+                        Player holder = room.Players[0];
+                        room.SetEmotion(move.From, "catapult_broken");
+                        room.AddToPile(holder, "#virtual_cards", catapult, false);
+                    }
+                }
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && base.Triggerable(player, room) && Engine.GetFunctionCard(use.Card.Name) is BasicCard
+                && (player.Phase == Player.PlayerPhase.NotActive || use.Card.Name != Jink.ClassName))
+                return new TriggerStruct(Name, player);
+            else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Use && player.Alive && player.Phase == Player.PlayerPhase.NotActive && base.Triggerable(player, room))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(player, Name);
+            if (player.Phase == Player.PlayerPhase.NotActive)
+                room.DrawCards(player, 1, Name);
+            else if (data is CardUseStruct use)
+            {
+                use.ExDamage++;
+                data = use;
+            }
+
+            return false;
+        }
     }
 }
