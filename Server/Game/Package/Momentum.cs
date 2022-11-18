@@ -213,7 +213,7 @@ namespace SanguoshaServer.Package
             Player current = room.Current;
             if (current != null && room.AskForSkillInvoke(player, Name, current, info.SkillPosition))
             {
-                room.DoAnimate(CommonClassLibrary.AnimateType.S_ANIMATE_INDICATE, player.Name, current.Name);
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, current.Name);
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                 return info;
             }
@@ -225,7 +225,7 @@ namespace SanguoshaServer.Package
             Player current = room.Current;
             if (current == null) return;
             room.AddPlayerMark(current, "@hengjiang");
-            room.SetPlayerMark(target, "HengjiangInvoke", 1);
+            target.AddMark(Name);
         }
     }
     public class HengjiangDraw : TriggerSkill
@@ -237,36 +237,8 @@ namespace SanguoshaServer.Package
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == Player.PlayerPhase.NotActive)
-            {
-                List<Player> zangbas = new List<Player>();
-                foreach (Player p in room.GetAlivePlayers())
-                    if (p.GetMark("HengjiangInvoke") > 0)
-                        zangbas.Add(p);
-
-                if (zangbas.Count > 0 && player.GetMark("@hengjiang") > 0 && !player.HasFlag("HengjiangDiscarded"))
-                {
-                    LogMessage log = new LogMessage
-                    {
-                        Type = "#HengjiangDraw",
-                        From = player.Name,
-                        To = new List<string>(),
-                        Arg = "hengjiang"
-                    };
-                    foreach (Player p in zangbas)
-                        log.To.Add(p.Name);
-                    room.SendLog(log);
-                }
-            }
-            else if (triggerEvent == TriggerEvent.TurnStart && player != null)
-            {
-                room.SetPlayerMark(player, "@hengjiang", 0);
-                foreach (Player p in room.GetAlivePlayers())
-                    if (p.GetMark("HengjiangInvoke") > 0)
-                        room.SetPlayerMark(p, "HengjiangInvoke", 0);
-            }
-            else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Phase == PlayerPhase.Discard
-                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Phase == PlayerPhase.Discard
+                && move.From.GetMark("@hengjiang") > 0 && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
             {
                 move.From.SetFlags("HengjiangDiscarded");
             }
@@ -274,23 +246,30 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> skill_list = new List<TriggerStruct>();
-            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == Player.PlayerPhase.NotActive)
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == Player.PlayerPhase.NotActive
+                && player.GetMark("@hengjiang") > 0 && !player.HasFlag("HengjiangDiscarded"))
             {
                 List<Player> zangbas = new List<Player>();
                 foreach (Player p in room.GetAlivePlayers())
-                    if (p.GetMark("HengjiangInvoke") > 0)
+                    if (p.GetMark("hengjian") > 0)
                         zangbas.Add(p);
-
-                if (zangbas.Count > 0 && player.GetMark("@hengjiang") > 0 && !player.HasFlag("HengjiangDiscarded"))
-                    foreach (Player zangba in zangbas)
+                foreach (Player zangba in zangbas)
                         skill_list.Add(new TriggerStruct(Name, zangba));
             }
             return skill_list;
         }
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.SetPlayerMark(ask_who, "HengjiangInvoke", 0);
-            room.DrawCards(ask_who, 1, "hengjiang");
+            LogMessage log = new LogMessage
+            {
+                Type = "#HengjiangDraw",
+                From = player.Name,
+                To = new List<string> { ask_who.Name },
+                Arg = "hengjiang"
+            };
+            room.SendLog(log);
+            room.DrawCards(ask_who, ask_who.GetMark("hengjian"), "hengjiang");
+
             return false;
         }
     }
@@ -312,7 +291,6 @@ namespace SanguoshaServer.Package
                     room.SetPlayerMark(player, "@hengjiang", 0);
                 }
                 foreach (Player p in room.GetAlivePlayers())
-                    if (p.GetMark("HengjiangInvoke") > 0)
                         p.SetMark("HengjiangInvoke", 0);
             }
             return new List<TriggerStruct>();
