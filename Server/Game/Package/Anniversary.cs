@@ -91,6 +91,9 @@ namespace SanguoshaServer.Package
                 new Weilie(),
                 new Poyuan(),
                 new Huace(),
+                new Fenyan(),
+                new Fudao(),
+                new FudaoPro(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -364,6 +367,7 @@ namespace SanguoshaServer.Package
                 new YingshiCard(),
                 new WeilieCard(),
                 new QuanjianCard(),
+                new FenyanCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -430,6 +434,7 @@ namespace SanguoshaServer.Package
                 { "xiongrao", new List<string>{ "#xiongrao" } },
                 { "jieshu", new List<string>{ "#jieshu" } },
                 { "huishu", new List<string>{ "#huishu" } },
+                { "fudao", new List<string>{ "#fudao" } },
             };
         }
     }
@@ -5572,6 +5577,225 @@ namespace SanguoshaServer.Package
                 return cards[0];
             return null;
         }
+    }
+
+    public class Fenyan : TriggerSkill
+    {
+        public Fenyan() : base("fenyan")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging };
+            view_as_skill = new FenyanVS();
+            skill_type = SkillType.Attack;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is PhaseChangeStruct change && change.From == PlayerPhase.Play)
+            {
+                player.SetFlags("-fenyan_hp");
+                player.SetFlags("-fenyan_card");
+            }
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who) => new TriggerStruct();
+    }
+
+    public class FenyanVS : ZeroCardViewAsSkill
+    {
+        public FenyanVS() : base("fenyan") { }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasFlag("fenyan_hp") || !player.HasFlag("fenyan_card");
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(FenyanCard.ClassName) { Skill = Name };
+    }
+
+    public class FenyanCard : SkillCard
+    {
+        public static string ClassName = "FenyanCard";
+        public FenyanCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            if (targets.Count == 0 && to_select != Self)
+            {
+                if (!to_select.IsKongcheng() && to_select.Hp <= Self.Hp && !Self.HasFlag("fenyan_hp"))
+                    return true;
+                else if (to_select.HandcardNum <= Self.HandcardNum && !Self.HasFlag("fenyan_card"))
+                {
+                    WrappedCard slash = new WrappedCard(Slash.ClassName) { DistanceLimited = false };
+                    return RoomLogic.IsProhibited(room, Self, to_select, slash) == null;
+                }
+            }
+            return false;
+        }
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From, target = card_use.To[0];
+            List<string> choices = new List<string>();
+            if (!target.IsKongcheng() && target.Hp <= player.Hp && !player.HasFlag("fenyan_hp"))
+                choices.Add("hp");
+
+            WrappedCard slash = new WrappedCard(Slash.ClassName) { DistanceLimited = false, Skill = "_fenyan" };
+            if (target.HandcardNum <= player.HandcardNum && !player.HasFlag("fenyan_card") && RoomLogic.IsProhibited(room, player, target, slash) == null)
+                choices.Add("handcard");
+
+            string choice = room.AskForChoice(player, "fenyan", string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target, card_use.Card.SkillPosition);
+            if (choice == "hp")
+            {
+                player.SetFlags("fenyan_hp");
+                List<int> ids = room.AskForExchange(target, "fenyan", 1, 1, "@fenyan-give:" + player.Name, string.Empty, ".", string.Empty);
+                if (ids.Count > 0) room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, target.Name, player.Name, "fenyan", string.Empty), false);
+            }
+            else
+            {
+                player.SetFlags("fenyan_card");
+                room.UseCard(new CardUseStruct(slash, player, target, true), false, true);
+            }
+        }
+    }
+
+    public class Fudao : TriggerSkill
+    {
+        public Fudao() : base("fudao")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.GameStart, TriggerEvent.TargetChosen, TriggerEvent.Death, TriggerEvent.DamageCaused };
+            frequency = Frequency.Compulsory;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.Death && data is DeathStruct death && death.Damage.From != null && death.Damage.From.Alive)
+            {
+                Player from = null, to = null;
+                if (player.ContainsTag(Name))
+                {
+                    from = player;
+                    if (from.ContainsTag(Name) && from.GetTag(Name) is string target_name)
+                        to = room.FindPlayer(target_name, true);
+                }
+                else if (player.ContainsTag("fudao_from") && player.GetTag("fudao_from") is string from_name)
+                {
+                    to = player;
+                    from = room.FindPlayer(from_name, true);
+                }
+                if (from != null && to != null && from != death.Damage.From && to != death.Damage.From && (from.Alive || to.Alive))
+                {
+                    Player who = from.Alive ? from : to;
+                    death.Damage.From.SetTag("fudao_damage", who.Name);
+                    room.SetPlayerStringMark(death.Damage.From, "rupture", string.Empty);
+                }
+            }
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.GameStart && base.Triggerable(player, room))
+                triggers.Add(new TriggerStruct(Name, player));
+            else if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name) && player != null && player.Alive)
+            {
+                if (player.ContainsTag(Name) && player.GetTag(Name) is string target_name && !player.HasFlag(Name))
+                {
+                    foreach (Player p in use.To)
+                    {
+                        if (p.Name == target_name && !p.HasFlag(Name))
+                        {
+                            triggers.Add(new TriggerStruct(Name, player, new List<Player> { p }));
+                            break;
+                        }
+                    }
+                }
+                else if (player.ContainsTag("fudao_from") && player.GetTag("fudao_from") is string from_name && !player.HasFlag(Name))
+                {
+                    foreach (Player p in use.To)
+                    {
+                        if (p.Name == from_name && !p.HasFlag(Name))
+                        {
+                            triggers.Add(new TriggerStruct(Name, player, p));
+                            break;
+                        }
+                    }
+                }
+                if (WrappedCard.IsBlack(use.Card.Suit) && player.ContainsTag("fudao_damage") && player.GetTag("fudao_damage") is string from)
+                {
+                    foreach (Player p in use.To)
+                    {
+                        if (p.Name == from && from.Contains(Name))
+                        {
+                            triggers.Add(new TriggerStruct(Name, player, p));
+                            break;
+                        }
+                    }
+                }
+            }
+            else if (triggerEvent == TriggerEvent.DamageCaused && data is DamageStruct damage && damage.To.Alive && player != null && player.Alive && damage.To.ContainsTag("fudao_damage")
+                && damage.To.GetTag("fudao_damage") is string from && from == player.Name)
+                triggers.Add(new TriggerStruct(Name, player));
+
+            return triggers;
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.GameStart)
+            {
+                Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@fudao", false, true, info.SkillPosition);
+                if (target != null)
+                {
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    player.SetTag(Name, target.Name);
+                    target.SetTag("fudao_from", player.Name);
+                    room.SetPlayerStringMark(target, Name, string.Empty);
+                }
+            }
+            else if (triggerEvent == TriggerEvent.DamageCaused && data is DamageStruct damage)
+            {
+                LogMessage log = new LogMessage
+                {
+                    Type = "#AddDamage",
+                    From = player.Name,
+                    To = new List<string> { damage.To.Name },
+                    Arg = "rupture",
+                    Arg2 = (++damage.Damage).ToString()
+                };
+                room.SendLog(log);
+
+                data = damage;
+            }
+            else if (triggerEvent == TriggerEvent.TargetChosen)
+            {
+                bool draw = false;
+                if (ask_who.ContainsTag(Name) && ask_who.GetTag(Name) is string target_name && player.Name == target_name && !ask_who.HasFlag(Name) && !player.HasFlag(Name))
+                    draw = true;
+                else if (ask_who.ContainsTag("fudao_from") && ask_who.GetTag("fudao_from") is string from_name && from_name == player.Name && !ask_who.HasFlag(Name) && !player.HasFlag(Name))
+                    draw = true;
+
+                if (draw)
+                {
+                    ask_who.SetFlags(Name);
+                    player.SetFlags(Name);
+                    List<Player> players = new List<Player> { player, ask_who };
+                    Player from = player.ContainsTag(Name) ? player : ask_who;
+                    room.SortByActionOrder(ref players);
+                    room.SendCompulsoryTriggerLog(from, Name);
+                    room.BroadcastSkillInvoke(Name, from, info.SkillPosition);
+                    foreach (Player p in players)
+                        if (p.Alive) room.DrawCards(p, new DrawCardStruct(2, from, Name));
+                }
+
+                if (ask_who.ContainsTag("fudao_damage") && ask_who.GetTag("fudao_damage") is string from_player && from_player == player.Name && player.ContainsTag(Name))
+                {
+                    LogMessage log = new LogMessage("#fudao-pro");
+                    log.From = ask_who.Name;
+                    log.Arg = "rupture";
+                    room.SendLog(log);
+
+                    ask_who.SetFlags("fudao_pro");
+                }
+            }
+            return false;
+        }
+    }
+
+    public class FudaoPro : ProhibitSkill
+    {
+        public FudaoPro() : base("#fudao") { }
+        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null) => from.HasFlag("fudao_pro");
     }
 
     public class Tunan : ViewAsSkill
