@@ -2963,20 +2963,29 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Jianshu : OneCardViewAsSkill
+    public class Jianshu : TriggerSkill
     {
         public Jianshu() : base("jianshu")
         {
-            limit_mark = "@jian";
-            frequency = Frequency.Limited;
+            events.Add(TriggerEvent.EventPhaseChanging);
+            view_as_skill = new JianshuVS();
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is PhaseChangeStruct change && change.From == PlayerPhase.Play)
+                player.SetMark(Name, 0);
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+
+    public class JianshuVS : OneCardViewAsSkill
+    {
+        public JianshuVS() : base("jianshu")
+        {
             filter_pattern = ".|black|.|hand";
         }
-
-        public override bool IsEnabledAtPlay(Room room, Player player)
-        {
-            return player.GetMark(limit_mark) > 0;
-        }
-
+        public override bool IsEnabledAtPlay(Room room, Player player) => player.GetMark(Name) >= player.UsedTimes(JianshuCard.ClassName);
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {
             WrappedCard js = new WrappedCard(JianshuCard.ClassName);
@@ -3004,11 +3013,8 @@ namespace SanguoshaServer.Package
         public override void OnUse(Room room, CardUseStruct card_use)
         {
             Player player = card_use.From;
-
-            room.SetPlayerMark(card_use.From, "@jian", 0);
+            room.NotifySkillInvoked(player, "jianshu");
             room.BroadcastSkillInvoke("jianshu", card_use.From, card_use.Card.SkillPosition);
-            room.DoSuperLightbox(card_use.From, card_use.Card.SkillPosition, "jianshu");
-
             List<Player> targets = new List<Player>(card_use.To);
             room.SortByActionOrder(ref targets);
 
@@ -3038,28 +3044,57 @@ namespace SanguoshaServer.Package
             Player player = card_use.From;
             Player from = card_use.To[0], to = card_use.To[1];
             List<int> ids = new List<int>(card_use.Card.SubCards);
-            room.ObtainCard(from, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, from.Name, "mizhao", string.Empty), false);
+            room.ObtainCard(from, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, from.Name, "jianshu", string.Empty), false);
 
+            bool dead = false;
             if (!from.IsKongcheng() && RoomLogic.CanBePindianBy(room, to, from))
             {
                 PindianStruct pd = room.PindianSelect(from, to, "jianshu");
                 room.Pindian(ref pd);
                 if (pd.From_number > pd.To_numbers[0])
                 {
-                    if (from.Alive) room.AskForDiscard(from, "jianshu", 2, 2, false, true, "@jianshu-discard");
-                    if (to.Alive) room.LoseHp(to);
+                    if (from.Alive && !from.IsNude())
+                    {
+                        List<int> discard = room.ForceToDiscard(from, from.GetCards("he"), 1, true);
+                        if (discard.Count > 0)
+                            room.ThrowCard(ref discard, from);
+                    }
+                    if (to.Alive)
+                    {
+                        room.LoseHp(to);
+                        if (!to.Alive) dead = true;
+                    }
                 }
                 else if (pd.To_numbers[0] > pd.From_number)
                 {
-                    if (to.Alive) room.AskForDiscard(to, "jianshu", 2, 2, false, true, "@jianshu-discard");
-                    if (from.Alive) room.LoseHp(from);
+                    if (to.Alive && !to.IsNude())
+                    {
+                        List<int> discard = room.ForceToDiscard(to, to.GetCards("he"), 1, true);
+                        if (discard.Count > 0)
+                            room.ThrowCard(ref discard, to);
+                    }
+                    if (from.Alive)
+                    {
+                        room.LoseHp(from);
+                        if (!from.Alive) dead = true;
+                    }
                 }
                 else
                 {
-                    if (from.Alive) room.LoseHp(from);
-                    if (to.Alive) room.LoseHp(to);
+                    if (from.Alive)
+                    {
+                        room.LoseHp(from);
+                        if (!from.Alive) dead = true;
+                    }
+                    if (to.Alive)
+                    {
+                        room.LoseHp(to);
+                        if (!to.Alive) dead = true;
+                    }
                 }
             }
+            if (player.Alive && dead)
+                player.AddMark("jianshu");
         }
     }
 

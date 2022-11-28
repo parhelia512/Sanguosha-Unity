@@ -3265,8 +3265,26 @@ namespace SanguoshaServer.AI
 
         public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
         {
-            if (player.GetMark("@jian") > 0)
-                return new List<WrappedCard> { new WrappedCard(JianshuCard.ClassName) };
+            if (player.GetMark(Name) >= player.UsedTimes(JianshuCard.ClassName) && !player.IsKongcheng())
+            {
+                int card_id = -1;
+                List<int> ids = player.GetCards("h");
+                ai.SortByUseValue(ref ids);
+                foreach (int id in ids)
+                {
+                    if (WrappedCard.IsBlack(ai.Room.GetCard(id).Suit))
+                    {
+                        card_id = id;
+                        break;
+                    }
+                }
+                if (card_id >= 0)
+                {
+                    WrappedCard card = new WrappedCard(JianshuCard.ClassName);
+                    card.AddSubCard(card_id);
+                    return new List<WrappedCard> { card };
+                }
+            }
 
             return new List<WrappedCard>();
         }
@@ -3299,10 +3317,10 @@ namespace SanguoshaServer.AI
                 ai.SortByDefense(ref enemies, false);
                 foreach (Player p in enemies)
                 {
-                    if (p.HandcardNum < 2 && p.Hp > 1 || p.IsKongcheng()) continue;
+                    if (p.IsKongcheng() || p.IsKongcheng()) continue;
                     foreach (Player p2 in enemies)
                     {
-                        if (p == p2 || (p2.HandcardNum < 2 && p.Hp > 1) || !RoomLogic.CanBePindianBy(room, p2, p)) continue;
+                        if (p == p2 || p2.IsKongcheng() || !RoomLogic.CanBePindianBy(room, p2, p)) continue;
                         use.Card = card;
                         use.To = new List<Player> { p, p2 };
                         return;
