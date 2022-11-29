@@ -5795,7 +5795,7 @@ namespace SanguoshaServer.Package
     public class FudaoPro : ProhibitSkill
     {
         public FudaoPro() : base("#fudao") { }
-        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null) => from.HasFlag("fudao_pro");
+        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null) => from != null && from.HasFlag("fudao_pro");
     }
 
     public class Tunan : ViewAsSkill
