@@ -22,6 +22,8 @@ namespace SanguoshaServer.AI
                 new BaonueAI(),
                 new HuangtianVSAI(),
                 new BeigeJXAI(),
+                new WeimuJXAI(),
+                new LuanwuJXAI(),
 
                 new FangquanJXAI(),
                 new LiegongJXAI(),
@@ -61,6 +63,7 @@ namespace SanguoshaServer.AI
                 new HuangtianCardAI(),
                 new TiaoxinJXCardAI(),
                 new DimengCCardAI(),
+                new LuanwuJXCardAI(),
             };
         }
     }
@@ -1663,12 +1666,17 @@ namespace SanguoshaServer.AI
 
         public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
         {
-            WrappedCard card = new WrappedCard(QiangxiJXCard.ClassName)
+            List<WrappedCard> result = new List<WrappedCard>();
+            if (player.UsedTimes(QiangxiJXCard.ClassName) < 2)
             {
-                Skill = Name,
-                ShowSkill = Name
-            };
-            return new List<WrappedCard> { card };
+                WrappedCard card = new WrappedCard(QiangxiJXCard.ClassName)
+                {
+                    Skill = Name,
+                    ShowSkill = Name
+                };
+                result.Add(card);
+            }
+            return result;
         }
     }
 
@@ -1698,63 +1706,184 @@ namespace SanguoshaServer.AI
             List<Player> enemies = ai.GetEnemies(player);
             ai.SortByDefense(ref enemies, false);
 
-            if (player.GetWeapon())
+
+            List<int> weapons = new List<int>();
+            bool peach = false;
+            foreach (int id in player.GetCards("he"))
             {
-                int hand_weapon = -1;
-                foreach (WrappedCard _card in RoomLogic.GetPlayerHandcards(room, player))
+                WrappedCard _card = room.GetCard(id);
+                FunctionCard fcard = Engine.GetFunctionCard(_card.Name);
+                if (fcard is Weapon) weapons.Add(id);
+                if (!peach && (player.Hp == 1 && fcard is Analeptic || fcard is Peach)) peach = true;
+            }
+
+            List<ScoreStruct> scores = new List<ScoreStruct>();
+            foreach (Player enemy in enemies)
+            {
+                if (player.HasFlag(string.Format("qiangxi-{0}", enemy.Name))) continue;
+                if (ai.PlayersLevel[enemy] > 3)
                 {
-                    FunctionCard fcard = Engine.GetFunctionCard(_card.Name);
-                    if (fcard is Weapon)
+                    DamageStruct damage = new DamageStruct("qiangxi_jx", player, enemy);
+                    ScoreStruct score = ai.GetDamageScore(damage);
+                    score.Players = new List<Player> { enemy };
+                    scores.Add(score);
+                }
+            }
+            if (scores.Count > 0)
+            {
+                scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+                if (scores[0].Score >= 3 && (weapons.Count > 0 || player.Hp > 1 || peach))
+                {
+                    use.Card = card;
+                    use.To = scores[0].Players;
+                    if (weapons.Count > 0)
                     {
-                        hand_weapon = _card.Id;
-                        break;
+                        ai.SortByKeepValue(ref weapons);
+                        use.Card.AddSubCard(weapons[0]);
+                    }
+                }
+            }
+        }
+    }
+
+    public class WeimuJXAI : SkillEvent
+    {
+        public WeimuJXAI() : base("weimu_jx") { }
+        public override void DamageEffect(TrustedAI ai, ref DamageStruct damage, DamageStruct.DamageStep step)
+        {
+            if (damage.To != null && damage.To.Phase != Player.PlayerPhase.NotActive && RoomLogic.PlayerHasSkill(ai.Room, damage.To, Name))
+                damage.Damage = 0;
+        }
+
+        public override ScoreStruct GetDamageScore(TrustedAI ai, DamageStruct damage)
+        {
+            ScoreStruct score = new ScoreStruct();
+            if (damage.To != null && damage.To.Phase != Player.PlayerPhase.NotActive && RoomLogic.PlayerHasSkill(ai.Room, damage.To, Name))
+                score.Score = damage.Damage * 2 * 2;
+            return score;
+        }
+    }
+
+    public class LuanwuJXAI : SkillEvent
+    {
+        public LuanwuJXAI() : base("luanwu_jx")
+        {
+        }
+
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            if (ai.WillShowForAttack() && player.GetMark("@chaos") > 0)
+            {
+                Room room = ai.Room;
+                double good = 0, bad = 0;
+                if (RoomLogic.PlayerHasShownSkill(room, player, "baoling"))
+                    good += 0.8;
+                foreach (Player p in room.GetOtherPlayers(player))
+                {
+                    if (!p.Removed && ai.IsWeak(p))
+                    {
+                        if (ai.IsFriend(p)) bad += 1.5;
+                        else if (p.HasShownOneGeneral()) good += 0.8;
+                        else good += 0.4;
                     }
                 }
 
-                foreach (Player enemy in enemies)
+                if (good < ((double)room.AliveCount() / 4)) return null;
+
+                foreach (Player p in room.GetOtherPlayers(player))
                 {
-                    if (player.HasFlag(string.Format("qiangxi-{0}", enemy.Name))) continue;
-                    if (ai.PlayersLevel[enemy] > 3)
+                    if (p.Removed) continue;
+
+                    int hp = Math.Max(p.Hp, 1);
+                    if (ai.GetKnownCardsNums(Analeptic.ClassName, "he", p, player) > 0)
                     {
-                        DamageStruct damage = new DamageStruct("qiangxi", player, enemy);
-                        if (RoomLogic.InMyAttackRange(room, player, enemy) && hand_weapon >= 0 && ai.GetDamageScore(damage).Score > 4)
+                        if (ai.IsFriend(p))
+                            good += 1 / hp;
+                        else
+                            bad += 1 / hp;
+                    }
+                    bool slash = ai.GetKnownCardsNums(Slash.ClassName, "he", p, player) > 0;
+                    bool can_slash = false;
+                    foreach (Player _p in room.GetOtherPlayers(p))
+                    {
+                        if (RoomLogic.InMyAttackRange(room, p, _p))
                         {
-                            card.AddSubCard(hand_weapon);
-                            use.Card = card;
-                            use.To = new List<Player> { enemy };
-                            return;
-                        }
-                        else if (RoomLogic.InMyAttackRange(room, player, enemy, room.GetCard(player.Weapon.Key)) && ai.GetDamageScore(damage).Score > 4)
-                        {
-                            card.AddSubCard(player.Weapon.Key);
-                            use.Card = card;
-                            use.To = new List<Player> { enemy };
-                            return;
+                            can_slash = true;
+                            break;
                         }
                     }
+
+                    if (!slash || !can_slash)
+                    {
+                        if (ai.IsFriend(p))
+                            good += Math.Max(ai.GetKnownCardsNums(Peach.ClassName, "he", p, player), 1);
+                        else
+                            bad += Math.Max(ai.GetKnownCardsNums(Peach.ClassName, "he", p, player), 1);
+                    }
+
+                    if (ai.GetKnownCardsNums(Jink.ClassName, "he", p, player) > 0)
+                    {
+                        double lost_value = 0;
+                        if (ai.HasSkill(TrustedAI.MasochismSkill, p))
+                            lost_value = p.Hp / 2;
+                        hp = Math.Max(p.Hp, 1);
+                        if (ai.IsFriend(p))
+                            bad += (lost_value + 1) / hp;
+                        else
+                            good += (lost_value + 1) / hp;
+
+                    }
                 }
+
+                if (good > bad)
+                    return new List<WrappedCard> { new WrappedCard(LuanwuJXCard.ClassName) { Skill = Name, ShowSkill = Name, Mute = true } };
             }
-            else
+
+            return null;
+        }
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            CardUseStruct use = new CardUseStruct(null, player, new List<Player>());
+            Room room = ai.Room;
+            List<Player> targets = new List<Player>();
+            foreach (Player p in room.GetOtherPlayers(player))
+                if (p.HasFlag("SlashAssignee"))
+                    targets.Add(p);
+
+            if (targets.Count > 0)
             {
-                bool analeptic = player.Hp == 1 && ai.GetCards(Analeptic.ClassName, player).Count > 0;
-                bool peach = ai.GetCards(Peach.ClassName, player).Count > 0;
-                foreach (Player enemy in enemies)
+                List<ScoreStruct> scores = ai.CaculateSlashIncome(player, null, targets);
+                if (scores.Count > 0 && scores[0].Score > -2 && scores[0].Card != null)
                 {
-                    if (player.HasFlag(string.Format("qiangxi-{0}", enemy.Name))) continue;
-                    if (ai.PlayersLevel[enemy] > 3)
-                    {
-                        DamageStruct damage = new DamageStruct("qiangxi", player, enemy);
-                        if (RoomLogic.InMyAttackRange(room, player, enemy)
-                            && ((ai.GetDamageScore(damage).Score > 4 && (!player.IsWounded() && peach || analeptic))
-                            || (ai.GetDamageScore(damage).Score > 7 && (player.Hp > 1 || peach || analeptic))))
-                        {
-                            use.Card = card;
-                            use.To = new List<Player> { enemy };
-                            return;
-                        }
-                    }
+                    use.Card = scores[0].Card;
+                    use.To = scores[0].Players;
                 }
             }
+
+            return use;
+        }
+
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_luanwu_jx", DistanceLimited = false };
+            List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { slash }, targets, false);
+            if (scores.Count > 0)
+            {
+                scores.Sort((x, y) => { return x.Score > y.Score ? -1 : 1; });
+                if (scores[0].Score > 0) return scores[0].Players;
+            }
+            return new List<Player>();
+        }
+    }
+
+    public class LuanwuJXCardAI : UseCard
+    {
+        public LuanwuJXCardAI() : base(LuanwuJXCard.ClassName)
+        { }
+
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            use.Card = card;
         }
     }
 
