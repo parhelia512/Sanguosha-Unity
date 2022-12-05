@@ -15,12 +15,13 @@ namespace SanguoshaServer.AI
         {
             events = new List<SkillEvent>
             {
-
                 new QiaoAI(),
                 new ChengshangAI(),
                 new JianliangHegemonyAI(),
                 new WeimengHegemonyAI(),
                 new WeimengSAI(),
+                new YouyanHegemonyAI(),
+                new ZhuihuanHegemonyAI(),
 
                 new ZhiweiAI(),
                 new ZhenteAI(),
@@ -62,7 +63,21 @@ namespace SanguoshaServer.AI
     public class ChengshangAI : SkillEvent
     {
         public ChengshangAI() : base("chengshang") { }
-        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => ai.WillShowForAttack() && data is Player target && !ai.IsFriend(target);
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            if (ai.WillShowForAttack())
+            {
+                ai.SortByDefense(ref targets);
+                foreach (Player p in targets)
+                    if (ai.IsEnemy(p))
+                        return new List<Player> { p };
+                foreach (Player p in targets)
+                    if (!ai.IsFriend(p))
+                        return new List<Player> { p };
+            }
+            return new List<Player>();
+        }
     }
 
     public class JianliangHegemonyAI : SkillEvent
@@ -157,6 +172,72 @@ namespace SanguoshaServer.AI
         }
 
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 7;
+    }
+
+    public class YouyanHegemonyAI : SkillEvent
+    {
+        public YouyanHegemonyAI() : base("youyan_hegemony") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => ai.WillShowForAttack() || ai.WillShowForDefence();
+    }
+
+    public class ZhuihuanHegemonyAI : SkillEvent
+    {
+        public ZhuihuanHegemonyAI() : base("zhuihuan_hegemony") { }
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            List<Player> result = new List<Player>();
+            ai.SortByDefense(ref targets, false);
+            foreach (Player p in targets)
+            {
+                if (ai.IsFriend(p))
+                {
+                    result.Add(p);
+                    if (result.Count >= 2)
+                        break;
+                }
+            }
+            return result;
+        }
+        public override ScoreStruct GetDamageScore(TrustedAI ai, DamageStruct damage)
+        {
+            ScoreStruct score = new ScoreStruct
+            {
+                Score = 0
+            };
+
+            if (damage.To != null && damage.To.GetMark("zhuihuan_0") > 1 && damage.From != null && damage.From != damage.To)
+            {
+                DamageStruct _damage = new DamageStruct(Name, damage.To, damage.From);
+                if (ai.DamageEffect(_damage, DamageStruct.DamageStep.Caused) > 0)
+                {
+                    float point = -3;
+                    if (damage.From.Hp == 1) point = -10;
+                    if (damage.To.Hp - damage.Damage == 0)
+                        point += 1;
+                    else if (damage.To.Hp - damage.Damage < 0)
+                        point = 0;
+                    if (ai.IsFriend(damage.From))
+                        score.Score = point;
+                    else
+                        score.Score = -point;
+                }
+            }
+            if (damage.To != null && damage.To.GetMark("zhuihuan_1") > 1 && damage.From != null && damage.From != damage.To)
+            {
+                float point = -2;
+                if (damage.From.HandcardNum < 2) point /= 2;
+                if (damage.To.Hp - damage.Damage == 0)
+                    point /= 2;
+                else if (damage.To.Hp - damage.Damage < 0)
+                    point = 0;
+                if (ai.IsFriend(damage.From))
+                    score.Score = point;
+                else
+                    score.Score = -point;
+            }
+
+            return score;
+        }
     }
 
     public class ZhiweiAI : SkillEvent

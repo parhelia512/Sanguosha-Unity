@@ -310,18 +310,9 @@ namespace SanguoshaServer.Package
         public YanyuVS() : base("yanyu")
         {
         }
-
-        public override bool ViewFilter(Room room, WrappedCard to_select, Player player)
-        {
-            return room.GetCardPlace(to_select.Id) == Place.PlaceHand && !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodRecast, true)
+        public override bool ViewFilter(Room room, WrappedCard to_select, Player player) => room.GetCardPlace(to_select.Id) == Place.PlaceHand && !RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodRecast, true)
                 && to_select.Name.Contains(Slash.ClassName);
-        }
-
-        public override bool IsEnabledAtPlay(Room room, Player player)
-        {
-            return !player.IsKongcheng();
-        }
-
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.IsKongcheng();
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {
             WrappedCard yy = new WrappedCard(YanyuCard.ClassName)

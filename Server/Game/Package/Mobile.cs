@@ -135,6 +135,8 @@ namespace SanguoshaServer.Package
                 new Xianchou(),
                 new LiegongMobile(),
                 new LiegongMobileTar(),
+                new YanyuMobile(),
+                new QiaoshiMobile(),
 
                 new Yingjian(),
                 new Shixin(),
@@ -7402,6 +7404,139 @@ namespace SanguoshaServer.Package
         public override void GetEffectIndex(Room room, Player player, WrappedCard card, ModType type, ref int index, ref string skill_name, ref string general_name, ref int skin_id)
         {
             index = -2;
+        }
+    }
+
+    public class YanyuMobile : TriggerSkill
+    {
+        public YanyuMobile() : base("yanyu_jx")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseEnd, TriggerEvent.EventPhaseChanging };
+            skill_type = SkillType.Replenish;
+            view_as_skill = new YanyuMobileVS();
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.Play && player.GetMark(Name) > 0)
+                player.SetMark(Name, 0);
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseEnd && player.Phase == PlayerPhase.Play && player.GetMark(Name) > 0)
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@yanyu_jx:::" + (player.GetMark(Name) * 3).ToString() , true, true, info.SkillPosition);
+            if (target != null)
+            {
+                room.SetTag(Name, target);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.GetTag(Name) is Player target)
+            {
+                room.RemoveTag(Name);
+                int count = 3 * player.GetMark(Name);
+                room.DrawCards(target, new DrawCardStruct(count, player, Name));
+            }
+            return false;
+        }
+    }
+
+    public class YanyuMobileCard : SkillCard
+    {
+        public static string ClassName = "YanyuMobileCard";
+        public YanyuMobileCard() : base(ClassName)
+        {
+            will_throw = true;
+            target_fixed = true;
+        }
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            card_use.From.AddMark("yanyu_jx");
+            room.DrawCards(card_use.From, 1, "yanyu_jx");
+        }
+    }
+
+    public class YanyuMobileVS : OneCardViewAsSkill
+    {
+        public YanyuMobileVS() : base("yanyu_jx")
+        {
+        }
+        public override bool ViewFilter(Room room, WrappedCard to_select, Player player) => room.GetCardPlace(to_select.Id) == Place.PlaceHand
+            && RoomLogic.CanDiscard(room, player, player, to_select.Id) && to_select.Name.Contains(Slash.ClassName);
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.IsKongcheng() && player.UsedTimes(YanyuMobileCard.ClassName) < 2;
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            WrappedCard yy = new WrappedCard(YanyuMobileCard.ClassName)
+            {
+                Skill = Name
+            };
+            yy.AddSubCard(card);
+            return yy;
+        }
+    }
+
+    public class QiaoshiMobile : TriggerSkill
+    {
+        public QiaoshiMobile() : base("qiaoshi_jx")
+        {
+            events.Add(TriggerEvent.Damaged);
+            skill_type = SkillType.Recover;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is DamageStruct damage && damage.From != null && damage.From != player && damage.From.Alive && !player.HasFlag(Name) && base.Triggerable(player, room) && player.IsWounded())
+                return new TriggerStruct(Name, damage.From, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is DamageStruct damage)
+            {
+                int count = Math.Min(damage.Damage, player.GetLostHp());
+                if (room.AskForSkillInvoke(ask_who, Name, string.Format("@qiaoshi_jx:{0}::{1}", player, count)))
+                {
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                    room.NotifySkillInvoked(player, Name);
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    player.SetFlags(Name);
+                    return info;
+                }
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is DamageStruct damage)
+            {
+                int count = Math.Min(damage.Damage, player.GetLostHp());
+                RecoverStruct recover = new RecoverStruct();
+                recover.Recover = count;
+                recover.Who = ask_who;
+                room.Recover(player, recover, true);
+
+                if (ask_who.Alive)
+                    room.DrawCards(ask_who, 2, Name);
+            }
+
+            return false;
         }
     }
 
