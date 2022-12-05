@@ -4,6 +4,7 @@ using CommonClass;
 using CommonClass.Game;
 using SanguoshaServer.Game;
 using SanguoshaServer.Package;
+using static CommonClass.Game.Player;
 using static SanguoshaServer.Package.FunctionCard;
 
 namespace SanguoshaServer.AI
@@ -49,6 +50,8 @@ namespace SanguoshaServer.AI
                 new JianyuAI(),
                 new MingxuanAI(),
                 new XianchouAI(),
+                new QiaoshiJXAI(),
+                new YanyuJXAI(),
 
                 new FenyinAI(),
                 new FubiAI(),
@@ -1191,6 +1194,69 @@ namespace SanguoshaServer.AI
 
             return new List<int>();
         }
+    }
+
+    public class QiaoshiJXAI : SkillEvent
+    {
+        public QiaoshiJXAI() : base("qiaoshi_jx")
+        {
+        }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            if (data is string str)
+            {
+                Room room = ai.Room;
+                string[] strs = str.Split(':');
+                Player target = room.FindPlayer(strs[1]);
+                if (ai.IsFriend(target))
+                    return true;
+                else
+                {
+                    DamageStruct damage = (DamageStruct)room.GetTag("CurrentDamageStruct");
+                    if (damage.Damage == 1 && !ai.IsEnemy(target))
+                        return true;
+                }
+            }
+
+            return false;
+        }
+
+        public override ScoreStruct GetDamageScore(TrustedAI ai, DamageStruct damage)
+        {
+            Room room = ai.Room;
+            ScoreStruct score = new ScoreStruct
+            {
+                Score = 0
+            };
+            if (damage.To != null && RoomLogic.PlayerHasSkill(room, damage.To, Name) && !damage.To.HasFlag(Name) && damage.To.Hp > 1 && damage.From != null && damage.From != damage.To && ai.IsFriend(damage.From, damage.To))
+            {
+                if (ai.IsFriend(damage.To))
+                    score.Score += 1.5;
+                else
+                    score.Score -= 2;
+            }
+            return score;
+        }
+    }
+
+    public class YanyuJXAI : SkillEvent
+    {
+        public YanyuJXAI() : base("yanyu_jx") { key = new List<string> { "playerChosen:yanyu_jx" }; }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str && player != ai.Self)
+            {
+                string[] strs = str.Split(':');
+                if (strs[1] == Name)
+                {
+                    Room room = ai.Room;
+                    Player target = room.FindPlayer(strs[2]);
+                    if (ai.GetPlayerTendency(target) != "unknown")
+                        ai.UpdatePlayerRelation(player, target, true);
+                }
+            }
+        }
+        public override double CardValue(TrustedAI ai, Player player, WrappedCard card, bool isUse, Place place) => place == Place.PlaceHand && card.Name.Contains(Slash.ClassName) ? 3 : 0;
     }
 
     public class RangjieAI : SkillEvent

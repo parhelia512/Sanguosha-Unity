@@ -5030,6 +5030,7 @@ namespace SanguoshaServer.AI
 
             return new List<Player>();
         }
+        public override double CardValue(TrustedAI ai, Player player, WrappedCard card, bool isUse, Place place) => place == Place.PlaceHand && card.Name.Contains(Slash.ClassName) ? 2 : 0;
     }
 
     public class YanyuCardAI : UseCard

@@ -134,7 +134,7 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.CardFinished && base.Triggerable(player, room) && data is CardUseStruct use && !player.HasFlag(Name) && !use.Card.HasFlag(Name))
+            if (triggerEvent == TriggerEvent.CardFinished && base.Triggerable(player, room) && data is CardUseStruct use && !player.HasFlag(Name) && !use.Card.HasFlag(Name) && !Engine.IsSkillCard(use.Card.Name))
             {
                 bool diff = false;
                 foreach (Player p in use.To)
@@ -478,18 +478,20 @@ namespace SanguoshaServer.Package
             if (room.GetTag(Name) is List<Player> targets)
             {
                 room.RemoveTag(Name);
-                List<string> choices = new List<string> { "damage", "discard" };
+                List<string> choices = new List<string> { "damage", "discard" }, target_names = new List<string>();
                 for (int i = 0; i < targets.Count; i++)
                 {
-                    Player target = targets[0];
+                    Player target = targets[i];
                     string choice = room.AskForChoice(player, Name, string.Join("+", choices), new List<string> { "@to-player:" + target.Name }, target, info.SkillPosition);
                     choices.Remove(choice);
                     if (choice == "dammage")
                         target.SetMark("zhuihuan_0", 1);
                     else
-                        target.SetMark("zhuihuan_0", 2);
+                        target.SetMark("zhuihuan_1", 1);
                     room.SetPlayerStringMark(target, Name, string.Empty);
+                    target_names.Add(target.Name);
                 }
+                player.SetTag(Name, target_names);
             }
 
             return false;

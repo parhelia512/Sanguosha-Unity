@@ -188,6 +188,7 @@ namespace SanguoshaServer.Package
                 new DiaoduCard(),
                 new GongshunCard(),
                 new HongyiCard(),
+                new YanyuMobileCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -7510,7 +7511,7 @@ namespace SanguoshaServer.Package
             if (data is DamageStruct damage)
             {
                 int count = Math.Min(damage.Damage, player.GetLostHp());
-                if (room.AskForSkillInvoke(ask_who, Name, string.Format("@qiaoshi_jx:{0}::{1}", player, count)))
+                if (room.AskForSkillInvoke(ask_who, Name, string.Format("@qiaoshi_jx:{0}::{1}", player.Name, count)))
                 {
                     room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
                     room.NotifySkillInvoked(player, Name);
