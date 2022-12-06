@@ -1364,7 +1364,7 @@ namespace SanguoshaServer.Package
             room.RemoveFromDrawPile(yiji_cards);
 
             guojia.PileChange("#jijie", yiji_cards);
-            if (!room.AskForYiji(guojia, yiji_cards, "jijie", true, false, true, -1, room.GetOtherPlayers(guojia), null, "@jijie", "#jijie", false, card_use.Card.SkillPosition))
+            if (!room.AskForYiji(guojia, ref yiji_cards, "jijie", true, false, true, -1, room.GetOtherPlayers(guojia), null, "@jijie", "#jijie", false, card_use.Card.SkillPosition))
             {
                 CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_GOTBACK, guojia.Name, "jijie", string.Empty);
                 room.ObtainCard(guojia, ref yiji_cards, reason, false);

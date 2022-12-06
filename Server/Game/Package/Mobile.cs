@@ -3301,13 +3301,10 @@ namespace SanguoshaServer.Package
             while (guojia.Alive && yiji_cards.Count > 0)
             {
                 guojia.PileChange("#zhouxuan", yiji_cards);
-                if (!room.AskForYiji(guojia, yiji_cards, "zhouxuan", true, false, true, -1, room.GetAlivePlayers(), null, "@zhouxuan-atri", "#zhouxuan", false, info.SkillPosition))
+                if (!room.AskForYiji(guojia, ref yiji_cards, "zhouxuan", true, false, true, -1, room.GetAlivePlayers(), null, "@zhouxuan-atri", "#zhouxuan", false, info.SkillPosition))
                     break;
 
                 guojia.Piles["#zhouxuan"].Clear();
-                foreach (int id in origin_yiji)
-                    if (room.GetCardPlace(id) != Place.DrawPile)
-                        yiji_cards.Remove(id);
             }
             if (guojia.GetPile("#zhouxuan").Count > 0) guojia.Piles["#zhouxuan"].Clear();
             if (yiji_cards.Count > 0)

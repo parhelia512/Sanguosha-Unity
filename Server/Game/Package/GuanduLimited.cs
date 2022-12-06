@@ -1689,7 +1689,7 @@ namespace SanguoshaServer.Package
                     if (targets.Count > 0)
                     {
                         target.SetFlags("liehou");
-                        bool give = room.AskForYiji(player, hands, "liehou", false, false, false, 1, targets, null,
+                        bool give = room.AskForYiji(player, ref hands, "liehou", false, false, false, 1, targets, null,
                             "@liehou", null, false, card_use.Card.SkillPosition);
                         target.SetFlags("-liehou");
                         if (!give)

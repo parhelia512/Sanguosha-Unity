@@ -5908,7 +5908,7 @@ namespace SanguoshaServer.Package
 
                     LogMessage log = new LogMessage
                     {
-                        Type = "#NoRespond2",
+                        Type = "$NoRespond2",
                         From = player.Name,
                         Card_str = RoomLogic.CardToString(room, use.Card)
                     };
@@ -7863,13 +7863,10 @@ namespace SanguoshaServer.Package
             while (guojia.Alive && yiji_cards.Count > 0)
             {
                 guojia.PileChange("#chenghao", yiji_cards);
-                if (!room.AskForYiji(guojia, yiji_cards, Name, true, false, true, -1, room.GetOtherPlayers(guojia), null, null, "#chenghao", false, info.SkillPosition))
+                if (!room.AskForYiji(guojia, ref yiji_cards, Name, true, false, true, -1, room.GetOtherPlayers(guojia), null, null, "#chenghao", false, info.SkillPosition))
                     break;
 
                 guojia.Piles["#chenghao"].Clear();
-                foreach (int id in origin_yiji)
-                    if (room.GetCardPlace(id) != Place.DrawPile)
-                        yiji_cards.Remove(id);
             }
             if (guojia.GetPile("#chenghao").Count > 0) guojia.Piles["#chenghao"].Clear();
             if (yiji_cards.Count > 0 && guojia.Alive)
@@ -8465,7 +8462,7 @@ namespace SanguoshaServer.Package
                 data = chose_use;
                 LogMessage log = new LogMessage
                 {
-                    Type = "#NoRespond",
+                    Type = "$NoRespond",
                     From = player.Name,
                     Card_str = RoomLogic.CardToString(room, chose_use.Card)
                 };
@@ -9938,12 +9935,8 @@ namespace SanguoshaServer.Package
                     List<int> origin_yiji = new List<int>(gets);
                     while (player.Alive && gets.Count > 0)
                     {
-                        if (!room.AskForYiji(player, gets, Name, false, false, true, -1, room.GetOtherPlayers(player), null, "@mubing-give", string.Empty, false, info.SkillPosition))
+                        if (!room.AskForYiji(player, ref gets, Name, false, false, true, -1, room.GetOtherPlayers(player), null, "@mubing-give", string.Empty, false, info.SkillPosition))
                             break;
-
-                        foreach (int id in origin_yiji)
-                            if (room.GetCardPlace(id) != Place.PlaceHand || room.GetCardOwner(id) != player)
-                                gets.Remove(id);
                     }
                 }
                 else
@@ -17791,7 +17784,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is CardUseStruct use && use.From != null && use.From != player && base.Triggerable(player, room) && use.To.Count == 1 && !player.IsKongcheng()
+            if (data is CardUseStruct use && use.From != null && use.From != player && base.Triggerable(player, room) && use.To.Count == 1 && !player.IsKongcheng() && !player.HasFlag(Name)
                 && (use.Card.Name.Contains(Slash.ClassName) || use.Card.Name == Duel.ClassName || use.Card.Name == FireAttack.ClassName || use.Card.Name == ArcheryAttack.ClassName
                 || use.Card.Name == SavageAssault.ClassName || use.Card.Name == Drowning.ClassName) && RoomLogic.CanDiscard(room, player, player, "h"))
                 return new TriggerStruct(Name, player);
@@ -17808,6 +17801,7 @@ namespace SanguoshaServer.Package
 
                 if (invoke)
                 {
+                    player.SetFlags(Name);
                     room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                     room.ShowAllCards(player);
                     return info;
@@ -17871,6 +17865,7 @@ namespace SanguoshaServer.Package
                     player.AddMark("qiaoli_weapon");
                 else
                 {
+                    use.Card.Cancelable = false;
                     player.AddMark("qiaoli_equip");
                     player.SetFlags("qiaoli");
                 }
@@ -17903,7 +17898,7 @@ namespace SanguoshaServer.Package
             {
                 LogMessage log = new LogMessage
                 {
-                    Type = "#NoRespond",
+                    Type = "$NoRespond",
                     From = player.Name,
                     Card_str = RoomLogic.CardToString(room, use.Card)
                 };
@@ -17923,12 +17918,8 @@ namespace SanguoshaServer.Package
                     List<int> origin_yiji = new List<int>(yiji_cards);
                     while (player.Alive && yiji_cards.Count > 0)
                     {
-                        if (!room.AskForYiji(player, yiji_cards, "qiaoli", true, false, true, -1, room.GetOtherPlayers(player), null, null, null, false, info.SkillPosition))
+                        if (!room.AskForYiji(player, ref yiji_cards, "qiaoli", true, false, true, -1, room.GetOtherPlayers(player), null, null, null, false, info.SkillPosition))
                             break;
-                        
-                        foreach (int id in origin_yiji)
-                            if (room.GetCardPlace(id) != Place.DrawPile)
-                                yiji_cards.Remove(id);
                     }
                 }
             }
@@ -17974,9 +17965,6 @@ namespace SanguoshaServer.Package
             WrappedCard duel = new WrappedCard(Duel.ClassName) { Skill = Name };
             duel.AddSubCard(card);
             duel = RoomLogic.ParseUseCard(room, duel);
-            FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-            if (fcard is EquipCard && !(fcard is Weapon))
-                duel.Cancelable = false;
             return duel;
         }
     }

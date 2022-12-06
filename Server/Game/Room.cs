@@ -9180,7 +9180,7 @@ namespace SanguoshaServer.Game
             }
         }
 
-        public bool AskForYiji(Player guojia, List<int> cards, string skill_name = null,  bool is_preview = false, bool visible = false, bool optional = true, int max_num = -1,
+        public bool AskForYiji(Player guojia, ref List<int> cards, string skill_name = null,  bool is_preview = false, bool visible = false, bool optional = true, int max_num = -1,
             List<Player> players = null, CardMoveReason reason = null, string prompt = null, string expand_pile = null, bool notify_skill = true, string position = null)
         {
             if (max_num == -1)
@@ -9254,8 +9254,8 @@ namespace SanguoshaServer.Game
                 else
                 {
                     ids.Clear();
-                    Shuffle.shuffle<int>(ref cards);
-                    Shuffle.shuffle<Player>(ref players);
+                    Shuffle.shuffle(ref cards);
+                    Shuffle.shuffle(ref players);
                     ids.Add(cards[0]);
                     target = players[0];
                 }

@@ -2063,7 +2063,7 @@ namespace SanguoshaServer.Package
                             break;
                         case "nullified":
                             use.Card.SetFlags("benxi_nullified");
-                            log.Type = "#NoRespond";
+                            log.Type = "$NoRespond";
                             break;
                         case "draw":
                             use.Card.SetFlags("benxi_draw");

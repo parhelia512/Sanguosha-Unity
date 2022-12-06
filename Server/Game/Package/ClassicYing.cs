@@ -2060,7 +2060,7 @@ namespace SanguoshaServer.Package
 
                 LogMessage log = new LogMessage
                 {
-                    Type = "#NoRespond",
+                    Type = "$NoRespond",
                     From = player.Name,
                     Card_str = RoomLogic.CardToString(room, chose_use.Card)
                 };

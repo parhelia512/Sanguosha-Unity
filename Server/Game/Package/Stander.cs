@@ -659,13 +659,10 @@ namespace SanguoshaServer.Package
             while (guojia.Alive && yiji_cards.Count > 0)
             {
                 guojia.PileChange("#yiji", yiji_cards);
-                if (!room.AskForYiji(guojia, yiji_cards, Name, true, false, true, -1, room.GetOtherPlayers(guojia), null, null, "#yiji", false, info.SkillPosition))
+                if (!room.AskForYiji(guojia, ref yiji_cards, Name, true, false, true, -1, room.GetOtherPlayers(guojia), null, null, "#yiji", false, info.SkillPosition))
                     break;
 
                 guojia.Piles["#yiji"].Clear();
-                foreach (int id in origin_yiji)
-                    if (room.GetCardPlace(id) != Place.DrawPile)
-                        yiji_cards.Remove(id);
             }
             if (guojia.GetPile("#yiji").Count > 0) guojia.Piles["#yiji"].Clear();
             if (yiji_cards.Count > 0 && guojia.Alive)
