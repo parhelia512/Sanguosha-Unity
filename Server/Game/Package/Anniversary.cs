@@ -15317,6 +15317,15 @@ namespace SanguoshaServer.Package
 
                     room.SendCompulsoryTriggerLog(ask_who, Name);
                     room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+
+                    LogMessage log = new LogMessage
+                    {
+                        Type = "#NoRespond2",
+                        From = player.Name,
+                        Card_str = RoomLogic.CardToString(room, use.Card)
+                    };
+                    log.SetTos(targets);
+                    room.SendLog(log);
                 }
             }
             else if (triggerEvent == TriggerEvent.TrickCardCanceling)

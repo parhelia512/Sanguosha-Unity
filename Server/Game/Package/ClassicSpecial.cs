@@ -298,6 +298,9 @@ namespace SanguoshaServer.Package
                 new Lanjiang(),
                 new Aichen(),
                 new Luochong(),
+                new Qingliang(),
+                new Qiaoli(),
+                new QiaoliEffect(),
             };
 
             skill_cards = new List<FunctionCard>
@@ -406,6 +409,7 @@ namespace SanguoshaServer.Package
                 { "huamu", new List<string>{ "#huamu" } },
                 { "genzhan", new List<string>{ "#genzhan" } },
                 { "qiongshou", new List<string>{ "#qiongshou" } },
+                { "qiaoli", new List<string>{ "#qiaoli" } },
             };
         }
     }
@@ -5901,6 +5905,15 @@ namespace SanguoshaServer.Package
 
                     room.SendCompulsoryTriggerLog(ask_who, Name);
                     room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+
+                    LogMessage log = new LogMessage
+                    {
+                        Type = "#NoRespond2",
+                        From = player.Name,
+                        Card_str = RoomLogic.CardToString(room, use.Card)
+                    };
+                    log.SetTos(targets);
+                    room.SendLog(log);
                 }
             }
             else if (triggerEvent == TriggerEvent.TrickCardCanceling)
@@ -8428,7 +8441,7 @@ namespace SanguoshaServer.Package
                 if (!(fcard is DelayedTrick) && !(fcard is SkillCard) && ((fcard is BasicCard && names.Contains("BasicCard")) || (fcard is TrickCard && names.Contains("TrickCard"))
                     || (fcard is EquipCard && names.Contains("EquipCard"))))
                 {
-                    return new TriggerStruct(Name, player, use.To);
+                    return new TriggerStruct(Name, player);
                 }
             }
             else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && player != effect.From && effect.From != null && effect.From.Alive
@@ -8444,21 +8457,19 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct chose_use)
             {
-                int index = 0;
                 for (int i = 0; i < chose_use.EffectCount.Count; i++)
                 {
                     CardBasicEffect effect = chose_use.EffectCount[i];
-                    if (effect.To == player)
-                    {
-                        index++;
-                        if (index == info.Times)
-                        {
-                            effect.Effect2 = 0;
-                            data = chose_use;
-                            break;
-                        }
-                    }
+                    effect.Effect2 = 0;
                 }
+                data = chose_use;
+                LogMessage log = new LogMessage
+                {
+                    Type = "#NoRespond",
+                    From = player.Name,
+                    Card_str = RoomLogic.CardToString(room, chose_use.Card)
+                };
+                room.SendLog(log);
             }
             else if (triggerEvent == TriggerEvent.TrickCardCanceling)
                 return true;
@@ -17767,6 +17778,206 @@ namespace SanguoshaServer.Package
             }
 
             return false;
+        }
+    }
+
+    public class Qingliang : TriggerSkill
+    {
+        public Qingliang() : base("qingliang")
+        {
+            events.Add(TriggerEvent.TargetConfirmed);
+            skill_type = SkillType.Defense;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardUseStruct use && use.From != null && use.From != player && base.Triggerable(player, room) && use.To.Count == 1 && !player.IsKongcheng()
+                && (use.Card.Name.Contains(Slash.ClassName) || use.Card.Name == Duel.ClassName || use.Card.Name == FireAttack.ClassName || use.Card.Name == ArcheryAttack.ClassName
+                || use.Card.Name == SavageAssault.ClassName || use.Card.Name == Drowning.ClassName) && RoomLogic.CanDiscard(room, player, player, "h"))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardUseStruct use)
+            {
+                room.SetTag(Name, data);
+                bool invoke = room.AskForSkillInvoke(player, Name, string.Format("@qingliang:{0}::{1}", use.From.Name, use.Card.Name), info.SkillPosition);
+                room.RemoveTag(Name);
+
+                if (invoke)
+                {
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    room.ShowAllCards(player);
+                    return info;
+                }
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardUseStruct use)
+            {
+                string prompt = use.From.Alive ? string.Format("@qingliang-choose:{0}::{1}", use.From.Name, use.Card.Name) : string.Format("@qingliang-discard:{0}::{1}", use.From.Name, use.Card.Name);
+                List<int> ids = room.AskForExchange(player, Name, 1, use.From.Alive ? 0 : 1, prompt, string.Empty, ".!", info.SkillPosition);
+                if (ids.Count == 0)
+                {
+                    List<Player> targets = new List<Player> { player, use.From };
+                    room.SortByActionOrder(ref targets);
+                    foreach (Player p in targets)
+                        if (p.Alive) room.DrawCards(p, new DrawCardStruct(1, player, Name));
+                }
+                else
+                {
+                    WrappedCard.CardSuit suit = room.GetCard(ids[0]).Suit;
+                    List<int> discard = new List<int>();
+                    foreach (int id in player.GetCards("h"))
+                        if (room.GetCard(id).Suit == suit && RoomLogic.CanDiscard(room, player, player, id))
+                            discard.Add(id);
+
+                    if (discard.Count > 0)
+                    {
+                        room.ThrowCard(ref discard, player, player, Name);
+                        if (player.Alive)
+                            room.CancelTarget(ref use, player);
+                    }
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class QiaoliEffect : TriggerSkill
+    {
+        public QiaoliEffect() : base("#qiaoli")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.Damage, TriggerEvent.EventPhaseChanging, TriggerEvent.TargetChosen, TriggerEvent.CardUsedAnnounced, TriggerEvent.EventPhaseStart };
+            frequency = Frequency.Compulsory;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.Play)
+            {
+                player.SetMark("qiaoli_weapon", 0);
+                player.SetMark("qiaoli_equip", 0);
+            }
+            else if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && use.Card.GetSkillName() == "qiaoli")
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(room.GetCard(use.Card.GetEffectiveId()).Name);
+                if (fcard is Weapon)
+                    player.AddMark("qiaoli_weapon");
+                else
+                {
+                    player.AddMark("qiaoli_equip");
+                    player.SetFlags("qiaoli");
+                }
+            }
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage && damage.Card != null && damage.Card.Name == Duel.ClassName && damage.ByUser
+                && damage.Card.GetSkillName() == "qiaoli" && player.Alive)
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(room.GetCard(damage.Card.GetEffectiveId()).Name);
+                if (fcard is Weapon) return new TriggerStruct(Name, player);
+            }
+            else if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use && use.Card.Name == Duel.ClassName && use.Card.GetSkillName() == "qiaoli" && !use.Card.Cancelable)
+            {
+                return new TriggerStruct(Name, player);
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && player.Alive && player.Phase == PlayerPhase.Finish && player.HasFlag("qiaoli"))
+            {
+                return new TriggerStruct(Name, player);
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(ask_who, "qiaoli");
+            if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use)
+            {
+                LogMessage log = new LogMessage
+                {
+                    Type = "#NoRespond",
+                    From = player.Name,
+                    Card_str = RoomLogic.CardToString(room, use.Card)
+                };
+                room.SendLog(log);
+                for (int i = 0; i < use.EffectCount.Count; i++)
+                {
+                    CardBasicEffect effect = use.EffectCount[i];
+                    effect.Effect2 = 0;
+                }
+            }
+            else if (triggerEvent == TriggerEvent.Damage && data is DamageStruct damage)
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(room.GetCard(damage.Card.GetEffectiveId()).Name);
+                if (fcard is Weapon weapon)
+                {
+                    List<int> yiji_cards = room.DrawCards(player, weapon.Range, "qiaoli");
+                    List<int> origin_yiji = new List<int>(yiji_cards);
+                    while (player.Alive && yiji_cards.Count > 0)
+                    {
+                        if (!room.AskForYiji(player, yiji_cards, "qiaoli", true, false, true, -1, room.GetOtherPlayers(player), null, null, null, false, info.SkillPosition))
+                            break;
+                        
+                        foreach (int id in origin_yiji)
+                            if (room.GetCardPlace(id) != Place.DrawPile)
+                                yiji_cards.Remove(id);
+                    }
+                }
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart)
+            {
+                int card_id = -1;
+                foreach (int id in room.DrawPile)
+                {
+                    FunctionCard fcard = Engine.GetFunctionCard(room.GetCard(id).Name);
+                    if (fcard is Weapon)
+                    {
+                        card_id = id;
+                        break;
+                    }
+                }
+                if (card_id >= 0)
+                    room.ObtainCard(player, room.GetCard(card_id), new CardMoveReason(MoveReason.S_REASON_GOTCARD, player.Name, "qiaoli", string.Empty), true);
+            }
+
+            return false;
+        }
+    }
+
+    public class Qiaoli : OneCardViewAsSkill
+    {
+        public Qiaoli() : base("qiaoli")
+        {
+            response_or_use = true;
+            skill_type = SkillType.Wizzard;
+        }
+        public override bool ViewFilter(Room room, WrappedCard to_select, Player player)
+        {
+            if (!RoomLogic.IsCardLimited(room, player, to_select, HandlingMethod.MethodUse))
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(to_select.Name);
+                return (player.GetMark("qiaoli_weapon") == 0 && fcard is Weapon) || (player.GetMark("qiaoli_equip") == 0 && fcard is EquipCard && !(fcard is Weapon));
+            }
+            return false;
+        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => player.GetMark("qiaoli_weapon") == 0 || player.GetMark("qiaoli_equip") == 0;
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            WrappedCard duel = new WrappedCard(Duel.ClassName) { Skill = Name };
+            duel.AddSubCard(card);
+            duel = RoomLogic.ParseUseCard(room, duel);
+            FunctionCard fcard = Engine.GetFunctionCard(card.Name);
+            if (fcard is EquipCard && !(fcard is Weapon))
+                duel.Cancelable = false;
+            return duel;
         }
     }
 }

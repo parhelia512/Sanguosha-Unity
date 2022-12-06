@@ -2036,7 +2036,7 @@ namespace SanguoshaServer.Package
                 if (use.Card.Name.Contains(Slash.ClassName) || use.Card.Name == Duel.ClassName || use.Card.Name == Collateral.ClassName
                     || use.Card.Name == ArcheryAttack.ClassName || use.Card.Name == SavageAssault.ClassName)
                 {
-                    return new TriggerStruct(Name, player, use.To);
+                    return new TriggerStruct(Name, player);
                 }
             }
             else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && effect.From != null && effect.From.Alive
@@ -2052,21 +2052,19 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct chose_use)
             {
-                int index = 0;
                 for (int i = 0; i < chose_use.EffectCount.Count; i++)
                 {
                     CardBasicEffect effect = chose_use.EffectCount[i];
-                    if (effect.To == player)
-                    {
-                        index++;
-                        if (index == info.Times)
-                        {
-                            effect.Effect2 = 0;
-                            data = chose_use;
-                            break;
-                        }
-                    }
+                    effect.Effect2 = 0;
                 }
+
+                LogMessage log = new LogMessage
+                {
+                    Type = "#NoRespond",
+                    From = player.Name,
+                    Card_str = RoomLogic.CardToString(room, chose_use.Card)
+                };
+                room.SendLog(log);
             }
             else if (triggerEvent == TriggerEvent.TrickCardCanceling)
                 return true;

@@ -2049,7 +2049,7 @@ namespace SanguoshaServer.Package
                     LogMessage log = new LogMessage
                     {
                         From = player.Name,
-                        Arg = use.Card.Name
+                        Card_str = RoomLogic.CardToString(room, use.Card)
                     };
                     switch (choice)
                     {
@@ -2063,7 +2063,7 @@ namespace SanguoshaServer.Package
                             break;
                         case "nullified":
                             use.Card.SetFlags("benxi_nullified");
-                            log.Type = "#benxi-nullified";
+                            log.Type = "#NoRespond";
                             break;
                         case "draw":
                             use.Card.SetFlags("benxi_draw");
