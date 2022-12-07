@@ -2738,7 +2738,7 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             string prompt = string.Empty;
-            if (player != ask_who) prompt = "@junbing:" + ask_who.Name;
+            if (player != ask_who) prompt = "@junbing:" + player.Name;
             if (room.AskForSkillInvoke(ask_who, Name, string.IsNullOrEmpty(prompt) ? null : prompt, info.SkillPosition))
             {
                 room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
@@ -2760,7 +2760,7 @@ namespace SanguoshaServer.Package
                 if (count > 0 && ask_who.Alive && player.Alive && !player.IsNude())
                 {
                     player.SetMark(Name, count);
-                    WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@junbing", string.Format("@junbing-give:{0}::{1}", player.Name, count),
+                    WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@junbing", string.Format("@junbing-give:{0}::{1}", ask_who.Name, count),
                         null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
                     player.SetMark(Name, 0);
                     if (card != null)
