@@ -2720,15 +2720,16 @@ namespace SanguoshaServer.Package
         public Junbing() : base("junbing")
         {
             events.Add(TriggerEvent.EventPhaseStart);
+            view_as_skill = new JunbingVS();
         }
 
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> triggers = new List<TriggerStruct>();
-            if (player.Phase == PlayerPhase.Finish && player.Alive && player.HandcardNum < 2)
+            if (player.Phase == PlayerPhase.Finish && player.Alive && player.HandcardNum < player.Hp)
             {
                 foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
-                    triggers.Add(new TriggerStruct(Name, p));
+                    triggers.Add(new TriggerStruct(Name, player, p));
             }
 
             return triggers;
@@ -2736,38 +2737,57 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (player.Alive && ask_who.Alive && player.HandcardNum < 2)
+            string prompt = string.Empty;
+            if (player != ask_who) prompt = "@junbing:" + ask_who.Name;
+            if (room.AskForSkillInvoke(ask_who, Name, string.IsNullOrEmpty(prompt) ? null : prompt, info.SkillPosition))
             {
-                string prompt = string.Empty;
-                if (player != ask_who) prompt = "@junbing:" + ask_who.Name;
-                if (room.AskForSkillInvoke(player, Name, string.IsNullOrEmpty(prompt) ? null : prompt, info.SkillPosition))
-                {
-                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
-                    room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
-                    return info;
-                }
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
             }
-
             return new TriggerStruct();
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.DrawCards(player, new DrawCardStruct(1, ask_who, Name));
-            List<int> ids = player.GetCards("h");
-            if (ids.Count > 0 && ask_who.Alive && player != ask_who)
+            room.DrawCards(ask_who, new DrawCardStruct(1, player, Name));
+            List<int> ids = ask_who.GetCards("h");
+            if (ids.Count > 0 && player.Alive && player != ask_who)
             {
-                room.ObtainCard(ask_who, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, ask_who.Name, Name, string.Empty), false);
+                room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, ask_who.Name, player.Name, Name, string.Empty), false);
                 int count = ids.Count;
 
-                if (count > 0 && ask_who.Alive && player.Alive)
+                if (count > 0 && ask_who.Alive && player.Alive && !player.IsNude())
                 {
-                    List<int> give = room.AskForExchange(ask_who, Name, count, count, string.Format("@junbing-give:{0}::{1}", player.Name, count), string.Empty, "..", info.SkillPosition);
-                    room.ObtainCard(player, ref give, new CardMoveReason(MoveReason.S_REASON_GIVE, ask_who.Name, player.Name, Name, string.Empty), false);
+                    player.SetMark(Name, count);
+                    WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@junbing", string.Format("@junbing-give:{0}::{1}", player.Name, count),
+                        null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
+                    player.SetMark(Name, 0);
+                    if (card != null)
+                    {
+                        List<int> give = new List<int>(card.SubCards);
+                        room.ObtainCard(ask_who, ref give, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, ask_who.Name, Name, string.Empty), false);
+                    }
                 }
             }
 
             return false;
+        }
+    }
+
+    public class JunbingVS :ViewAsSkill
+    {
+        public JunbingVS() : base("junbing") { response_pattern = "@@junbing"; }
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => selected.Count < player.GetMark(Name);
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count == player.GetMark(Name))
+            {
+                WrappedCard card = new WrappedCard(DummyCard.ClassName);
+                card.AddSubCards(cards);
+                return card;
+            }
+            return null;
         }
     }
 
@@ -2833,6 +2853,10 @@ namespace SanguoshaServer.Package
                 };
                 room.Recover(p, recover, true);
             }
+
+            foreach (Player p in card_use.To)
+                if (p.Alive && p.IsWounded())
+                    room.DrawCards(p, new DrawCardStruct(1, player, "quji"));
 
             if (player.Alive && black)
                 room.LoseHp(player);

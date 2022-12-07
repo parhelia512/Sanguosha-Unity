@@ -2055,11 +2055,11 @@ namespace SanguoshaServer.Package
                     {
                         case "more":
                             use.Card.SetFlags("benxi_add");
-                            log.Type = "#benxi-more";
+                            log.Type = "$benxi-more";
                             break;
                         case "armor":
                             use.Card.SetFlags("benxi_armor");
-                            log.Type = "#benxi-armor";
+                            log.Type = "$benxi-armor";
                             break;
                         case "nullified":
                             use.Card.SetFlags("benxi_nullified");
@@ -2067,7 +2067,7 @@ namespace SanguoshaServer.Package
                             break;
                         case "draw":
                             use.Card.SetFlags("benxi_draw");
-                            log.Type = "#benxi-draw";
+                            log.Type = "$benxi-draw";
                             break;
                         case "cancel":
                             return false;

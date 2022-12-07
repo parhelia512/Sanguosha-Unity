@@ -3154,23 +3154,29 @@ namespace SanguoshaServer.AI
                 string[] strs = str.Split(':');
                 Room room = ai.Room;
                 Player who = room.FindPlayer(strs[1]);
-                if (!ai.IsEnemy(who) && !player.IsKongcheng())
-                {
-                    List<int> ids = player.GetCards("h");
-                    foreach (int id in who.GetEquips())
-                        if (ai.GetKeepValue(id, who, Place.PlaceEquip) < 0)
-                            return false;
-
-                    if (ai.GetKeepValue(ids[0], player) > 6) return false;
-                }
+                if (!ai.IsFriend(who))
+                    return false;
             }
 
             return true;
         }
-
-        public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
-            return ai.AskForDiscard(player.GetCards("he"), Name, min, min, false);
+            string[] strs = prompt.Split(':');
+            Room room = ai.Room;
+            Player who = room.FindPlayer(strs[1]);
+            CardUseStruct use = new CardUseStruct(null, player, who);
+            int count = int.Parse(strs[3]);
+            List<int> cards = player.GetCards("he");
+            if (ai.IsFriend(who) && cards.Count >= count)
+            {
+                List<int> ids = ai.AskForDiscard(cards, Name, count, count, false);
+                WrappedCard card = new WrappedCard(DummyCard.ClassName);
+                card.AddSubCards(ids);
+                use.Card = card;
+            }
+
+            return use;
         }
     }
 

@@ -763,7 +763,7 @@ namespace SanguoshaServer.Package
         public LixiaHegemony() : base("lixia_hegemony")
         {
             events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart };
-            view_as_skill = new LixiaHegemonyVS();
+            frequency = Frequency.Compulsory;
         }
 
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
@@ -774,84 +774,27 @@ namespace SanguoshaServer.Package
                 List<Player> targets = RoomLogic.FindPlayersBySkillName(room, Name);
                 foreach (Player p in targets)
                 {
-                    if (p != player && p.HasEquip() && !RoomLogic.IsFriendWith(room, player, p) && RoomLogic.PlayerHasShownSkill(room, p, this) && RoomLogic.CanDiscard(room, player, p, "e"))
+                    if (p != player && !RoomLogic.IsFriendWith(room, player, p) && RoomLogic.PlayerHasShownSkill(room, p, this) && !RoomLogic.InMyAttackRange(room, player, p))
                         triggers.Add(new TriggerStruct(Name, player, p));
                 }
             }
 
             return triggers;
         }
-
-        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player ss, ref object data, Player ask_who, TriggerStruct info)
-        {
-            if (room.AskForSkillInvoke(ask_who, Name, ss))
-            {
-                room.BroadcastSkillInvoke(Name, ss, info.SkillPosition);
-                return info;
-            }
-
-            return new TriggerStruct();
-        }
-
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player ss, ref object data, Player ask_who, TriggerStruct info)
         {
-            int card_id = room.AskForCardChosen(ask_who, ss, "e", Name, false, HandlingMethod.MethodDiscard);
-            room.ThrowCard(card_id, ss, ask_who);
-
-            List<string> choices = new List<string>();
-            if (ask_who.Alive) choices.Add("losehp");
-            if (ss.Alive) choices.Add("letdraw");
-
-            if (ask_who.Alive)
+            room.BroadcastSkillInvoke(Name, ss, info.SkillPosition);
+            room.SendCompulsoryTriggerLog(ss, Name);
+            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ss.Name, ask_who.Name);
+            if (ss.HasEquip() && RoomLogic.CanDiscard(room, ask_who, ss, "e") && room.AskForSkillInvoke(ask_who, Name, string.Format("@lixia_hegemony:{0}", ss.Name)))
             {
-                WrappedCard dm = room.AskForUseCard(ask_who, RespondType.Skill, "@@lixia_hegemony", "@lixia-discard:" + ss.Name, null);
-                if (dm != null)
-                {
-                    List<int> ids = new List<int>(dm.SubCards);
-                    room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISCARD, ask_who.Name, Name, string.Empty), ask_who);
-                }
-                else if (!ss.Alive || room.AskForChoice(ask_who, Name, string.Join("+", choices), null, info.SkillPosition) == "losehp")
-                {
-                    room.LoseHp(ask_who);
-                }
-                else
-                {
-                    room.DrawCards(ss, new DrawCardStruct(2, ask_who, Name));
-                }
+                int card_id = room.AskForCardChosen(ask_who, ss, "e", Name, false, HandlingMethod.MethodDiscard);
+                room.ThrowCard(card_id, ss, ask_who);
+                if (ask_who.Alive) room.LoseHp(ask_who);
             }
-            else if (ss.Alive)
-            {
-                room.DrawCards(ss, new DrawCardStruct(2, ask_who, Name));
-            }
-
-
+            else
+                room.DrawCards(ss, new DrawCardStruct(1, ask_who, Name));
             return false;
-        }
-    }
-
-    public class LixiaHegemonyVS : ViewAsSkill
-    {
-        public LixiaHegemonyVS() : base("lixia_hegemony") { }
-
-        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
-        {
-            return selected.Count < 2 && RoomLogic.CanDiscard(room, player, player, to_select.Id) && room.GetCardPlace(to_select.Id) == Place.PlaceHand;
-        }
-
-        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position = null)
-        {
-            return reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && pattern == "@@lixia_hegemony";
-        }
-
-        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
-        {
-            if (cards.Count == 2)
-            {
-                WrappedCard dm = new WrappedCard(DummyCard.ClassName);
-                dm.AddSubCards(cards);
-                return dm;
-            }
-            return null;
         }
     }
 }
