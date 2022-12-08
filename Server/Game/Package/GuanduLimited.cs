@@ -1084,7 +1084,7 @@ namespace SanguoshaServer.Package
                 && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
             {
                 List<int> ids = move.From.ContainsTag(Name) ? (List<int>)move.From.GetTag(Name) : new List<int>();
-                for (int i = 0; i < move.Card_ids.Count; i--)
+                for (int i = 0; i < move.Card_ids.Count; i++)
                 {
                     if ((move.From_places[i] == Place.PlaceHand || move.From_places.Contains(Place.PlaceEquip)) && !ids.Contains(move.Card_ids[i]))
                         ids.Add(move.Card_ids[i]);
