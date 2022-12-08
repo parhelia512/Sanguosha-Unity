@@ -7481,6 +7481,7 @@ namespace SanguoshaServer.Game
                         From_places = new List<Place> { Place.DrawPile },
                         To = player,
                         To_place = Place.PlaceHand,
+                        From_pile_names = new List<string>(),
                         Reason = new CardMoveReason(MoveReason.S_REASON_RECYCLE, player.Name),
                         Card_ids = new List<int> { card_id }
                     };
