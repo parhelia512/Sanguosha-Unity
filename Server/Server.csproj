@@ -177,6 +177,7 @@
     <Compile Include="Game\Package\Momentum.cs" />
     <Compile Include="Game\Package\Package.cs" />
     <Compile Include="Game\Package\ClassicSpecial.cs" />
+    <Compile Include="Game\Package\SouthCountryLimited.cs" />
     <Compile Include="Game\Package\Stander.cs" />
     <Compile Include="Game\Package\StanderCards.cs" />
     <Compile Include="Game\Package\StrategicAdvantageCards.cs" />
@@ -193,6 +194,7 @@
     <Compile Include="Game\Scenario\Hegemony.cs" />
     <Compile Include="Game\Scenario\HegemonyChaos.cs" />
     <Compile Include="Game\Scenario\Scenario.cs" />
+    <Compile Include="Game\Scenario\SouthCountry.cs" />
     <Compile Include="Game\Skills.cs" />
     <Compile Include="LogHelper.cs" />
     <Compile Include="SQL DB\DataBase.cs" />
