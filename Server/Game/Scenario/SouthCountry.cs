@@ -139,9 +139,9 @@ namespace SanguoshaServer.Scenario
 
             //为其余玩家分配武将
             List<string> shu_generals = new List<string> { "guanping", "huangyueying", "hujinding", "jianyong", "liufeng", "maliang", "sunqian", "xiahoushi", "yiji_shu", "zhoucang",
-                "wolong", "pantong", "bigfool", "zhaoyun_jx", "mizhu", "masu", "chenzhen" };
+                "wolong", "pangtong", "bigfool", "zhaoyun_jx", "mizhu", "masu", "chenzhen" };
             List<string> wu_generals = new List<string> { "daqiao", "xiaoqiao", "erzhang", "ganning", "handang", "huanggai_jx", "jiangqin_sp", "kanze", "lingtong", "luotong", "lusu",
-                "lvdai", "lvfan", "sunshangxiang", "taishici", "zhuzhi", };
+                "lvdai", "lvfan", "sunshangxiang", "taishici", "zhuzhi", "zhugejin" };
             Shuffle.shuffle(ref shu_generals);
             Shuffle.shuffle(ref wu_generals);
 
@@ -336,6 +336,14 @@ namespace SanguoshaServer.Scenario
                     player.SceenName = client.Profile.NickName;
                     player.Status = client.Status.ToString();
                     player.ClientId = client.UserId;
+
+                    General general = Engine.GetGeneral(player.ActualGeneral2, room.Setting.GameMode);
+                    int max_offset = general.DoubleMaxHp + general.Head_max_hp_adjusted_value;
+                    if (max_offset > 0)
+                    {
+                        player.MaxHp += max_offset;
+                        room.BroadcastProperty(player, "MaxHp");
+                    }
                 }
                 else
                 {
