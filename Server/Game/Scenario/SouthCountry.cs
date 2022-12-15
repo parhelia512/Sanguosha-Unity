@@ -140,7 +140,7 @@ namespace SanguoshaServer.Scenario
             //为其余玩家分配武将
             List<string> shu_generals = new List<string> { "guanping", "huangyueying", "hujinding", "jianyong", "liufeng", "maliang", "sunqian", "xiahoushi", "yiji_shu", "zhoucang",
                 "wolong", "pangtong", "bigfool", "zhaoyun_jx", "mizhu", "masu", "chenzhen" };
-            List<string> wu_generals = new List<string> { "daqiao", "xiaoqiao", "erzhang", "ganning", "handang", "huanggai_jx", "jiangqin_sp", "kanze", "lingtong", "luotong", "lusu",
+            List<string> wu_generals = new List<string> { "daqiao_jx", "xiaoqiao", "erzhang", "ganning_jx", "handang", "huanggai_jx", "jiangqin_sp", "kanze", "lingtong", "luotong", "lusu",
                 "lvdai", "lvfan", "sunshangxiang", "taishici", "zhuzhi", "zhugejin" };
             Shuffle.shuffle(ref shu_generals);
             Shuffle.shuffle(ref wu_generals);
