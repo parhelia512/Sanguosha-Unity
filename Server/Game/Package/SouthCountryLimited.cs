@@ -4,6 +4,7 @@ using CommonClassLibrary;
 using SanguoshaServer.Game;
 using System;
 using System.Collections.Generic;
+using static CommonClass.Game.CardUseStruct;
 using static CommonClass.Game.Player;
 
 namespace SanguoshaServer.Package
@@ -16,6 +17,7 @@ namespace SanguoshaServer.Package
                new Wall(),
                new TianrenCR(),
                new TianrenPro(),
+               new TianrenTar(),
                new Revive(),
                new Cuirui(),
                new Liewei(),
@@ -26,7 +28,7 @@ namespace SanguoshaServer.Package
             };
             related_skills = new Dictionary<string, List<string>>
             {
-                { "tianren_cr", new List<string> { "#tianren_cr", "#zhouyu-reivive" } },
+                { "tianren_cr", new List<string> { "#tianren_cr", "#tianren-tar", "#zhouyu-reivive" } },
             };
         }
     }
@@ -42,7 +44,7 @@ namespace SanguoshaServer.Package
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             if (triggerEvent == TriggerEvent.GameStart && base.Triggerable(player, room))
-                room.AbolishJudgingArea(player, Name);
+                player.JudgingAreaAvailable = false;
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -59,7 +61,7 @@ namespace SanguoshaServer.Package
             }
             else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && base.Triggerable(move.To, room))
             {
-                return new TriggerStruct(Name, player);
+                return new TriggerStruct(Name, move.To);
             }
             return new TriggerStruct();
         }
@@ -100,6 +102,55 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
                 player.SetMark("tianren_invalid", 0);
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && player != null && player.Phase == PlayerPhase.RoundStart && player.Alive)
+            {
+                if (player.ActualGeneral1 == "wall" || player.Removed)
+                {
+                    for (int i = player.PhasesIndex; i < player.PhasesState.Count; i++)
+                    {
+                        if (player.PhasesState[i].Phase == PlayerPhase.Draw)
+                        {
+                            player.PhasesState[i] = new PhaseStruct { Phase =  PlayerPhase.Draw, Skipped = false, Finished = true };
+                        }
+                        else if (player.PhasesState[i].Phase == PlayerPhase.Play)
+                        {
+                            player.PhasesState[i] = new PhaseStruct { Phase = PlayerPhase.Play, Skipped = false, Finished = true };
+                        }
+                    }
+                }
+                else if (player.Name == "SGS6" && player.ActualGeneral1.Contains("sujiang") && !player.Removed)
+                {
+                    room.SkipPhase(player, PlayerPhase.Play);
+                    Player wall = room.GetLastAlive(player, 1, false);
+                    if (wall.IsWounded())
+                    {
+                        int count = Math.Min(wall.GetLostHp(), Shuffle.random(1, 2) ? 1 : 2);
+                        wall.Hp += count;
+                        room.BroadcastProperty(wall, "Hp");
+                        if (wall.Hp >= 3 && wall.Removed)
+                        {
+                            wall.Removed = false;
+                            room.BroadcastProperty(wall, "Removed");
+                        }
+                    }
+                }
+                else if (player.Name == "SGS8" && player.ActualGeneral1.Contains("sujiang") && !player.Removed)
+                {
+                    room.SkipPhase(player, PlayerPhase.Play);
+                    Player wall = room.GetNextAlive(player, 1, false);
+                    if (wall.IsWounded())
+                    {
+                        int count = Math.Min(wall.GetLostHp(), Shuffle.random(1, 2) ? 1 : 2);
+                        wall.Hp += count;
+                        room.BroadcastProperty(wall, "Hp");
+                        if (wall.Hp >= 3 && wall.Removed)
+                        {
+                            wall.Removed = false;
+                            room.BroadcastProperty(wall, "Removed");
+                        }
+                    }
+                }
+            }
         }
 
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
@@ -122,9 +173,11 @@ namespace SanguoshaServer.Package
                 else if (base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish)     //结束阶段返回游戏，添加援军
                     triggers.Add(new TriggerStruct(Name, player));
             }
-            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.HasFlag(Name))
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
             {
-                triggers.Add(new TriggerStruct(Name, player));
+                foreach (Player p in room.GetAlivePlayers())
+                    if (p.HasFlag(Name))
+                        triggers.Add(new TriggerStruct(Name, p));
             }
             else if (triggerEvent == TriggerEvent.PostHpReduced && player.Hp <= 0 && player.Camp == Game3v3Camp.S_CAMP_WARM && player.General1 != "caoren")
             {
@@ -167,50 +220,43 @@ namespace SanguoshaServer.Package
                 if (!player.FaceUp)
                     room.TurnOver(player);
 
+                if (player.Chained) room.SetPlayerChained(player, false);
                 if (!player.Removed)
                 {
                     player.Removed = true;
                     room.BroadcastProperty(player, "Removed");
                 }
+
                 if (player.Phase != PlayerPhase.NotActive)
                     player.SetFlags("Global_PlayPhaseTerminated");
             }
             else if (triggerEvent == TriggerEvent.EventPhaseChanging)
             {
-                if (player.Removed)      //回合结束后，重新返回游戏
+                if (ask_who.Removed)      //回合结束后，重新返回游戏
                 {
-                    room.SetPlayerMark(player, "@cuirui", 1);
-                    player.Removed = false;
-                    room.BroadcastProperty(player, "Removed");
+                    room.SetPlayerMark(ask_who, "@cuirui", 1);
+                    ask_who.Removed = false;
+                    room.BroadcastProperty(ask_who, "Removed");
                 }
 
-                foreach (Player target in room.GetOtherPlayers(player))     //士兵变援军
+                foreach (Player target in room.GetOtherPlayers(ask_who))     //士兵变援军
                 {
                     if (target.Camp == Game3v3Camp.S_CAMP_WARM && (target.General1 == "sujiang" || target.General1 == "sujiangf") && player.GetMark("back_up") < 4)
                     {
-                        player.AddMark("back_up");
+                        ask_who.AddMark("back_up");
                         ChangeGeneral(room, target);
                     }
                 }
             }
-            else if (triggerEvent == TriggerEvent.RoundStart)           //每轮开始时，如城墙边有未移除的士兵，回复1点体力
+            else if (triggerEvent == TriggerEvent.RoundStart)
             {
-                foreach (Player p in room.GetAlivePlayers())
-                {
-                    if (p.Camp == Game3v3Camp.S_CAMP_WARM && p.General1 == "wall" && p.IsWounded())
-                    {
-                        Player last = room.GetLastAlive(p, 1, false);
-                        if (last != null && (last.ActualGeneral1 == "sujiang" || last.ActualGeneral1 == "sujiangf"))
-                            room.Recover(p);
-                    }
-                }
                 foreach (Player p in room.GetAlivePlayers())            //每轮开始时，如士兵被移除，则变为援军加入
                 {
                     if (p.Camp == Game3v3Camp.S_CAMP_WARM && p.Removed && (p.ActualGeneral1 == "sujiang" || p.ActualGeneral1 == "sujiangf"))
                     {
-                        if (player.GetMark("back_up") < 4 && p.GetMark("reinforcement") == 0)
+                        if (ask_who.GetMark("back_up") < 4 && p.GetMark("reinforcement") == 0)
                         {
-                            player.AddMark("back_up");
+                            ask_who.AddMark("back_up");
                             ChangeGeneral(room, p);
                         }
                         else if (p.FaceUp)
@@ -265,6 +311,7 @@ namespace SanguoshaServer.Package
             }
             else if (triggerEvent == TriggerEvent.PostHpReduced)
             {
+                if (player.Chained) room.SetPlayerChained(player, false);
                 if (!player.Removed)
                 {
                     player.Removed = true;
@@ -275,15 +322,15 @@ namespace SanguoshaServer.Package
                 {
                     player.AddMark("reinforcement");
 
-                    string to_general = player.ActualGeneral2 == "sujiang" ? "sujiangf" : "sujiang";
+                    string to_general = player.Name.EndsWith("6") ? "sujiang" : "sujiangf";
                     string from_general = player.ActualGeneral1;
-                    if (!from_general.Contains("sujiang"))
-                        room.DoAnimate(AnimateType.S_ANIMATE_REMOVE, player.Name, true.ToString());
+                    //if (!from_general.Contains("sujiang"))
+                    //   room.DoAnimate(AnimateType.S_ANIMATE_REMOVE, player.Name, true.ToString());
 
                     //room.HandleUsedGeneral("guansuo");
                     player.ActualGeneral1 = player.General1 = to_general;
                     player.HeadSkinId = 0;
-                    player.PlayerGender = player.ActualGeneral1 == "sujiang" ? Gender.Male : Gender.Female;
+                    player.PlayerGender = player.Name.EndsWith("6") ? Gender.Male : Gender.Female;
                     room.BroadcastProperty(player, "HeadSkinId");
                     room.BroadcastProperty(player, "PlayerGender");
                     room.BroadcastProperty(player, "General1");
@@ -356,13 +403,9 @@ namespace SanguoshaServer.Package
                 room.BroadcastProperty(target, "PlayerGender");
                 room.BroadcastProperty(target, "General1");
 
-                target.MaxHp = 4;
+                target.MaxHp = target.Hp = 4;
                 room.BroadcastProperty(target, "MaxHp");
-                if (target.IsWounded())
-                {
-                    int count = target.MaxHp - target.Hp;
-                    room.Recover(target, count);
-                }
+                room.BroadcastProperty(target, "Hp");
 
                 int draw = 4 - target.HandcardNum;
                 if (draw > 0) room.DrawCards(target, draw, Name);
@@ -438,9 +481,24 @@ namespace SanguoshaServer.Package
         {
             if (from != null && to != null && card.Name == ArcheryAttack.ClassName && from.Camp == to.Camp)
                 return true;
-            else if (to != null && to.General1 == "wall" && (card.Name == HoardUp.ClassName || card.Name == Reinforcement.ClassName || card.Name == Peach.ClassName))
+            else if (to != null && to.General1 == "wall" && (card.Name == HoardUp.ClassName || card.Name == Reinforcement.ClassName || card.Name == Peach.ClassName || card.Name == IronChain.ClassName || card.Name == GDFighttogether.ClassName))
                 return true;
 
+            return false;
+        }
+    }
+
+    public class TianrenTar : TargetModSkill
+    {
+        public TianrenTar() : base("#tianren-tar", false) { }
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern)
+        {
+            if (from != null && from.Camp == Game3v3Camp.S_CAMP_WARM && card.Name.Contains(Slash.ClassName))
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                    if (p.Camp == Game3v3Camp.S_CAMP_WARM && RoomLogic.PlayerHasSkill(room, p, "tianren_cr"))
+                        return true;
+            }
             return false;
         }
     }

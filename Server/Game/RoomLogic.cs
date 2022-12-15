@@ -731,7 +731,7 @@ namespace SanguoshaServer.Game
             foreach (Player p in players)
             {
                 General g = Engine.GetGeneral(p.ActualGeneral1, room.Setting.GameMode);
-                if (g.IsLord() && General.GetKingdom(g.Kingdom[0]) == kingdom)
+                if (g != null && g.IsLord() && General.GetKingdom(g.Kingdom[0]) == kingdom)
                     return p;
             }
 

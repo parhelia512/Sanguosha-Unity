@@ -56,15 +56,14 @@ namespace SanguoshaServer.Scenario
                         player.Hp = player.MaxHp;
                         break;
                     case 4:
-                        player.General1 = player.ActualGeneral1 = "wall";
+                        player.General1 = player.ActualGeneral1 = player.General2 = player.ActualGeneral2 = "wall";
                         player.Kingdom = "wei";
 
                         player.MaxHp = 4;
                         player.Hp = player.MaxHp;
                         break;
                     case 5:
-                        player.General1 = player.ActualGeneral1 = "sujiang";
-                        player.General2 = player.ActualGeneral2 = "sujiangf";
+                        player.General1 = player.ActualGeneral1 = player.General2 = player.ActualGeneral2 = "sujiang";
                         player.Kingdom = "wei";
 
                         player.MaxHp = 3;
@@ -79,8 +78,7 @@ namespace SanguoshaServer.Scenario
                         player.Hp = player.MaxHp;
                         break;
                     case 7:
-                        player.General1 = player.ActualGeneral1 = "sujiangf";
-                        player.General2 = player.ActualGeneral2 = "sujiang";
+                        player.General1 = player.ActualGeneral1 = player.General2 = player.ActualGeneral2 = "sujiangf";
                         player.PlayerGender = Player.Gender.Female;
                         player.Kingdom = "wei";
 
@@ -88,7 +86,7 @@ namespace SanguoshaServer.Scenario
                         player.Hp = player.MaxHp;
                         break;
                     case 8:
-                        player.General1 = player.ActualGeneral1 = "wall";
+                        player.General1 = player.ActualGeneral1 = player.General2 = player.ActualGeneral2 = "wall";
                         player.Kingdom = "wei";
 
                         player.MaxHp = 4;
@@ -112,16 +110,12 @@ namespace SanguoshaServer.Scenario
                 {
                     foreach (string skill in Engine.GetGeneralSkills(player.General2, Name, true))
                     {
-                        room.AddPlayerSkill(player, skill);
+                        room.AddPlayerSkill(player, skill, false);
                         Skill s = Engine.GetSkill(skill);
                         if (s != null && s.SkillFrequency == Frequency.Limited && !string.IsNullOrEmpty(s.LimitMark))
                             room.SetPlayerMark(player, s.LimitMark, 1);
                     }
-                    room.HandleUsedGeneral(player.General2);
-
-                    room.BroadcastProperty(player, "General2");
-                    room.NotifyProperty(room.GetClient(player), player, "ActualGeneral2");
-                    room.BroadcastProperty(player, "General2Showed");
+                    room.SendPlayerSkillsToOthers(player, false);
                 }
 
                 room.SendPlayerSkillsToOthers(player, true);
@@ -129,7 +123,14 @@ namespace SanguoshaServer.Scenario
                 //技能预亮
                 player.SetSkillsPreshowed("hd");
                 room.NotifyPlayerPreshow(player);
-                room.HandleUsedGeneral(player.General1);
+                if (i < 4)
+                    room.HandleUsedGeneral(player.General1);
+                else
+                {
+                    player.General2Showed = true;
+                    room.BroadcastProperty(player, "General2");
+                    room.BroadcastProperty(player, "General2Showed");
+                }
 
                 room.BroadcastProperty(player, "MaxHp");
                 room.BroadcastProperty(player, "Hp");
@@ -160,8 +161,6 @@ namespace SanguoshaServer.Scenario
                 }
                 else if (player.Kingdom == "wu")
                 {
-                    choices.Add(wu_generals[0]);
-                    wu_generals.RemoveAt(0);
                     choices.Add(wu_generals[0]);
                     wu_generals.RemoveAt(0);
                     choices.Add(wu_generals[0]);
@@ -236,6 +235,14 @@ namespace SanguoshaServer.Scenario
                 room.NotifyProperty(room.GetClient(player), player, "ActualGeneral2");
                 room.BroadcastProperty(player, "General2Showed");
 
+                General general = Engine.GetGeneral(player.ActualGeneral2, room.Setting.GameMode);
+                int max_offset = general.DoubleMaxHp - 4;
+                if (max_offset > 0)
+                {
+                    player.MaxHp += max_offset;
+                    room.BroadcastProperty(player, "MaxHp");
+                }
+
                 player.SetSkillsPreshowed("hd");
                 room.NotifyPlayerPreshow(player);
                 List<string> names = new List<string> { player.General1, player.General2 };
@@ -293,12 +300,12 @@ namespace SanguoshaServer.Scenario
                     Skill s = Engine.GetSkill(skill);
                     if (s != null && !s.LordSkill)
                     {
-                        room.AddPlayerSkill(player, skill);
+                        room.AddPlayerSkill(player, skill, false);
                         if (s.SkillFrequency == Frequency.Limited && !string.IsNullOrEmpty(s.LimitMark))
                             room.SetPlayerMark(player, s.LimitMark, 1);
                     }
                 }
-                room.SendPlayerSkillsToOthers(player, true);
+                room.SendPlayerSkillsToOthers(player, false);
 
                 //技能预亮
                 player.SetSkillsPreshowed("hd");
@@ -336,14 +343,6 @@ namespace SanguoshaServer.Scenario
                     player.SceenName = client.Profile.NickName;
                     player.Status = client.Status.ToString();
                     player.ClientId = client.UserId;
-
-                    General general = Engine.GetGeneral(player.ActualGeneral2, room.Setting.GameMode);
-                    int max_offset = general.DoubleMaxHp + general.Head_max_hp_adjusted_value;
-                    if (max_offset > 0)
-                    {
-                        player.MaxHp += max_offset;
-                        room.BroadcastProperty(player, "MaxHp");
-                    }
                 }
                 else
                 {
