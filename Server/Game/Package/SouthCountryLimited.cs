@@ -8,9 +8,9 @@ using static CommonClass.Game.Player;
 
 namespace SanguoshaServer.Package
 {
-    public class SountCountryLimited : GeneralPackage
+    public class SouthCountryLimited : GeneralPackage
     {
-        public SountCountryLimited() : base("SountCountryLimited")
+        public SouthCountryLimited() : base("SouthCountryLimited")
         {
             skills = new List<Skill> {
                new Wall(),
