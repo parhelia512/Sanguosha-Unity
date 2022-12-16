@@ -504,12 +504,13 @@ namespace SanguoshaServer.Scenario
 
         protected override void RewardAndPunish(Room room, Player killer, Player victim)
         {
-            //杀死同阵营惩罚
             object data = victim;
             if (!room.RoomThread.Trigger(TriggerEvent.RewardPunish, room, killer, ref data))
             {
-                if (killer.Alive && victim.Camp == Game3v3Camp.S_CAMP_COOL && victim.Camp == killer.Camp)
+                if (killer.Alive && victim.Camp == Game3v3Camp.S_CAMP_COOL && victim.Camp == killer.Camp)             //杀死同阵营惩罚
                     room.ThrowAllHandCardsAndEquips(killer);
+                else if (killer.Alive && victim.Camp == Game3v3Camp.S_CAMP_WARM && killer.Camp == Game3v3Camp.S_CAMP_COOL)
+                    room.DrawCards(killer, 2, "gamerule");
             }
         }
     }

@@ -3364,6 +3364,21 @@ namespace SanguoshaServer.Game
                     dest.SendMessage(data);
         }
 
+        public void Speak(Player player, string message)        //专门给小场景中AI敌军说话的方法
+        {
+            if (player == null || GetClient(player) != null) return;
+            MyData data = new MyData
+            {
+                Description = PacketDescription.Room2Cient,
+                Protocol = Protocol.Message2Room,
+                Body = new List<string> { player.Name, message }
+            };
+            List<Client> clients = new List<Client>(Clients);
+            foreach (Client dest in clients)
+                if (dest.GameRoom == RoomId)
+                    dest.SendMessage(data);
+        }
+
         public void Emotion(Client client, string group, string message)
         {
             MyData data = new MyData
@@ -5714,6 +5729,7 @@ namespace SanguoshaServer.Game
             object _lose = -lose;
             if (!RoomThread.Trigger(TriggerEvent.HpChanging, this, victim, ref _lose))
             {
+                lose = -(int)_lose;
                 victim.Hp -= lose;
                 BroadcastProperty(victim, "Hp");
 

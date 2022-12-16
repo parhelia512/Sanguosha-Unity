@@ -1125,7 +1125,7 @@ namespace SanguoshaServer.AI
 
                         foreach (Player p in enemies)
                         {
-                            if (p.Hp <= 2)
+                            if (!p.Removed && p.Hp <= 2)
                             {
                                 use.Card = tianxiangCard;
                                 use.To.Add(p);
@@ -1137,9 +1137,15 @@ namespace SanguoshaServer.AI
                         if (enemies.Count > 0)
                         {
                             ai.SortByDefense(ref enemies, false);
-                            use.Card = tianxiangCard;
-                            use.To.Add(enemies[0]);
-                            return use;
+                            foreach (Player p in enemies)
+                            {
+                                if (!p.Removed)
+                                {
+                                    use.Card = tianxiangCard;
+                                    use.To.Add(p);
+                                    return use;
+                                }
+                            }
                         }
                     }
                 }

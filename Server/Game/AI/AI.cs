@@ -730,6 +730,7 @@ namespace SanguoshaServer.AI
 
         public bool CanResist(Player player, int damage)
         {
+            if (player.Removed) return true;
             foreach (SkillEvent e in skill_events.Values)
                 if (e.CanResist(this, damage)) return true;
 
@@ -1608,6 +1609,7 @@ namespace SanguoshaServer.AI
         }
         public int DamageEffect(DamageStruct damage, DamageStruct.DamageStep step)
         {
+            if (damage.To.Removed) return 0;
             if (damage.Steped >= step) return damage.Damage;
 
             Player to = damage.To;
