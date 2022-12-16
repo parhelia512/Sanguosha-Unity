@@ -37,7 +37,7 @@ namespace SanguoshaServer.Package
     {
         public Wall() : base("wall")
         {
-            events = new List<TriggerEvent> { TriggerEvent.RoundStart, TriggerEvent.HpRecover, TriggerEvent.CardsMoveOneTime, TriggerEvent.GameStart };
+            events = new List<TriggerEvent> { TriggerEvent.RoundStart, TriggerEvent.CardsMoveOneTime, TriggerEvent.GameStart };
             frequency = Frequency.Compulsory;
         }
 
@@ -55,10 +55,6 @@ namespace SanguoshaServer.Package
                     if (!p.Removed)
                         return new TriggerStruct(Name, p);
             }
-            else if (triggerEvent == TriggerEvent.HpRecover && player.Alive && player.Hp >= 3 && player.Removed)
-            {
-                return new TriggerStruct(Name, player);
-            }
             else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && base.Triggerable(move.To, room))
             {
                 return new TriggerStruct(Name, move.To);
@@ -70,15 +66,12 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.RoundStart)
             {
+                foreach (Player p in room.GetAlivePlayers())
+                    if (p.Role == "lord") room.Speak(room.GetClient(p), "城池坚固，各单位速速开展整备");
                 room.SendCompulsoryTriggerLog(ask_who, Name);
                 foreach (Player p in room.GetAlivePlayers())
                     if (p.Camp == Game3v3Camp.S_CAMP_WARM && !p.Removed && p.ActualGeneral1 != "wall")
                         room.Recover(p);
-            }
-            else if (triggerEvent == TriggerEvent.HpRecover)
-            {
-                player.Removed = false;
-                room.BroadcastProperty(player, "Removed");
             }
             else
             {
@@ -94,7 +87,7 @@ namespace SanguoshaServer.Package
         public TianrenCR() : base("tianren_cr")
         {
             events = new List<TriggerEvent> { TriggerEvent.Dying, TriggerEvent.RoundStart, TriggerEvent.EventPhaseChanging, TriggerEvent.EventPhaseStart, TriggerEvent.DamageInflicted,
-                TriggerEvent.PostHpReduced, TriggerEvent.EventPhaseProceeding, TriggerEvent.HpChanging };
+                TriggerEvent.EventPhaseProceeding, TriggerEvent.HpChanging };
             frequency = Frequency.Compulsory;
         }
 
@@ -118,12 +111,15 @@ namespace SanguoshaServer.Package
                         }
                     }
                 }
-                else if (player.Name == "SGS6" && player.ActualGeneral1.Contains("sujiang") && !player.Removed)
+                else if (player.Name == "SGS6" && player.ActualGeneral1.Contains("sujiang"))
                 {
-                    room.SkipPhase(player, PlayerPhase.Play);
                     Player wall = room.GetLastAlive(player, 1, false);
                     if (wall.IsWounded())
                     {
+                        foreach (Player p in room.GetAlivePlayers())
+                            if (p.Role == "lord") room.Speak(room.GetClient(p), "城墙修复为第一要务，加紧作业！");
+
+                        room.SkipPhase(player, PlayerPhase.Play);
                         int count = Math.Min(wall.GetLostHp(), Shuffle.random(1, 2) ? 1 : 2);
                         wall.Hp += count;
                         room.BroadcastProperty(wall, "Hp");
@@ -131,15 +127,21 @@ namespace SanguoshaServer.Package
                         {
                             wall.Removed = false;
                             room.BroadcastProperty(wall, "Removed");
+                            room.SetEmotion(wall, "recover");
+
+                            room.Speak(room.GetClient(player), "报告将军，城墙修复完毕");
                         }
                     }
                 }
-                else if (player.Name == "SGS8" && player.ActualGeneral1.Contains("sujiang") && !player.Removed)
+                else if (player.Name == "SGS8" && player.ActualGeneral1.Contains("sujiang"))
                 {
-                    room.SkipPhase(player, PlayerPhase.Play);
                     Player wall = room.GetNextAlive(player, 1, false);
                     if (wall.IsWounded())
                     {
+                        foreach (Player p in room.GetAlivePlayers())
+                            if (p.Role == "lord") room.Speak(room.GetClient(p), "士兵，城墙修复为第一要务");
+
+                        room.SkipPhase(player, PlayerPhase.Play);
                         int count = Math.Min(wall.GetLostHp(), Shuffle.random(1, 2) ? 1 : 2);
                         wall.Hp += count;
                         room.BroadcastProperty(wall, "Hp");
@@ -147,6 +149,8 @@ namespace SanguoshaServer.Package
                         {
                             wall.Removed = false;
                             room.BroadcastProperty(wall, "Removed");
+
+                            room.Speak(room.GetClient(player), "报告将军，城墙修复完毕");
                         }
                     }
                 }
@@ -162,7 +166,7 @@ namespace SanguoshaServer.Package
             }
             else if (triggerEvent == TriggerEvent.RoundStart)
             {
-                Player ask_who = RoomLogic.FindPlayerBySkillName(room, Name);                       //轮次开始时恢复士兵，士兵令城墙回血
+                Player ask_who = RoomLogic.FindPlayerBySkillName(room, Name);                       //轮次开始时恢复士兵
                 if (ask_who != null)
                     triggers.Add(new TriggerStruct(Name, ask_who));
             }
@@ -178,12 +182,6 @@ namespace SanguoshaServer.Package
                 foreach (Player p in room.GetAlivePlayers())
                     if (p.HasFlag(Name))
                         triggers.Add(new TriggerStruct(Name, p));
-            }
-            else if (triggerEvent == TriggerEvent.PostHpReduced && player.Hp <= 0 && player.Camp == Game3v3Camp.S_CAMP_WARM && player.General1 != "caoren")
-            {
-                Player ask_who = RoomLogic.FindPlayerBySkillName(room, Name);
-                if (ask_who != null)
-                    triggers.Add(new TriggerStruct(Name, ask_who));
             }
             else if (triggerEvent == TriggerEvent.EventPhaseProceeding && base.Triggerable(player, room) && player.Phase == PlayerPhase.Draw)
             {
@@ -201,6 +199,7 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.Dying)      //第一次濒死时回血摸牌
             {
+                room.Speak(room.GetClient(player), "贼军势大，暂且后退");
                 room.SendCompulsoryTriggerLog(player, Name);
                 player.AddMark(Name);
                 player.SetFlags(Name);
@@ -250,30 +249,44 @@ namespace SanguoshaServer.Package
             }
             else if (triggerEvent == TriggerEvent.RoundStart)
             {
-                foreach (Player p in room.GetAlivePlayers())            //每轮开始时，如士兵被移除，则变为援军加入
+                bool speak = false;
+                foreach (Player p in room.Players)            //每轮开始时，如士兵被移除，则变为援军加入
                 {
-                    if (p.Camp == Game3v3Camp.S_CAMP_WARM && p.Removed && (p.ActualGeneral1 == "sujiang" || p.ActualGeneral1 == "sujiangf"))
+                    if (p.Camp == Game3v3Camp.S_CAMP_WARM && !p.Alive)
                     {
-                        if (ask_who.GetMark("back_up") < 4 && p.GetMark("reinforcement") == 0)
+                        if (ask_who.GetMark("back_up") < 4 && (p.ActualGeneral1 == "sujiang" || p.ActualGeneral1 == "sujiangf"))
                         {
                             ask_who.AddMark("back_up");
                             ChangeGeneral(room, p);
                         }
-                        else if (p.FaceUp)
+                        else
                         {
-
-                            if (p.IsWounded())
+                            speak = true;
+                        }
+                    }
+                }
+                if (speak)
+                {
+                    room.Speak(room.GetClient(ask_who), "坚持住，援军即刻就到");
+                    foreach (Player p in room.GetAlivePlayers())            //每轮开始时，如士兵被移除，则变为援军加入
+                    {
+                        if (p.Camp == Game3v3Camp.S_CAMP_WARM && !p.Alive)
+                        {
+                            if (!p.ActualGeneral1.Contains("sujiang"))
                             {
-                                int count = p.MaxHp - p.Hp;
-                                room.Recover(p, count);
+                                p.ActualGeneral1 = p.General1 = p.Name.EndsWith("6") ? "sujiang" : "sujiangf";
+                                p.HeadSkinId = 0;
+                                p.PlayerGender = p.Name.EndsWith("6") ? Gender.Male : Gender.Female;
+                                room.BroadcastProperty(p, "HeadSkinId");
+                                room.BroadcastProperty(p, "PlayerGender");
+                                room.BroadcastProperty(p, "General1");
+
+                                p.MaxHp = 3;
+                                room.BroadcastProperty(p, "MaxHp");
                             }
-
-                            int draw = 4 - p.HandcardNum;
-                            if (draw > 0) room.DrawCards(p, draw, Name);
-
-                            p.SetMark("reinforcement", 0);
-                            p.Removed = false;
-                            room.BroadcastProperty(p, "Removed");
+                            room.RevivePlayer(p);
+                            room.Recover(p, 3);
+                            room.DrawCards(p, 4, Name);
                         }
                     }
                 }
@@ -294,6 +307,7 @@ namespace SanguoshaServer.Package
 
                     if (archer)
                     {
+                        room.Speak(room.GetClient(player), "万箭齐发！！");
                         WrappedCard card = new WrappedCard(ArcheryAttack.ClassName) { Skill = Name };
                         room.UseCard(new CardUseStruct(card, ask_who, new List<Player>()));
                     }
@@ -306,50 +320,20 @@ namespace SanguoshaServer.Package
                         if (p.Camp == Game3v3Camp.S_CAMP_COOL)
                             count++;
 
-                    room.DrawCards(player, count, Name);
+                    room.Speak(room.GetClient(player), "吾等守城，无人可破！");
+                    int first = 1;
+                    List<Player> targets = new List<Player>();
+                    foreach (Player p in room.GetAlivePlayers())
+                        if (p.Camp == Game3v3Camp.S_CAMP_WARM && p.Name != "wall")
+                            targets.Add(p);
+
+                    if (count > targets.Count)
+                        first = count - targets.Count + 1;
+                    room.SortByActionOrder(ref targets);
+                    foreach (Player p in targets)
+                        if (p.Alive)
+                            room.DrawCards(player, p == player ? first : 1, Name);
                 }
-            }
-            else if (triggerEvent == TriggerEvent.PostHpReduced)
-            {
-                if (player.Chained) room.SetPlayerChained(player, false);
-                if (!player.Removed)
-                {
-                    player.Removed = true;
-                    room.BroadcastProperty(player, "Removed");
-                }
-
-                if (player.ActualGeneral1 != "wall" && player.ActualGeneral1 != "sujiang" && player.ActualGeneral1 != "sujiangf")       //援军被击败变回士兵
-                {
-                    player.AddMark("reinforcement");
-
-                    string to_general = player.Name.EndsWith("6") ? "sujiang" : "sujiangf";
-                    string from_general = player.ActualGeneral1;
-                    //if (!from_general.Contains("sujiang"))
-                    //   room.DoAnimate(AnimateType.S_ANIMATE_REMOVE, player.Name, true.ToString());
-
-                    //room.HandleUsedGeneral("guansuo");
-                    player.ActualGeneral1 = player.General1 = to_general;
-                    player.HeadSkinId = 0;
-                    player.PlayerGender = player.Name.EndsWith("6") ? Gender.Male : Gender.Female;
-                    room.BroadcastProperty(player, "HeadSkinId");
-                    room.BroadcastProperty(player, "PlayerGender");
-                    room.BroadcastProperty(player, "General1");
-
-                    player.MaxHp = 3;
-                    room.BroadcastProperty(player, "MaxHp");
-
-                    List<string> skills = player.GetSkills(true, false);
-                    foreach (string skill in skills)
-                    {
-                        Skill _s = Engine.GetSkill(skill);
-                        if (_s != null && !_s.Attached_lord_skill)
-                            room.DetachSkillFromPlayer(player, skill, false, player.GetAcquiredSkills().Contains(skill), true);
-                    }
-                }
-                room.ThrowAllCards(player);
-                if (player.Phase != PlayerPhase.NotActive)
-                    player.SetFlags("Global_PlayPhaseTerminated");
-                return true;
             }
             else if (triggerEvent == TriggerEvent.EventPhaseProceeding && data is int count)
             {
@@ -365,7 +349,11 @@ namespace SanguoshaServer.Package
             }
             else if (triggerEvent == TriggerEvent.HpChanging && data is int hp && hp < 0)
             {
-                if (player.GetMark("tianren_invalid") >= 3) return true;
+                if (player.GetMark("tianren_invalid") >= 3)
+                {
+                    room.Speak(room.GetClient(player), "哈哈！金刚不坏！");
+                    return true;
+                }
                 hp -= player.GetMark("tianren_invalid");
                 player.AddMark("tianren_invalid", hp);
             }
@@ -375,11 +363,11 @@ namespace SanguoshaServer.Package
 
         private void ChangeGeneral(Room room, Player target)
         {
-            if (target.GetMark("@duanchang") > 0)
+            room.RevivePlayer(target);
+            if (!string.IsNullOrEmpty(target.DuanChang))
             {
                 target.DuanChang = string.Empty;
                 room.BroadcastProperty(target, "DuanChang");
-                room.SetPlayerMark(target, "@duanchang", 0);
             }
 
             List<string> wei_general = new List<string> { "xuhuang_jx", "manchong", "litong", "yuejin", "wenpin" };
@@ -389,11 +377,6 @@ namespace SanguoshaServer.Package
                 Shuffle.shuffle(ref wei_general);
                 string to_general = wei_general[0];
                 string from_general = target.ActualGeneral1;
-                if (!from_general.Contains("sujiang"))
-                {
-                    room.DoAnimate(AnimateType.S_ANIMATE_REMOVE, target.Name, true.ToString());
-                    room.HandleUsedGeneral("-" + from_general);
-                }
 
                 //room.HandleUsedGeneral("guansuo");
                 target.ActualGeneral1 = target.General1 = to_general;
@@ -403,9 +386,14 @@ namespace SanguoshaServer.Package
                 room.BroadcastProperty(target, "PlayerGender");
                 room.BroadcastProperty(target, "General1");
 
-                target.MaxHp = target.Hp = 4;
+                target.MaxHp = 4;
                 room.BroadcastProperty(target, "MaxHp");
-                room.BroadcastProperty(target, "Hp");
+                room.Recover(target, 4);
+
+                if (Shuffle.random(1, 2))
+                    room.Speak(room.GetClient(target), "将军莫慌，援军来也!");
+                else
+                    room.Speak(room.GetClient(target), "吾等前来助将军一臂之力");
 
                 int draw = 4 - target.HandcardNum;
                 if (draw > 0) room.DrawCards(target, draw, Name);
@@ -464,12 +452,6 @@ namespace SanguoshaServer.Package
 
                 room.SendPlayerSkillsToOthers(target);
                 room.FilterCards(target, target.GetCards("he"), true);
-
-                if (target.Removed)
-                {
-                    target.Removed = false;
-                    room.BroadcastProperty(target, "Removed");
-                }
             }
         }
     }

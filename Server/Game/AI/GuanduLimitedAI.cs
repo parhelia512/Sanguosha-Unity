@@ -53,6 +53,9 @@ namespace SanguoshaServer.AI
                 new HengjiangJXAI(),
                 new QigongAI(),
                 new LiehouAI(),
+
+                new CuiruiAI(),
+                new LieweiAI(),
             };
             use_cards = new List<UseCard>
             {
@@ -63,6 +66,8 @@ namespace SanguoshaServer.AI
                 new SongciCardAI(),
                 new LiehouCardAI(),
                 new YuanhuCardAI(),
+
+                new CuiruiCardAI(),
             };
         }
     }
@@ -2933,5 +2938,40 @@ namespace SanguoshaServer.AI
 
             return true;
         }
+    }
+
+    public class CuiruiAI : SkillEvent
+    {
+        public CuiruiAI() : base("cuirui") { }
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            if (player.GetMark("@cuirui") > 0)
+                return new List<WrappedCard> { new WrappedCard(CuiruiCard.ClassName) { Skill = Name } };
+            return new List<WrappedCard>();
+        }
+    }
+
+    public class CuiruiCardAI : UseCard
+    {
+        public CuiruiCardAI() : base(CuiruiCard.ClassName) { }
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            List<Player> targets = new List<Player>();
+            foreach (Player p in ai.Room.GetOtherPlayers(player))
+                if (ai.IsEnemy(p) && !p.IsKongcheng() && RoomLogic.CanGetCard(ai.Room, player, p, "h"))
+                    targets.Add(p);
+
+            if (targets.Count >= 3)
+            {
+                use.Card = card;
+                use.To = targets;
+            }
+        }
+    }
+
+    public class LieweiAI : SkillEvent
+    {
+        public LieweiAI() : base("liewei") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
     }
 }

@@ -1138,6 +1138,7 @@ namespace SanguoshaServer.Game
         }
         public static List<string> GetBigKingdoms(Room room)
         {
+            if (!room.Setting.GameMode.Contains("Hegemony")) return new List<string>();
             Dictionary<string, int> kingdom_map = new Dictionary<string, int>
             {
                 { "wei", 0 },

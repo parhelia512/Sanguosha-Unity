@@ -801,24 +801,18 @@ namespace SanguoshaServer.Package
         public LureTigerSkill() : base("lure_tiger_effect")
         {
             events = new List<TriggerEvent> { TriggerEvent.Death, TriggerEvent.EventPhaseChanging, TriggerEvent.HpChanging };
-            global = true;
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.HpChanging || !player.HasFlag("LureTigerUser"))
-                return;
-            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change)
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.HasFlag("LureTigerUser"))
             {
-                if (change.To != PlayerPhase.NotActive)
-                    return;
-            }
-
-            foreach (Player p in room.GetOtherPlayers(player))
-            {
-                if (p.Removed)
+                foreach (Player p in room.GetOtherPlayers(player))
                 {
-                    p.Removed = false;
-                    room.BroadcastProperty(p, "Removed");
+                    if (p.Removed)
+                    {
+                        p.Removed = false;
+                        room.BroadcastProperty(p, "Removed");
+                    }
                 }
             }
         }
@@ -826,61 +820,23 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (triggerEvent == TriggerEvent.HpChanging && player.Removed)
-            {
                 return new TriggerStruct(Name, player);
-            }
 
             return new TriggerStruct();
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.SendCompulsoryTriggerLog(player, Name, false);
             LogMessage log = new LogMessage
             {
                 Type = "#lure_tiger",
                 From = player.Name
             };
             room.SendLog(log);
-
             return true;
         }
     }
-
-    /*
-    public class LureTigerSkill : TriggerSkill
-    {
-        public LureTigerSkill() : base("lure_tiger_effect")
-        {
-            events = new List<TriggerEvent> { TriggerEvent.Death, TriggerEvent.EventPhaseChanging };
-            global = true;
-        }
-        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
-        {
-            if (!player.HasFlag("LureTigerUser"))
-                return;
-            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change)
-            {
-                if (change.To != PlayerPhase.NotActive)
-                    return;
-            }
-
-            foreach (Player p in room.GetOtherPlayers(player))
-            {
-                if (p.Removed)
-                {
-                    p.Removed = false;
-                    room.BroadcastProperty(p, "Removed");
-                }
-            }
-        }
-
-        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
-        {
-            return new TriggerStruct();
-        }
-    }
-    */
+    
     public class LureTigerProhibit : ProhibitSkill
     {
         public LureTigerProhibit() : base("#lure_tiger-prohibit")

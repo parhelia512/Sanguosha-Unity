@@ -5467,7 +5467,6 @@ namespace SanguoshaServer.Game
                         RoomThread.Trigger(TriggerEvent.AskForPeaches, this, saver, ref dying_data);
                     }
                     RoomThread.Trigger(TriggerEvent.AskForPeachesDone, this, player, ref dying_data);
-
                     player.SetFlags("-Global_Dying");
                 }
             }
@@ -9012,7 +9011,6 @@ namespace SanguoshaServer.Game
         {
             player.Alive = true;
             ThrowAllMarks(player, false);
-            BroadcastProperty(player, "Alive");
             //setEmotion(player, "revive");
 
             _alivePlayers.Clear();
