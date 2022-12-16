@@ -354,7 +354,8 @@ namespace SanguoshaServer.Package
                 if (p.IsMale()) targets.Add(p);
             if (targets.Count > 0)
             {
-                Player target = room.AskForPlayerChosen(player, targets, Name, "@yanyu", true, true, info.SkillPosition);
+                int count = Math.Min(3, player.GetMark(Name));
+                Player target = room.AskForPlayerChosen(player, targets, Name, "@yanyu:::" + count.ToString(), true, true, info.SkillPosition);
                 if (target != null)
                 {
                     player.SetTag(Name, target.Name);
