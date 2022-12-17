@@ -2252,7 +2252,7 @@ namespace SanguoshaServer.Package
                 new CardMoveReason(MoveReason.S_REASON_REMOVE_FROM_GAME, source.Name, targets[0].Name, Name, string.Empty));
             room.MoveCardsAtomic(move, true);
 
-            if (source.Alive && targets.Count == 2)
+            if (source.Alive && targets.Count == 2 && !targets[1].IsNude())
             {
                 int id2 = room.AskForCardChosen(source, targets[1], "he", Name, false, HandlingMethod.MethodNone);
                 ids.Add(id2);
