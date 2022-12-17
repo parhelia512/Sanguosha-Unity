@@ -102,7 +102,7 @@ namespace SanguoshaServer.Package
         public TianrenCR() : base("tianren_cr")
         {
             events = new List<TriggerEvent> { TriggerEvent.Dying, TriggerEvent.RoundStart, TriggerEvent.EventPhaseChanging, TriggerEvent.EventPhaseStart, TriggerEvent.DamageInflicted,
-                TriggerEvent.EventPhaseProceeding, TriggerEvent.HpChanging, TriggerEvent.Death };
+                TriggerEvent.EventPhaseProceeding, TriggerEvent.HpChanging, TriggerEvent.Death, TriggerEvent.EventPhaseEnd };
             frequency = Frequency.Compulsory;
         }
 
@@ -113,7 +113,7 @@ namespace SanguoshaServer.Package
                 foreach (Player p in room.GetAlivePlayers())
                     p.SetMark("tianren_invalid", 0);
             }
-            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct _change && _change.From == PlayerPhase.Judge && player.Alive && player.ActualGeneral1.Contains("sujiang") && !player.IsSkipped(PlayerPhase.Play))
+            else if (triggerEvent ==  TriggerEvent.EventPhaseEnd && player.Alive && player.Phase == PlayerPhase.Judge && player.ActualGeneral1.Contains("sujiang") && !player.IsSkipped(PlayerPhase.Play))
             {
                 if (player.Name == "SGS6")
                 {
@@ -564,6 +564,7 @@ namespace SanguoshaServer.Package
         {
             limit_mark = "@cuirui";
             skill_type = SkillType.Attack;
+            frequency = Frequency.Limited;
         }
         public override bool IsEnabledAtPlay(Room room, Player player) => player.GetMark(limit_mark) > 0;
         public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(CuiruiCard.ClassName) { Skill = Name };

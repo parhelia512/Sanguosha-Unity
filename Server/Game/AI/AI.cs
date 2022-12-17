@@ -2633,7 +2633,7 @@ namespace SanguoshaServer.AI
                     }
                 }
 
-                if (!will_slash && values[0].Score > 0 && (values[0].Card.SubCards.Count == 0 || player.Phase == PlayerPhase.NotActive))
+                if (!will_slash && values[0].Score > 0 && (values[0].Card.SubCards.Count == 0 || values[0].Card.GetSkillName() == "xiansi" || player.Phase == PlayerPhase.NotActive))
                     will_slash = true;
 
                 //todo: adjust ai personality

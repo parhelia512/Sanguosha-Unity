@@ -8403,76 +8403,29 @@ namespace SanguoshaServer.Package
         public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
         {
             if (targets.Count == 0)
-            {
-                return to_select.HasEquip();
-            }
-            else if (targets.Count == 1 && to_select != Self && to_select != targets[0])
-            {
-                for (int i = 0; i < 5; i++)
-                    if (targets[0].HasEquip(i) && !to_select.HasEquip(i) && RoomLogic.CanPutEquip(to_select, room.GetCard(targets[0].GetEquip(i))))
-                        return true;
-            }
+                return true;
+            else if (targets.Count == 1 && to_select != targets[0])
+                return room.CheckStageCardMove(targets[0], to_select, StageArea.Equip);
             return false;
         }
         public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card) => targets.Count == 2;
-
-        public override void OnUse(Room room, CardUseStruct card_use)
-        {
-            Player diaochan = card_use.From;
-            object data = card_use;
-            RoomThread thread = room.RoomThread;
-
-            thread.Trigger(TriggerEvent.PreCardUsed, room, diaochan, ref data);
-            room.BroadcastSkillInvoke("diaodu_classic", diaochan, card_use.Card.SkillPosition);
-
-            LogMessage log = new LogMessage
-            {
-                From = diaochan.Name,
-                To = new List<string>(),
-                Type = "#UseCard",
-                Card_str = RoomLogic.CardToString(room, card_use.Card)
-            };
-            foreach (Player p in card_use.To)
-                log.To.Add(p.Name);
-            room.SendLog(log);
-
-            thread.Trigger(TriggerEvent.CardUsedAnnounced, room, diaochan, ref data);
-            thread.Trigger(TriggerEvent.CardTargetAnnounced, room, diaochan, ref data);
-            thread.Trigger(TriggerEvent.CardUsed, room, diaochan, ref data);
-            thread.Trigger(TriggerEvent.CardFinished, room, diaochan, ref data);
-        }
-
         public override void Use(Room room, CardUseStruct card_use)
         {
-            Player player = card_use.From;
-            Player from = card_use.To[0];
-            Player to = card_use.To[1];
+            int card_id = room.AskforMoveStageCard(card_use.From, "diaodu_classic", card_use.To[0], card_use.To[1], StageArea.Equip, false, card_use.Card.SkillPosition);
+            Player from = card_use.To[0].GetCards("e").Contains(card_id) ? card_use.To[0] : card_use.To[1];
+            Player to = from == card_use.To[0] ? card_use.To[1] : card_use.To[0];
+            Place place = room.GetCardPlace(card_id);
 
-            room.DrawCards(from, new DrawCardStruct(1, player, "diaodu_classic"));
+            ResultStruct result = card_use.From.Result;
+            result.Assist++;
+            card_use.From.Result = result;
 
-            if (player.Alive && from.Alive && to.Alive)
+            room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, from.Name, to.Name);
+            CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_TRANSFER, card_use.From.Name, "diaodu_classic", null)
             {
-                List<int> disable = new List<int>(), ids = new List<int>();
-                for (int i = 0; i < 5; i++)
-                {
-                    if (from.HasEquip(i))
-                    {
-                        int id = from.GetEquip(i);
-                        WrappedCard card = room.GetCard(id);
-                        if (!to.HasEquip(i) && RoomLogic.CanPutEquip(to, card))
-                            ids.Add(id);
-                        else
-                            disable.Add(id);
-                    }
-                }
-
-                if (ids.Count > 0)
-                {
-                    int id = room.AskForCardChosen(player, from, "e", "diaodu_classic", false, HandlingMethod.MethodNone, disable);
-                    if (id > -1)
-                        room.MoveCardTo(room.GetCard(id), from, to, Place.PlaceEquip, new CardMoveReason(MoveReason.S_REASON_TRANSFER, from.Name, to.Name, "diaodu_classic", string.Empty), true);
-                }
-            }
+                Card = room.GetCard(card_id)
+            };
+            room.MoveCardTo(room.GetCard(card_id), from, to, Place.PlaceEquip, reason);
         }
     }
 

@@ -1730,7 +1730,7 @@ namespace SanguoshaServer.Package
             if (data is CardUseStruct use)
             {
                 room.SetTag("longyin_data", data);
-                List<int> ids = room.AskForExchange(ask_who, Name, 1, 0, "@longyin:" + use.From.Name, string.Empty, "..!", info.SkillPosition);
+                List<int> ids = room.AskForExchange(ask_who, Name, 1, 0, string.Format("@longyin:{0}::{1}", use.From.Name, use.Card.Name), string.Empty, "..!", info.SkillPosition);
                 if (ids.Count == 1)
                 {
                     room.RemoveTag("longyin_data");

@@ -5701,7 +5701,7 @@ namespace SanguoshaServer.AI
                 }
             }
         }
-
+        public override double TargetValueAdjust(TrustedAI ai, WrappedCard card, Player from, List<Player> targets, Player to) => card != null && card.GetSkillName() == Name ? 1.5 : 0;
         public override double CardValue(TrustedAI ai, Player player, WrappedCard card, bool isUse, Place place)
         {
             if (ai.HasSkill(Name, player) && card != null && card.Name == Vine.ClassName)

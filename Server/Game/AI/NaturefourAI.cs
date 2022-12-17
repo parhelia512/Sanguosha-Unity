@@ -2642,11 +2642,14 @@ namespace SanguoshaServer.AI
                         double good = count * 2;
                         if (ai.HasSkill("lianying", enemy))
                             good -= 1.5 * Math.Min(enemy.HandcardNum, enemies.Count);
+                        if (ai.HasSkill("diancai_classic", enemy))
+                            good -= 1.5 * Math.Min(enemy.HandcardNum, enemies.Count);
 
                         if (ai.HasSkill("lianying", friend))
                             good += 1.5 * Math.Min(friend.HandcardNum, ai.GetFriends(player).Count);
+                        if (ai.HasSkill("diancai_classic", friend))
+                            good += 1.5 * Math.Min(friend.HandcardNum, ai.GetFriends(player).Count);
                         if (ai.HasSkill("zishu", enemy)) good += 1.5 * friend.HandcardNum;
-
 
                         if (hands >= count)
                         {
@@ -2663,7 +2666,7 @@ namespace SanguoshaServer.AI
 
             foreach (Player friend in ai.FriendNoSelf)
             {
-                if (ai.HasSkill("lianying", friend))
+                if (ai.HasSkill("lianying", friend) || ai.HasSkill("diancai_classic", friend))
                 {
                     foreach (Player p in room.GetOtherPlayers(player))
                     {

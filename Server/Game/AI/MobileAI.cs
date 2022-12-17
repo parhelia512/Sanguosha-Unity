@@ -56,6 +56,9 @@ namespace SanguoshaServer.AI
                 new FenyinAI(),
                 new FubiAI(),
                 new ZuiciAI(),
+                new DiancaiClassicAI(),
+                new DiaoduClassicAI(),
+                new YanjiAI(),
             };
 
             use_cards = new List<UseCard>
@@ -2031,5 +2034,115 @@ namespace SanguoshaServer.AI
                 return choices[choices.Length - 2];
             }
         }
+    }
+
+    public class DiancaiClassicAI : SkillEvent
+    {
+        public DiancaiClassicAI() : base("diancai_classic")
+        {
+            key = new List<string> { "playerChosen:diancai_classic" };
+        }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (data is string choice)
+            {
+                string[] choices = choice.Split(':');
+                if (choices[1] == Name)
+                {
+                    Room room = ai.Room;
+                    foreach (string player_name in choices[2].Split('+'))
+                    {
+                        Player target = room.FindPlayer(player_name);
+                        if (target != null && ai.GetPlayerTendency(target) != "unknown")
+                            ai.UpdatePlayerRelation(player, target, true);
+                    }
+                }
+            }
+        }
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        {
+            List<Player> result = new List<Player>();
+            foreach (Player p in targets)
+            {
+                if (ai.IsFriend(p) && (!ai.HasSkill("zishu", p) || p.Phase != PlayerPhase.NotActive))
+                {
+                    result.Add(p);
+                    if (result.Count >= max) break;
+                }
+            }
+            return result;
+        }
+    }
+    public class DiaoduClassicAI : SkillEvent
+    {
+        public DiaoduClassicAI() : base("diaodu_classic") { }
+        Player FindTarget(TrustedAI ai, Player player)
+        {
+            Room room = ai.Room;
+            List<Player> targets = new List<Player>();
+            int result = -1;
+            double best = -100;
+            foreach (Player p in room.GetAlivePlayers())
+            {
+                foreach (int id in p.GetEquips())
+                {
+                    double v = ai.GetKeepValue(id, player);
+                    double value = ai.IsFriend(p) ? -v : v;
+                    foreach (Player _p in room.GetOtherPlayers(p))
+                    {
+                        if (RoomLogic.CanPutEquip(_p, room.GetCard(id)) && ai.GetSameEquip(room.GetCard(id), _p) == null)
+                        {
+                            double _v = ai.GetUseValue(id, _p);
+                            double _value = value + (ai.IsFriend(_p) ? _v : -_v);
+                            if (_value > best)
+                            {
+                                targets = new List<Player> { p, _p };
+                                best = _value;
+                                result = id;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (targets.Count == 2 && result > -1)
+            {
+                ai.Target[Name] = targets[1];
+                ai.Choice[Name] = result.ToString();
+                return targets[0];
+            }
+
+            return null;
+        }
+
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            CardUseStruct use = new CardUseStruct(new WrappedCard(DiaoduCard.ClassName) { Skill = Name, ShowSkill = Name }, player, new List<Player>());
+            ai.Target[Name] = null;
+            ai.Choice[Name] = string.Empty;
+            Player p = FindTarget(ai, player);
+            if (p != null && ai.Target[Name] != null)
+            {
+                use.To.Add(p);
+                use.To.Add(ai.Target[Name]);
+                return use;
+            }
+
+            return new CardUseStruct();
+        }
+
+        public override int OnMoveStargeCard(TrustedAI ai, Player player, Player target1, Player target2, List<int> available)
+        {
+            if (ai.Choice.ContainsKey(Name) && !string.IsNullOrEmpty(ai.Choice[Name]) && int.TryParse(ai.Choice[Name], out int id) && available.Contains(id))
+                return id;
+
+            return -1;
+        }
+    }
+
+    public class YanjiAI : SkillEvent
+    {
+        public YanjiAI() : base("yanji") { }
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data) => "number";
     }
 }

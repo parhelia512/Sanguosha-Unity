@@ -60,7 +60,7 @@ namespace SanguoshaServer.AI
             List<Player> friends = ai.GetFriends(player);
             ai.SortByDefense(ref friends, false);
             foreach (Player p in friends)
-                if (HoardUp.Instance.TargetFilter(room, targets, p, player, card))
+                if (HoardUp.Instance.TargetFilter(room, targets, p, player, card) && !ai.HasSkill("zishu", p))
                     targets.Add(p);
 
             if (targets.Count > 0)

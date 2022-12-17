@@ -30,67 +30,51 @@ namespace SanguoshaServer.Scenario
                     case 0:
                         player.General1 = player.ActualGeneral1 = "zhangfei_jx";
                         player.Kingdom = "shu";
-
-                        player.MaxHp = 4;
-                        player.Hp = player.MaxHp;
+                        player.MaxHp = player.Hp = 4;
                         break;
                     case 1:
                         player.General1 = player.ActualGeneral1 = "zhouyu";
                         player.Kingdom = "wu";
-
-                        player.MaxHp = 4;
-                        player.Hp = player.MaxHp;
+                        player.MaxHp = player.Hp = 4;
                         break;
                     case 2:
                         player.General1 = player.ActualGeneral1 = "chengpu";
                         player.Kingdom = "wu";
-
-                        player.MaxHp = 4;
-                        player.Hp = player.MaxHp;
+                        player.MaxHp = player.Hp = 4;
                         break;
                     case 3:
                         player.General1 = player.ActualGeneral1 = "guanyu_jx";
                         player.Kingdom = "shu";
-
-                        player.MaxHp = 4;
-                        player.Hp = player.MaxHp;
+                        player.MaxHp = player.Hp = 4;
                         break;
                     case 4:
-                        player.General1 = player.ActualGeneral1 = player.General2 = player.ActualGeneral2 = "wall";
+                        player.General1 = player.ActualGeneral1 = "wall";
+                        player.General2 = player.ActualGeneral2 = "sujiang";
                         player.Kingdom = "wei";
-
-                        player.MaxHp = 4;
-                        player.Hp = player.MaxHp;
+                        player.MaxHp = player.Hp = 4;
                         break;
                     case 5:
                         player.General1 = player.ActualGeneral1 = player.General2 = player.ActualGeneral2 = "sujiang";
                         player.Kingdom = "wei";
-
-                        player.MaxHp = 3;
-                        player.Hp = player.MaxHp;
+                        player.MaxHp = player.Hp = 3;
                         break;
                     case 6:
                         player.General1 = player.ActualGeneral1 = "caoren";
                         player.General2 = player.ActualGeneral2 = "niujin";
                         player.Kingdom = "wei";
-
-                        player.MaxHp = 10;
-                        player.Hp = player.MaxHp;
+                        player.MaxHp = player.Hp = 10;
                         break;
                     case 7:
                         player.General1 = player.ActualGeneral1 = player.General2 = player.ActualGeneral2 = "sujiangf";
                         player.PlayerGender = Player.Gender.Female;
                         player.Kingdom = "wei";
-
-                        player.MaxHp = 3;
-                        player.Hp = player.MaxHp;
+                        player.MaxHp = player.Hp = 3;
                         break;
                     case 8:
-                        player.General1 = player.ActualGeneral1 = player.General2 = player.ActualGeneral2 = "wall";
+                        player.General1 = player.ActualGeneral1 = "wall";
+                        player.General2 = player.ActualGeneral2 = "sujiang";
                         player.Kingdom = "wei";
-
-                        player.MaxHp = 4;
-                        player.Hp = player.MaxHp;
+                        player.MaxHp = player.Hp = 4;
                         break;
                 }
                 player.General1Showed = true;
@@ -99,6 +83,16 @@ namespace SanguoshaServer.Scenario
                 room.NotifyProperty(room.GetClient(player), player, "ActualGeneral1");
                 room.BroadcastProperty(player, "Kingdom");
                 room.BroadcastProperty(player, "General1Showed");
+
+                if (i < 4)
+                    room.HandleUsedGeneral(player.General1);
+                else
+                {
+                    player.General2Showed = true;
+                    room.BroadcastProperty(player, "General2");
+                    room.BroadcastProperty(player, "General2Showed");
+                }
+
                 foreach (string skill in Engine.GetGeneralSkills(player.General1, Name, true))
                 {
                     room.AddPlayerSkill(player, skill);
@@ -106,6 +100,8 @@ namespace SanguoshaServer.Scenario
                     if (s != null && s.SkillFrequency == Frequency.Limited && !string.IsNullOrEmpty(s.LimitMark))
                         room.SetPlayerMark(player, s.LimitMark, 1);
                 }
+                room.SendPlayerSkillsToOthers(player, true);
+                /*
                 if (i == 6)
                 {
                     foreach (string skill in Engine.GetGeneralSkills(player.General2, Name, true))
@@ -117,21 +113,10 @@ namespace SanguoshaServer.Scenario
                     }
                     room.SendPlayerSkillsToOthers(player, false);
                 }
-
-                room.SendPlayerSkillsToOthers(player, true);
-
+                */
                 //技能预亮
                 player.SetSkillsPreshowed("hd");
                 room.NotifyPlayerPreshow(player);
-                if (i < 4)
-                    room.HandleUsedGeneral(player.General1);
-                else
-                {
-                    player.General2Showed = true;
-                    room.BroadcastProperty(player, "General2");
-                    room.BroadcastProperty(player, "General2Showed");
-                }
-
                 room.BroadcastProperty(player, "MaxHp");
                 room.BroadcastProperty(player, "Hp");
             }
@@ -139,10 +124,10 @@ namespace SanguoshaServer.Scenario
             System.Threading.Thread.Sleep(1000);
 
             //为其余玩家分配武将
-            List<string> shu_generals = new List<string> { "guanping", "huangyueying", "hujinding", "jianyong", "liufeng", "maliang", "sunqian", "xiahoushi", "yiji_shu", "zhoucang",
-                "wolong", "pangtong", "bigfool", "zhaoyun_jx", "mizhu", "masu", "chenzhen" };
-            List<string> wu_generals = new List<string> { "daqiao_jx", "xiaoqiao", "erzhang", "ganning_jx", "handang", "huanggai_jx", "jiangqin_sp", "kanze", "lingtong", "luotong", "lusu",
-                "lvdai", "lvfan", "sunshangxiang", "taishici", "zhuzhi", "zhugejin" };
+            List<string> shu_generals = new List<string> { "guanping", "chenzhen", "hujinding", "liufeng", "maliang", "huangyueying", "xiahoushi", "jianyong", "masu", "yiji_shu", "pangtong", "zhaoyun_jx",
+                "zhoucang", "mizhu", "sunqian", "wolong", "bigfool" };
+            List<string> wu_generals = new List<string> { "lvfan", "lingtong", "huanggai_jx", "erzhang", "sunshangxiang", "luotong", "zhugejin", "lusu", "taishici", "daqiao_jx", "handang", "xiaoqiao",
+                "lvdai", "zhuzhi", "kanze", "jiangqin_sp", "ganning_jx" };
             Shuffle.shuffle(ref shu_generals);
             Shuffle.shuffle(ref wu_generals);
 
@@ -225,6 +210,10 @@ namespace SanguoshaServer.Scenario
                         || (player.Kingdom == "shu" && Engine.GetGeneral(generalName, room.Setting.GameMode).Kingdom[0] != General.KingdomENUM.Shu)
                         || (player.Kingdom == "wu" && Engine.GetGeneral(generalName, room.Setting.GameMode).Kingdom[0] != General.KingdomENUM.Wu))
                     {
+                        if (player.Kingdom == "wu")
+                            options[player].Sort((x, y) => { return wu_generals.IndexOf(x) < wu_generals.IndexOf(y) ? -1 : 1; });
+                        else
+                            options[player].Sort((x, y) => { return shu_generals.IndexOf(x) < shu_generals.IndexOf(y) ? -1 : 1; });
                         if (player.ClientId < 0) options[player].Remove("bigfool"); //AI不会用大聪明
                         if (player.ClientId < 0) options[player].Remove("sunqian"); //AI不会用孙乾
                         generalName = options[player][0];

@@ -561,7 +561,7 @@ namespace SanguoshaServer.AI
 
         public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
         {
-            return 5;
+            return ai.Number[Name];
         }
         public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
         {
@@ -597,7 +597,7 @@ namespace SanguoshaServer.AI
             List<Player> enemies = ai.GetPrioEnemies();
             ai.SortByDefense(ref enemies, false);
             List<int> cards = new List<int>();
-
+            ai.Number[Name] = 5;
             Player huanggai = ai.FindPlayerBySkill("zhaxiang");
             if (huanggai != null && ai.IsFriend(huanggai))
             {
@@ -715,7 +715,7 @@ namespace SanguoshaServer.AI
             //下宝物
             foreach (Player p in enemies)
             {
-                if (p.GetTreasure() && ai.GetKeepValue(p.Treasure.Key, p, Player.Place.PlaceEquip) > 3)
+                if (p.Hp <= 4 && p.GetTreasure() && ai.GetKeepValue(p.Treasure.Key, p, Player.Place.PlaceEquip) > 3)
                 {
                     foreach (int id in cards)
                     {
@@ -732,7 +732,7 @@ namespace SanguoshaServer.AI
             //下马车
             foreach (Player p in enemies)
             {
-                if (p.GetSpecialEquip() && ai.GetKeepValue(p.Special.Key, p, Player.Place.PlaceEquip) > 3)
+                if (p.Hp <= 4 && p.GetSpecialEquip() && ai.GetKeepValue(p.Special.Key, p, Player.Place.PlaceEquip) > 3)
                 {
                     foreach (int id in cards)
                     {
@@ -798,6 +798,8 @@ namespace SanguoshaServer.AI
                     }
                 }
             }
+
+            ai.Number[Name] = 0;
             //手牌溢出就找一个手牌最多的敌方
             if (ai.GetOverflow(player) > 0)
             {
