@@ -225,6 +225,8 @@ namespace SanguoshaServer.Scenario
                         || (player.Kingdom == "shu" && Engine.GetGeneral(generalName, room.Setting.GameMode).Kingdom[0] != General.KingdomENUM.Shu)
                         || (player.Kingdom == "wu" && Engine.GetGeneral(generalName, room.Setting.GameMode).Kingdom[0] != General.KingdomENUM.Wu))
                     {
+                        if (player.ClientId < 0) options[player].Remove("bigfool"); //AI不会用大聪明
+                        if (player.ClientId < 0) options[player].Remove("sunqian"); //AI不会用孙乾
                         generalName = options[player][0];
                     }
                     player.General2 = player.ActualGeneral2 = generalName;

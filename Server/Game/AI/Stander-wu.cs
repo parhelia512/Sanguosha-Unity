@@ -640,7 +640,7 @@ namespace SanguoshaServer.AI
             ai.SortByUseValue(ref cards, false);
             foreach (Player p in enemies)
             {
-                if (ai.HasSkill("zhaxiang", p)) continue;
+                if (ai.HasSkill("zhaxiang", p) || p.Hp > 4) continue;
                 //针对空城猪哥
                 if (p.IsKongcheng() && RoomLogic.PlayerHasShownSkill(room, p, "kongcheng"))
                 {
@@ -698,7 +698,7 @@ namespace SanguoshaServer.AI
             //下防具
             foreach (Player p in enemies)
             {
-                if (p.GetArmor() && ai.GetKeepValue(p.Armor.Key, p, Player.Place.PlaceEquip) > 3)
+                if (p.Hp <= 4 && p.GetArmor() && ai.GetKeepValue(p.Armor.Key, p, Player.Place.PlaceEquip) > 3)
                 {
                     foreach (int id in cards)
                     {
@@ -749,7 +749,7 @@ namespace SanguoshaServer.AI
             //下+1马
             foreach (Player p in enemies)
             {
-                if (p.GetDefensiveHorse() && ai.GetKeepValue(p.DefensiveHorse.Key, p, Player.Place.PlaceEquip) > 3)
+                if (p.Hp <= 4 && p.GetDefensiveHorse() && ai.GetKeepValue(p.DefensiveHorse.Key, p, Player.Place.PlaceEquip) > 3)
                 {
                     foreach (int id in cards)
                     {
@@ -766,7 +766,7 @@ namespace SanguoshaServer.AI
             //给方片去闪
             foreach (Player p in enemies)
             {
-                if (RoomLogic.CanSlash(room, player, p) && p.HandcardNum > 2)
+                if (p.Hp <= 4 && RoomLogic.CanSlash(room, player, p) && p.HandcardNum > 2)
                 {
                     foreach (int id in cards)
                     {
@@ -784,7 +784,7 @@ namespace SanguoshaServer.AI
             //下武器
             foreach (Player p in enemies)
             {
-                if (p.GetWeapon() && ai.GetKeepValue(p.Weapon.Key, p, Player.Place.PlaceEquip) > 3)
+                if (p.Hp <= 4 && p.GetWeapon() && ai.GetKeepValue(p.Weapon.Key, p, Player.Place.PlaceEquip) > 3)
                 {
                     foreach (int id in cards)
                     {
