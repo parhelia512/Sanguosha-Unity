@@ -4209,12 +4209,12 @@ namespace SanguoshaServer.Package
                 }
 
                 Player victim = null;
-                List<string> choicelist = new List<string> { "draw" }, prompts = new List<string> { string.Empty, string.Empty };
+                List<string> choicelist = new List<string> { "draw" }, prompts = new List<string> { string.Empty, "@mingce-from:" + player.Name };
                 if (targets.Count > 0)
                 {
                     victim = room.AskForPlayerChosen(player, targets, "mingce", "@dummy-slash2:" + target.Name);
                     victim.SetFlags("MingceTarget"); // For AI
-
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, target.Name, victim.Name);
                     LogMessage log = new LogMessage
                     {
                         Type = "#CollateralSlash",
@@ -4224,23 +4224,44 @@ namespace SanguoshaServer.Package
                     room.SendLog(log);
 
                     choicelist.Add("use");
-                    prompts.Add("@mince-target:" + victim.Name);
+                    prompts.Add("@mingce-target:" + victim.Name);
                 }
 
                 string choice = room.AskForChoice(target, "mingce", string.Join("+", choicelist), prompts);
                 if (victim != null && victim.HasFlag("MingceTarget")) victim.SetFlags("-MingceTarget");
-
                 if (choice == "use")
+                {
+                    room.RemoveTag("mingce");
                     room.UseCard(new CardUseStruct(slash, target, victim));
+                    if (room.ContainsTag("mingce"))
+                    {
+                        if (player.Alive) room.DrawCards(player, 1, "mingce");
+                        if (target.Alive) room.DrawCards(target, new DrawCardStruct(1, player, "mingce"));
+                    }
+                }
                 else
-                    room.DrawCards(target, new DrawCardStruct(1, player, "mingce"));
+                {
+                    if (player.Alive) room.DrawCards(player, 1, "mingce");
+                    if (target.Alive) room.DrawCards(target, new DrawCardStruct(1, player, "mingce"));
+                }
             }
         }
     }
 
-    public class Mingce : OneCardViewAsSkill
+    public class Mingce : TriggerSkill
     {
-        public Mingce() : base("mingce")
+        public Mingce() : base("mingce") { skill_type = SkillType.Attack; events.Add(TriggerEvent.DamageDone); view_as_skill = new MingceVS(); }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is DamageStruct damage && damage.Card != null && damage.Card.GetSkillName() == Name)
+                room.SetTag(Name, true);
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+
+    public class MingceVS : OneCardViewAsSkill
+    {
+        public MingceVS() : base("mingce")
         {
             filter_pattern = "EquipCard,Slash";
         }

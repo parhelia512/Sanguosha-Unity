@@ -513,7 +513,7 @@ namespace SanguoshaServer.Package
         public TianrenTar() : base("#tianren-tar", false) { }
         public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern)
         {
-            if (room.Setting.GameMode == "SouthCountry" && from != null && from.Camp == Game3v3Camp.S_CAMP_WARM && card.Name.Contains(Slash.ClassName))
+            if (room.Setting.GameMode == "SouthCountry" && from != null && from.Camp == Game3v3Camp.S_CAMP_WARM && card.Name.Contains(Slash.ClassName) && !card.IsVirtualCard())
             {
                 foreach (Player p in room.GetAlivePlayers())
                     if (p.Camp == Game3v3Camp.S_CAMP_WARM && RoomLogic.PlayerHasSkill(room, p, "tianren_cr"))

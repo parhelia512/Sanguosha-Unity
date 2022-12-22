@@ -124,7 +124,7 @@ namespace SanguoshaServer.Scenario
             System.Threading.Thread.Sleep(1000);
 
             //为其余玩家分配武将
-            List<string> shu_generals = new List<string> { "guanping", "chenzhen", "hujinding", "liufeng", "maliang", "huangyueying", "xiahoushi", "jianyong", "masu", "yiji_shu", "pangtong", "zhaoyun_jx",
+            List<string> shu_generals = new List<string> { "chenzhen", "hujinding", "liufeng", "maliang", "huangyueying", "xiahoushi", "jianyong", "masu", "yiji_shu", "guanping", "pangtong", "zhaoyun_jx",
                 "zhoucang", "mizhu", "sunqian", "wolong", "bigfool" };
             List<string> wu_generals = new List<string> { "lvfan", "lingtong", "huanggai_jx", "erzhang", "sunshangxiang", "luotong", "zhugejin", "lusu", "taishici", "daqiao_jx", "handang", "xiaoqiao",
                 "lvdai", "zhuzhi", "kanze", "jiangqin_sp", "ganning_jx" };
