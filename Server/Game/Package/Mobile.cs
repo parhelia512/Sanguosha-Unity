@@ -4900,26 +4900,30 @@ namespace SanguoshaServer.Package
                 };
                 room.SendLog(log);
 
-                List<int> ids = new List<int>(damage.Card.SubCards), subs = room.GetSubCards(damage.Card);
-                if (ids.SequenceEqual(subs))
+                int id = -1;
+                foreach (int card_id in room.DrawPile)
                 {
-                    bool check = true;
-                    foreach (int id in ids)
+                    if (room.GetCard(card_id).Name.Contains(Slash.ClassName))
                     {
-                        if (room.GetCardPlace(id) != Place.PlaceTable)
+                        id = card_id;
+                        break;
+                    }
+                }
+                if (id == -1)
+                {
+                    foreach (int card_id in room.DiscardPile)
+                    {
+                        if (room.GetCard(card_id).Name.Contains(Slash.ClassName))
                         {
-                            check = true;
+                            id = card_id;
                             break;
                         }
                     }
-                    if (check)
-                    {
-                        room.RemoveSubCards(damage.Card);
-                        room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_RECYCLE, player.Name, Name, string.Empty));
-                    }
-
-                    if (player.Alive) room.LoseMaxHp(player);
                 }
+                if (id > -1)
+                    room.ObtainCard(player, room.GetCard(id), new CardMoveReason(MoveReason.S_REASON_GOTCARD, player.Name, Name, string.Empty));
+
+                if (player.Alive) room.LoseMaxHp(player);
             }
 
             return true;
@@ -5655,6 +5659,9 @@ namespace SanguoshaServer.Package
                 };
                 room.Recover(player, recover, true);
             }
+            if (player.Alive)
+                room.DrawCards(player, 1, "wuyuan");
+
             if (target.Alive)
             {
                 int count = 1;
