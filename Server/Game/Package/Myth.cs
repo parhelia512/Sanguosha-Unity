@@ -74,6 +74,9 @@ namespace SanguoshaServer.Package
                 new Shouli(),
                 new ShouliInvalid(),
                 new Hengwu(),
+                new Shencai(),
+                new ShencaiEffect(),
+                new Xunshi(),
             };
             skill_cards = new List<FunctionCard>
             {
@@ -88,6 +91,7 @@ namespace SanguoshaServer.Package
                 new ZhanhuoCard(),
                 new PingxiangCard(),
                 new ShouliCard(),
+                new ShencaiCard(),
             };
             related_skills = new Dictionary<string, List<string>>
             {
@@ -3560,5 +3564,74 @@ namespace SanguoshaServer.Package
             room.DrawCards(player, count, Name);
             return false;
         }
+    }
+
+    public class Shencai : ZeroCardViewAsSkill
+    {
+        public Shencai() : base("shencai") { }
+        public override bool IsEnabledAtPlay(Room room, Player player)
+        {
+            return base.IsEnabledAtPlay(room, player);
+        }
+        public override WrappedCard ViewAs(Room room, Player player)
+        {
+            throw new NotImplementedException();
+        }
+    }
+
+    public class ShencaiCard : SkillCard
+    {
+        public static string ClassName = "ShencaiCard";
+        public ShencaiCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            return base.TargetFilter(room, targets, to_select, Self, card);
+        }
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            base.Use(room, card_use);
+        }
+    }
+
+    public class Xunshi : TriggerSkill
+    {
+        public Xunshi() : base("xunshi")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardTargetAnnounced };
+            skill_type = SkillType.Attack;
+            view_as_skill = new XunshiVS();
+            frequency = Frequency.Compulsory;
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardUseStruct use && base.Triggerable(player, room) && use.Card.Name.Contains(Slash.ClassName) && use.Card.Suit == WrappedCard.CardSuit.NoSuit)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            return false;
+        }
+    }
+
+    public class XunshiVS : FilterSkill
+    {
+        public XunshiVS() : base("xunshi") { }
+        public override bool ViewFilter(Room room, WrappedCard to_select, Player player) => room.GetCardPlace(to_select.Id) == Place.PlaceHand && (to_select.Name == Collateral.ClassName || to_select.Name == IronChain.ClassName
+            || to_select.Name == SavageAssault.ClassName || to_select.Name == ArcheryAttack.ClassName || to_select.Name == GodSalvation.ClassName || to_select.Name == AmazingGrace.ClassName);
+        public override void ViewAs(Room room, ref RoomCard card, Player player)
+        {
+            card.ChangeName(Slash.ClassName);
+            card.SetSuit(WrappedCard.CardSuit.NoSuit);
+        }
+    }
+
+    public class XunshiTar : TargetModSkill
+    {
+        public XunshiTar() : base("#xunshi", true)
+        { }
+        public override int GetExtraTargetNum(Room room, Player from, WrappedCard card) => card.Suit == WrappedCard.CardSuit.NoSuit ? 100 : 0;
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => card.Suit == WrappedCard.CardSuit.NoSuit ? true : false;
     }
 }
