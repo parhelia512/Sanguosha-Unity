@@ -692,14 +692,10 @@ namespace SanguoshaServer.Package
         {
             if (base.Triggerable(sunce, room) && data is CardUseStruct use)
             {
-                bool invoke = triggerEvent == TriggerEvent.TargetChosen;
-                if (!invoke)
-                    invoke = (use.To.Contains(sunce));
-
-                if (invoke)
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                if (fcard is Duel || (fcard is Slash && WrappedCard.IsRed(RoomLogic.GetCardSuit(room, use.Card))))
                 {
-                    FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                    if (fcard is Duel || (fcard is Slash && WrappedCard.IsRed(RoomLogic.GetCardSuit(room, use.Card))))
+                    if (triggerEvent == TriggerEvent.TargetChosen || use.To.Contains(sunce))
                         return new TriggerStruct(Name, sunce);
                 }
             }

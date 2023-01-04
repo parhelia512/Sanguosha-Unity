@@ -76,7 +76,9 @@ namespace SanguoshaServer.Package
                 new Hengwu(),
                 new Shencai(),
                 new ShencaiEffect(),
+                new ShencaiMax(),
                 new Xunshi(),
+                new XunshiTar(),
             };
             skill_cards = new List<FunctionCard>
             {
@@ -114,6 +116,8 @@ namespace SanguoshaServer.Package
                 { "jiufa", new List<string>{ "#jiufa" } },
                 { "pingxiang", new List<string>{ "#pingxiang" } },
                 { "shouli", new List<string>{ "#shouli" } },
+                { "shencai", new List<string>{ "#shencai", "#shencai-max" } },
+                { "xunshi", new List<string>{ "#xunshi" } },
             };
         }
     }
@@ -3569,28 +3573,154 @@ namespace SanguoshaServer.Package
     public class Shencai : ZeroCardViewAsSkill
     {
         public Shencai() : base("shencai") { }
-        public override bool IsEnabledAtPlay(Room room, Player player)
-        {
-            return base.IsEnabledAtPlay(room, player);
-        }
-        public override WrappedCard ViewAs(Room room, Player player)
-        {
-            throw new NotImplementedException();
-        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => player.UsedTimes(ShencaiCard.ClassName) < 1 + player.GetMark("xunshi");
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(ShencaiCard.ClassName) { Skill = Name };
     }
 
     public class ShencaiCard : SkillCard
     {
         public static string ClassName = "ShencaiCard";
         public ShencaiCard() : base(ClassName) { }
-        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self;
+        public override void OnEffect(Room room, CardEffectStruct effect)
         {
-            return base.TargetFilter(room, targets, to_select, Self, card);
+            Player target = effect.To;
+            JudgeStruct judge = new JudgeStruct
+            {
+                Good = true,
+                PlayAnimation = false,
+                Who = target,
+                Reason = "shencai"
+            };
+            room.Judge(ref judge);
+
+            if (target.Alive)
+            {
+                List<int> ids = new List<int>();
+                FunctionCard fcard = Engine.GetFunctionCard(judge.Card.Name);
+                //笞，桃、酒、桃园结义、白银狮子
+                if (judge.Card.Name == Peach.ClassName || judge.Card.Name == Analeptic.ClassName || judge.Card.Name == GodSalvation.ClassName || judge.Card.Name == SilverLion.ClassName)
+                    ids.Add(0);
+                //杖，武器牌、借刀杀人
+                if (fcard is Weapon || fcard.Name == Collateral.ClassName)
+                    ids.Add(1);
+                //徒，决斗、南蛮、万箭、八卦阵、丈八
+                if (judge.Card.Name == Duel.ClassName || judge.Card.Name == SavageAssault.ClassName || judge.Card.Name == ArcheryAttack.ClassName || judge.Card.Name == EightDiagram.ClassName || judge.Card.Name == Spear.ClassName)
+                    ids.Add(2);
+                //流，马、兵粮寸断、顺手牵羊
+                if (fcard is Horse || judge.Card.Name == Snatch.ClassName || judge.Card.Name == SupplyShortage.ClassName)
+                    ids.Add(3);
+
+                room.RemovePlayerStringMark(target, "shencai_0");
+                room.RemovePlayerStringMark(target, "shencai_1");
+                room.RemovePlayerStringMark(target, "shencai_2");
+                room.RemovePlayerStringMark(target, "shencai_3");
+                if (ids.Count == 0)
+                {
+                    target.RemoveTag("shencai");
+                    target.AddMark("shencai_4");
+                    room.SetPlayerStringMark(target, "shencai_4", target.GetMark("shencai").ToString());
+                    if (effect.From.Alive && !target.IsAllNude() && RoomLogic.CanGetCard(room, effect.From, target, "hej"))
+                    {
+                        int id = room.AskForCardChosen(effect.From, target, "hej", "shencai", false, HandlingMethod.MethodGet);
+                        room.ObtainCard(effect.From, room.GetCard(id), new CardMoveReason(MoveReason.S_REASON_EXTRACTION, effect.From.Name, target.Name, "shencai", string.Empty), false);
+                    }
+                }
+                else
+                {
+                    target.SetTag("shencai", ids);
+                    if (ids.Contains(0)) room.SetPlayerStringMark(target, "shencai_0", string.Empty);
+                    if (ids.Contains(1)) room.SetPlayerStringMark(target, "shencai_1", string.Empty);
+                    if (ids.Contains(2)) room.SetPlayerStringMark(target, "shencai_2", string.Empty);
+                    if (ids.Contains(3)) room.SetPlayerStringMark(target, "shencai_3", string.Empty);
+                }
+            }
         }
-        public override void Use(Room room, CardUseStruct card_use)
+    }
+
+    public class ShencaiEffect : TriggerSkill
+    {
+        public ShencaiEffect() : base("#shencai")
         {
-            base.Use(room, card_use);
+            events = new List<TriggerEvent> { TriggerEvent.Damaged, TriggerEvent.CardsMoveOneTime, TriggerEvent.TargetConfirmed, TriggerEvent.EventPhaseStart, TriggerEvent.EventPhaseChanging };
+            frequency = Frequency.Compulsory;
         }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.Damaged && player.Alive && player.ContainsTag("shencai") && player.GetTag("shencai") is List<int> ids && ids.Contains(0))
+            {
+                return new TriggerStruct(Name, player);
+            }
+            else if (triggerEvent == TriggerEvent.TargetConfirmed && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && player.Alive
+                && player.ContainsTag("shencai") && player.GetTag("shencai") is List<int> _ids && _ids.Contains(1))
+            {
+                return new TriggerStruct(Name, player);
+            }
+            else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From_places.Contains(Place.PlaceHand) && !move.From.IsKongcheng()
+                && move.From.Alive && (move.Reason.SkillName != "shencai" || (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_DISCARD) && RoomLogic.CanDiscard(room, move.From, move.From, "h")
+                && move.From.ContainsTag("shencai") && move.From.GetTag("shencai") is List<int> __ids && __ids.Contains(2))
+            {
+                return new TriggerStruct(Name, move.From);
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && player.Alive && player.Phase == PlayerPhase.Finish && player.ContainsTag("shencai") && player.GetTag("shencai") is List<int> ___ids && ___ids.Contains(3))
+            {
+                return new TriggerStruct(Name, player);
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.Alive && player.GetMark("shencai_4") > room.AliveCount())
+            {
+                return new TriggerStruct(Name, player);
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(ask_who, Name, false);
+            if (triggerEvent == TriggerEvent.Damaged && data is DamageStruct damage)
+            {
+                room.LoseHp(player, damage.Damage);
+            }
+            else if (triggerEvent == TriggerEvent.TargetConfirmed && data is CardUseStruct use)
+            {
+                LogMessage log = new LogMessage
+                {
+                    Type = "#NoJink",
+                    From = player.Name
+                };
+                room.SendLog(log);
+                for (int i = 0; i < use.EffectCount.Count; i++)
+                {
+                    CardBasicEffect effect = use.EffectCount[i];
+                    if (effect.To == player)
+                    {
+                        effect.Effect2 = 0;
+                        data = use;
+                    }
+                }
+            }
+            else if (triggerEvent == TriggerEvent.CardsMoveOneTime)
+            {
+                room.AskForDiscard(player, "shencai", 1, 1, false, false, "@shencai-2", false);
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart)
+            {
+                room.TurnOver(player);
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging)
+            {
+                player.Hp = 0;
+                room.BroadcastProperty(player, "Hp");
+                room.KillPlayer(player, new DamageStruct());
+            }
+            return false;
+        }
+    }
+
+    public class ShencaiMax : MaxCardsSkill
+    {
+        public ShencaiMax() : base("#shencai-max") { }
+        public override int GetExtra(Room room, Player target) => -target.GetMark("shencai_4");
     }
 
     public class Xunshi : TriggerSkill
@@ -3602,15 +3732,82 @@ namespace SanguoshaServer.Package
             view_as_skill = new XunshiVS();
             frequency = Frequency.Compulsory;
         }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                player.SetMark(Name, 0);
+        }
+
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is CardUseStruct use && base.Triggerable(player, room) && use.Card.Name.Contains(Slash.ClassName) && use.Card.Suit == WrappedCard.CardSuit.NoSuit)
-                return new TriggerStruct(Name, player);
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use && base.Triggerable(player, room) && use.Card.Suit == WrappedCard.CardSuit.NoSuit)
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                if (fcard is BasicCard || fcard.IsNDTrick())
+                    return new TriggerStruct(Name, player);
+            }
             return new TriggerStruct();
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            {
+                bool invoke = false;
+                if (use.Card.Name != Collateral.ClassName)
+                {
+                    List<Player> targets = new List<Player>();
+                    FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
+                    foreach (Player p in room.GetAlivePlayers())
+                    {
+                        if (!use.To.Contains(p) && RoomLogic.IsProhibited(room, player, p, use.Card) == null)
+                        {
+                            if ((fcard is Slash && p == player) || (fcard is Peach && !p.IsWounded()) || (fcard is IronChain && !p.Chained && !RoomLogic.CanBeChainedBy(room, player, p))
+                                || (fcard is FireAttack && p.IsKongcheng()) || (fcard is Snatch && !Snatch.Instance.TargetFilter(room, new List<Player>(), p, player, use.Card))
+                                || (fcard is Dismantlement && (!RoomLogic.CanDiscard(room, player, p, "hej") || p == use.From || p.IsAllNude()))
+                                || (fcard is Duel && p == use.From))
+                                continue;
+                            targets.Add(p);
+                        }
+                    }
+
+                    if (targets.Count > 0)
+                    {
+                        List<Player> players = room.AskForPlayersChosen(player, targets, Name, 0, targets.Count, string.Format("@xunshi:::{0}", use.Card.Name), true, info.SkillPosition);
+                        if (players.Count > 0)
+                        {
+                            invoke = true;
+                            use.To.AddRange(players);
+                            LogMessage log = new LogMessage
+                            {
+                                Type = "$extra_target",
+                                From = player.Name,
+                                Card_str = RoomLogic.CardToString(room, use.Card),
+                                Arg = Name
+                            };
+                            log.SetTos(players);
+                            room.SendLog(log);
+                            room.SortByActionOrder(ref use);
+                            data = use;
+                        }
+                    }
+                }
+
+                if (player.Phase != PlayerPhase.NotActive && player.GetMark(Name) < 5)
+                {
+                    player.AddMark(Name);
+                    LogMessage log = new LogMessage("#shencai-add")
+                    {
+                        From = player.Name,
+                        Arg = Name
+                    };
+                    room.SendLog(log);
+                    invoke = true;
+                }
+                if (invoke)
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+            }
+            
             return false;
         }
     }
@@ -3618,7 +3815,7 @@ namespace SanguoshaServer.Package
     public class XunshiVS : FilterSkill
     {
         public XunshiVS() : base("xunshi") { }
-        public override bool ViewFilter(Room room, WrappedCard to_select, Player player) => room.GetCardPlace(to_select.Id) == Place.PlaceHand && (to_select.Name == Collateral.ClassName || to_select.Name == IronChain.ClassName
+        public override bool ViewFilter(Room room, WrappedCard to_select, Player player) => room.GetCardPlace(to_select.Id) == Place.PlaceHand && (to_select.Name == IronChain.ClassName
             || to_select.Name == SavageAssault.ClassName || to_select.Name == ArcheryAttack.ClassName || to_select.Name == GodSalvation.ClassName || to_select.Name == AmazingGrace.ClassName);
         public override void ViewAs(Room room, ref RoomCard card, Player player)
         {
@@ -3629,9 +3826,8 @@ namespace SanguoshaServer.Package
 
     public class XunshiTar : TargetModSkill
     {
-        public XunshiTar() : base("#xunshi", true)
-        { }
-        public override int GetExtraTargetNum(Room room, Player from, WrappedCard card) => card.Suit == WrappedCard.CardSuit.NoSuit ? 100 : 0;
+        public XunshiTar() : base("#xunshi", false) { pattern = "."; }
+        public override int GetResidueNum(Room room, Player from, WrappedCard card) => card.Suit == WrappedCard.CardSuit.NoSuit ? 1000 : 0;
         public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => card.Suit == WrappedCard.CardSuit.NoSuit ? true : false;
     }
 }
