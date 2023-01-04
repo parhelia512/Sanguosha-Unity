@@ -2179,15 +2179,13 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.GameStart && base.Triggerable(player, room))
             {
-                if (!room.Skills.Contains("xiansivs"))
-                    room.Skills.Add("xiansivs");
+                room.AddSkill2Game("xiansivs");
                 foreach (Player p in room.GetOtherPlayers(player))
                     room.HandleAcquireDetachSkills(p, "xiansivs", true);
             }
             else if (triggerEvent == TriggerEvent.EventAcquireSkill && data is InfoStruct info && info.Info == Name)
             {
-                if (!room.Skills.Contains("xiansivs"))
-                    room.Skills.Add("xiansivs");
+                room.AddSkill2Game("xiansivs");
                 foreach (Player p in room.GetOtherPlayers(player))
                     room.HandleAcquireDetachSkills(p, "xiansivs", true);
             }
@@ -8272,8 +8270,7 @@ namespace SanguoshaServer.Package
 
             if (add)
             {
-                if (!room.Skills.Contains("biejun_vs"))
-                    room.Skills.Add("biejun_vs");
+                room.AddSkill2Game("biejun_vs");
                 foreach (Player p in room.GetOtherPlayers(player))
                     room.HandleAcquireDetachSkills(p, "biejun_vs", true);
             }

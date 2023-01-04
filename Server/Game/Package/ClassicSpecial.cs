@@ -12336,46 +12336,11 @@ namespace SanguoshaServer.Package
                             }
 
                             foreach (string skill in Engine.GetGeneralRelatedSkills("guansuo", room.Setting.GameMode))
-                            {
-                                if (!room.Skills.Contains(skill))
-                                {
-                                    room.Skills.Add(skill);
-                                    Skill main = Engine.GetSkill(skill);
-                                    if (main is TriggerSkill tskill)
-                                        room.RoomThread.AddTriggerSkill(tskill);
-                                }
-
-                                foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                                {
-                                    if (!room.Skills.Contains(_skill.Name))
-                                    {
-                                        room.Skills.Add(_skill.Name);
-                                        if (_skill is TriggerSkill tskill)
-                                            room.RoomThread.AddTriggerSkill(tskill);
-                                    }
-                                }
-                            }
+                                room.AddSkill2Game(skill);
 
                             foreach (string skill_name in Engine.GetGeneralSkills("guansuo", room.Setting.GameMode, true))
                             {
-                                if (!room.Skills.Contains(skill_name))
-                                {
-                                    room.Skills.Add(skill_name);
-                                    Skill main = Engine.GetSkill(skill_name);
-                                    if (main is TriggerSkill tskill)
-                                        room.RoomThread.AddTriggerSkill(tskill);
-                                }
-
-                                foreach (Skill _skill in Engine.GetRelatedSkills(skill_name))
-                                {
-                                    if (!room.Skills.Contains(_skill.Name))
-                                    {
-                                        room.Skills.Add(_skill.Name);
-                                        if (_skill is TriggerSkill tskill)
-                                            room.RoomThread.AddTriggerSkill(tskill);
-                                    }
-                                }
-
+                                room.AddSkill2Game(skill_name);
                                 room.AddPlayerSkill(target, skill_name);
                             }
 
@@ -12950,44 +12915,13 @@ namespace SanguoshaServer.Package
 
                 foreach (string skill in Engine.GetGeneralRelatedSkills(general_name, room.Setting.GameMode))
                 {
-                    if (!room.Skills.Contains(skill))
-                    {
-                        room.Skills.Add(skill);
-                        Skill main = Engine.GetSkill(skill);
-                        if (main is TriggerSkill tskill)
-                            room.RoomThread.AddTriggerSkill(tskill);
-                    }
-
-                    foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                    {
-                        if (!room.Skills.Contains(_skill.Name))
-                        {
-                            room.Skills.Add(_skill.Name);
-                            if (_skill is TriggerSkill tskill)
-                                room.RoomThread.AddTriggerSkill(tskill);
-                        }
-                    }
+                    room.AddSkill2Game(skill);
                 }
 
                 foreach (string skill_name in Engine.GetGeneralSkills(general_name, room.Setting.GameMode, true))
                 {
                     Skill s = Engine.GetSkill(skill_name);
-                    if (!room.Skills.Contains(skill_name))
-                    {
-                        room.Skills.Add(skill_name);
-                        if (s is TriggerSkill tskill)
-                            room.RoomThread.AddTriggerSkill(tskill);
-                    }
-
-                    foreach (Skill _skill in Engine.GetRelatedSkills(skill_name))
-                    {
-                        if (!room.Skills.Contains(_skill.Name))
-                        {
-                            room.Skills.Add(_skill.Name);
-                            if (_skill is TriggerSkill tskill)
-                                room.RoomThread.AddTriggerSkill(tskill);
-                        }
-                    }
+                    room.AddSkill2Game(skill_name);
 
                     if (s.LordSkill && player.GetRoleEnum() != PlayerRole.Lord) continue;
                     room.AddPlayerSkill(player, skill_name);
@@ -15310,9 +15244,13 @@ namespace SanguoshaServer.Package
         {
             List<int> cards = ask_who.GetCards("he");
             ask_who.PileChange("#hongyuan", cards);
-            List<Player> friends = room.GetOtherPlayers(ask_who);
-            List<CardsMoveStruct> moves = new List<CardsMoveStruct>();
+
             List<Player> targets = new List<Player>();
+            List<Player> friends = room.GetOtherPlayers(ask_who);
+            foreach (Player p in friends)
+                p.SetFlags("shushou");
+
+            List<CardsMoveStruct> moves = new List<CardsMoveStruct>();
             while (cards.Count > 0 && friends.Count > 0 && targets.Count < 2)
             {
                 WrappedCard card = room.AskForUseCard(ask_who, RespondType.Skill, "@@hongyuan", "@hongyuan", null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
@@ -15320,7 +15258,7 @@ namespace SanguoshaServer.Package
                 {
                     Player target = (Player)room.GetTag("shushou_target");
                     room.RemoveTag("shushou_target");
-                    target.SetFlags("-" + Name);
+                    target.SetFlags("-shushou");
                     friends.Remove(target);
                     targets.Add(target);
                     CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_GIVE, ask_who.Name, target.Name, Name, string.Empty);

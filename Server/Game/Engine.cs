@@ -933,7 +933,7 @@ namespace SanguoshaServer.Game
             {
                 case TargetModSkill.ModType.Residue:
                     {
-                        foreach (TargetModSkill skill in targetmod_skills)
+                        foreach (TargetModSkill skill in room.TargetModSkills)
                         {
                             CardPattern p = GetPattern(skill.Pattern);
                             if (p.Match(from, room, card))
@@ -949,7 +949,7 @@ namespace SanguoshaServer.Game
 
                 case TargetModSkill.ModType.ExtraMaxTarget:
                     {
-                        foreach (TargetModSkill skill in targetmod_skills)
+                        foreach (TargetModSkill skill in room.TargetModSkills)
                         {
                             CardPattern p = GetPattern(skill.Pattern);
                             if (p.Match(from, room, card))
@@ -970,7 +970,7 @@ namespace SanguoshaServer.Game
                     {
                         CardUseStruct.CardUseReason reason = room.GetRoomState().GetCurrentCardUseReason();
                         string pattern = room.GetRoomState().GetCurrentCardUsePattern(from);
-                        foreach (TargetModSkill skill in targetmod_skills)
+                        foreach (TargetModSkill skill in room.TargetModSkills)
                         {
                             CardPattern p = GetPattern(skill.Pattern);
                             if (p.Match(from, room, card) && skill.GetDistanceLimit(room, from, to, card, reason, pattern)) return true;
@@ -983,7 +983,7 @@ namespace SanguoshaServer.Game
                     {
                         CardUseStruct.CardUseReason reason = room.GetRoomState().GetCurrentCardUseReason();
                         string pattern = room.GetRoomState().GetCurrentCardUsePattern(from);
-                        foreach (TargetModSkill skill in targetmod_skills)
+                        foreach (TargetModSkill skill in room.TargetModSkills)
                         {
                             CardPattern p = GetPattern(skill.Pattern);
                             if (p.Match(from, room, card) && skill.CheckSpecificAssignee(room, from, to, card, pattern)) return true;
@@ -994,7 +994,7 @@ namespace SanguoshaServer.Game
 
                 case TargetModSkill.ModType.SpecificTarget:
                     {
-                        foreach (TargetModSkill skill in targetmod_skills)
+                        foreach (TargetModSkill skill in room.TargetModSkills)
                         {
                             CardPattern p = GetPattern(skill.Pattern);
                             if (p.Match(from, room, card) && skill.CheckSpecificTarget(room, from, to, card)) return true;
@@ -1005,7 +1005,7 @@ namespace SanguoshaServer.Game
 
                 case TargetModSkill.ModType.History:
                     {
-                        foreach (TargetModSkill skill in targetmod_skills)
+                        foreach (TargetModSkill skill in room.TargetModSkills)
                         {
                             CardPattern p = GetPattern(skill.Pattern);
                             if (p.Match(from, room, card) && skill.IgnoreCount(room, from, card)) return true;
@@ -1016,7 +1016,7 @@ namespace SanguoshaServer.Game
 
                 case TargetModSkill.ModType.AttackRange:
                     {
-                        foreach (TargetModSkill skill in targetmod_skills)
+                        foreach (TargetModSkill skill in room.TargetModSkills)
                         {
                             CardPattern p = GetPattern(skill.Pattern);
                             if (p.Match(from, room, card) && skill.InAttackRange(room, from, to, card)) return true;

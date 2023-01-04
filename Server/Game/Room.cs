@@ -39,6 +39,7 @@ namespace SanguoshaServer.Game
         public GameScenario Scenario { get; private set; }
         public List<string> Generals { get; private set; } = new List<string>();
         public List<string> Skills { get; private set; } = new List<string>();
+        public List<TargetModSkill> TargetModSkills { get; private set; } = new List<TargetModSkill>();
         public List<string> UsedGeneral { get; private set; } = new List<string>();
         public List<int> DiscardPile => m_discardPile;
         public int Round { get; private set; }
@@ -1600,46 +1601,13 @@ namespace SanguoshaServer.Game
             
             foreach (string skill_name in Engine.GetGeneralSkills(general_name, Setting.GameMode, false))
             {
-                Skill skill = Engine.GetSkill(skill_name);
-                if (!Skills.Contains(skill_name))
-                {
-                    Skills.Add(skill_name);
-                    if (skill is TriggerSkill tskill)
-                        RoomThread.AddTriggerSkill(tskill);
-                }
-
-                foreach (Skill _skill in Engine.GetRelatedSkills(skill_name))
-                {
-                    if (!Skills.Contains(_skill.Name))
-                    {
-                        Skills.Add(_skill.Name);
-                        if (_skill is TriggerSkill tskill)
-                            RoomThread.AddTriggerSkill(tskill);
-                    }
-                }
-
+                AddSkill2Game(skill_name);
                 AddPlayerSkill(player, skill_name, false);
             }
 
             foreach (string skill in Engine.GetGeneralRelatedSkills(general_name, Setting.GameMode))
             {
-                if (!Skills.Contains(skill))
-                {
-                    Skills.Add(skill);
-                    Skill main = Engine.GetSkill(skill);
-                    if (main is TriggerSkill tskill)
-                        RoomThread.AddTriggerSkill(tskill);
-                }
-
-                foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                {
-                    if (!Skills.Contains(_skill.Name))
-                    {
-                        Skills.Add(_skill.Name);
-                        if (_skill is TriggerSkill tskill)
-                            RoomThread.AddTriggerSkill(tskill);
-                    }
-                }
+                AddSkill2Game(skill);
             }
 
             player.ActualGeneral2 = general_name;
@@ -1667,6 +1635,31 @@ namespace SanguoshaServer.Game
             }
 
             ShowGeneral(player, false);
+        }
+
+        public void AddSkill2Game(string skill_name)
+        {
+            Skill skill = Engine.GetSkill(skill_name);
+            if (!Skills.Contains(skill_name))
+            {
+                Skills.Add(skill_name);
+                if (skill is TriggerSkill tskill)
+                    RoomThread.AddTriggerSkill(tskill);
+                else if (skill is TargetModSkill tar)
+                    TargetModSkills.Add(tar);
+            }
+
+            foreach (Skill _skill in Engine.GetRelatedSkills(skill_name))
+            {
+                if (!Skills.Contains(_skill.Name))
+                {
+                    Skills.Add(_skill.Name);
+                    if (_skill is TriggerSkill tskill)
+                        RoomThread.AddTriggerSkill(tskill);
+                    else if (skill is TargetModSkill tar)
+                        TargetModSkills.Add(tar);
+                }
+            }
         }
 
         public bool NotifyMoveCards(bool isLostPhase, List<CardsMoveStruct> cards_moves, bool forceVisible, List<Player> players = null)
@@ -2988,10 +2981,16 @@ namespace SanguoshaServer.Game
                 if (!Skills.Contains(skill.Name))
                 {
                     Skills.Add(skill.Name);
+                    if (skill is TargetModSkill tar)
+                        TargetModSkills.Add(tar);
 
                     foreach (Skill _skill in Engine.GetRelatedSkills(skill.Name))
                         if (!Skills.Contains(_skill.Name))
+                        {
                             Skills.Add(_skill.Name);
+                            if (skill is TargetModSkill _tar)
+                                TargetModSkills.Add(_tar);
+                        }
                 }
             }
 
@@ -3002,9 +3001,19 @@ namespace SanguoshaServer.Game
                     if (!Skills.Contains(skill))
                         Skills.Add(skill);
 
+                    Skill real_skill = Engine.GetSkill(skill);
+                    if (real_skill is TargetModSkill tar)
+                        TargetModSkills.Add(tar);
+
                     foreach (Skill _skill in Engine.GetRelatedSkills(skill))
+                    {
                         if (!Skills.Contains(_skill.Name))
+                        {
                             Skills.Add(_skill.Name);
+                            if (_skill is TargetModSkill _tar)
+                                TargetModSkills.Add(_tar);
+                        }
+                    }
                 }
 
                 foreach (string skill in Engine.GetGeneralRelatedSkills(p.ActualGeneral1, Setting.GameMode))
@@ -3012,9 +3021,19 @@ namespace SanguoshaServer.Game
                     if (!Skills.Contains(skill))
                         Skills.Add(skill);
 
+                    Skill real_skill = Engine.GetSkill(skill);
+                    if (real_skill is TargetModSkill tar)
+                        TargetModSkills.Add(tar);
+
                     foreach (Skill _skill in Engine.GetRelatedSkills(skill))
+                    {
                         if (!Skills.Contains(_skill.Name))
+                        {
                             Skills.Add(_skill.Name);
+                            if (_skill is TargetModSkill _tar)
+                                TargetModSkills.Add(_tar);
+                        }
+                    }
                 }
 
                 if (!string.IsNullOrEmpty(p.ActualGeneral2))
@@ -3024,9 +3043,19 @@ namespace SanguoshaServer.Game
                         if (!Skills.Contains(skill))
                             Skills.Add(skill);
 
+                        Skill real_skill = Engine.GetSkill(skill);
+                        if (real_skill is TargetModSkill tar)
+                            TargetModSkills.Add(tar);
+
                         foreach (Skill _skill in Engine.GetRelatedSkills(skill))
+                        {
                             if (!Skills.Contains(_skill.Name))
+                            {
                                 Skills.Add(_skill.Name);
+                                if (_skill is TargetModSkill _tar)
+                                    TargetModSkills.Add(_tar);
+                            }
+                        }
                     }
 
                     foreach (string skill in Engine.GetGeneralRelatedSkills(p.ActualGeneral2, Setting.GameMode))
@@ -3034,9 +3063,19 @@ namespace SanguoshaServer.Game
                         if (!Skills.Contains(skill))
                             Skills.Add(skill);
 
+                        Skill real_skill = Engine.GetSkill(skill);
+                        if (real_skill is TargetModSkill tar)
+                            TargetModSkills.Add(tar);
+
                         foreach (Skill _skill in Engine.GetRelatedSkills(skill))
+                        {
                             if (!Skills.Contains(_skill.Name))
+                            {
                                 Skills.Add(_skill.Name);
+                                if (_skill is TargetModSkill _tar)
+                                    TargetModSkills.Add(_tar);
+                            }
+                        }
                     }
                 }
             }

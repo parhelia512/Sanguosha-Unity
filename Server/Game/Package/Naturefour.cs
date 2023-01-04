@@ -92,6 +92,7 @@ namespace SanguoshaServer.Package
                 new TianxiangSecond(),
                 new HongyanJX(),
                 new JiangJX(),
+                new JiangClear(),
                 new Hunzi(),
                 new Zhiba(),
                 new ZhibaVS(),
@@ -132,6 +133,7 @@ namespace SanguoshaServer.Package
                 { "haoshi_classic", new List<string>{ "#haoshi_classic" } },
                 { "dimeng_classic", new List<string>{ "#dimeng_classic" } },
                 { "weimu_jx", new List<string>{ "#weimu_jx" } },
+                { "jiang_jx", new List<string>{ "#jiang-clear" } },
             };
         }
     }
@@ -1488,44 +1490,12 @@ namespace SanguoshaServer.Package
             {
                 foreach (string skill in Engine.GetGeneralSkills(general, room.Setting.GameMode))
                 {
-                    if (!room.Skills.Contains(skill))
-                    {
-                        room.Skills.Add(skill);
-                        Skill main = Engine.GetSkill(skill);
-                        if (main is TriggerSkill tskill)
-                            room.RoomThread.AddTriggerSkill(tskill);
-                    }
-
-                    foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                    {
-                        if (!room.Skills.Contains(_skill.Name))
-                        {
-                            room.Skills.Add(_skill.Name);
-                            if (_skill is TriggerSkill tskill)
-                                room.RoomThread.AddTriggerSkill(tskill);
-                        }
-                    }
+                    room.AddSkill2Game(skill);
                 }
 
                 foreach (string skill in Engine.GetGeneralRelatedSkills(general, room.Setting.GameMode))
                 {
-                    if (!room.Skills.Contains(skill))
-                    {
-                        room.Skills.Add(skill);
-                        Skill main = Engine.GetSkill(skill);
-                        if (main is TriggerSkill tskill)
-                            room.RoomThread.AddTriggerSkill(tskill);
-                    }
-
-                    foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                    {
-                        if (!room.Skills.Contains(_skill.Name))
-                        {
-                            room.Skills.Add(_skill.Name);
-                            if (_skill is TriggerSkill tskill)
-                                room.RoomThread.AddTriggerSkill(tskill);
-                        }
-                    }
+                    room.AddSkill2Game(skill);
                 }
             }
 
@@ -4422,14 +4392,14 @@ namespace SanguoshaServer.Package
                     int card_id = move.Card_ids[i];
                     WrappedCard card = room.GetCard(card_id);
                     if (room.GetCardPlace(card_id) == Place.PlaceTable && move.From_places[i] == Place.PlaceHand && (card.Name.Contains(Slash.ClassName) && WrappedCard.IsRed(card.Suit) || card.Name == Duel.ClassName))
-                        room.GetCard(card_id).SetFlags(Name);
+                        card.SetFlags(Name);
                 }
             }
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD
-                && move.To_place == Place.PlaceTable && base.Triggerable(move.From, room))
+                && move.To_place == Place.DiscardPile && base.Triggerable(move.From, room))
             {
                 for (int i = 0; i < move.Card_ids.Count; i++)
                 {
@@ -4501,6 +4471,28 @@ namespace SanguoshaServer.Package
             }
             return false;
         }
+    }
+    public class JiangClear : TriggerSkill
+    {
+        public JiangClear() : base("#jiang-clear")
+        {
+            events.Add(TriggerEvent.CardsMoveOneTime);
+        }
+        public override int Priority => 0;
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
+            if (move.From != null && move.To_place == Place.DiscardPile && move.From_places.Contains(Place.PlaceTable))
+            {
+                for (int i = 0; i < move.Card_ids.Count; i++)
+                {
+                    WrappedCard card = room.GetCard(move.Card_ids[i]);
+                    if (move.From_places[i] == Place.PlaceTable && card.HasFlag("jiang_jx"))
+                        card.SetFlags("-jiang_jx");
+                }
+            }
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
     }
 
     public class Hunzi : PhaseChangeSkill

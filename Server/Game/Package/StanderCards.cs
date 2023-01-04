@@ -216,30 +216,27 @@ namespace SanguoshaServer.Package
             // for Paoxiao, Jili, CrossBow & etc
             if (player.Phase == PlayerPhase.Play && use.Reason == CardUseReason.CARD_USE_REASON_PLAY && player.GetSlashCount() > 1)
             {
-                foreach (string name in room.Skills)
+                foreach (TargetModSkill skill in room.TargetModSkills)
                 {
-                    if (Engine.GetSkill(name) is TargetModSkill skill)
+                    if (player.GetSlashCount() <= Engine.CorrectCardTarget(room, TargetModSkill.ModType.Residue, player, card) + 1
+                            && player.UsedTimes("Slash_" + skill.Name) < skill.GetResidueNum(room, player, card))
                     {
-                        if (player.GetSlashCount() <= Engine.CorrectCardTarget(room, TargetModSkill.ModType.Residue, player, card) + 1
-                                && player.UsedTimes("Slash_" + name) < skill.GetResidueNum(room, player, card))
+                        if (!skill.SkillRelated)
                         {
-                            if (!skill.SkillRelated)
-                            {
-                                player.AddHistory("Slash_" + name);
-                                return;
-                            }
-                            targetModSkills.Add(skill);
+                            player.AddHistory("Slash_" + skill.Name);
+                            return;
                         }
-                        else
+                        targetModSkills.Add(skill);
+                    }
+                    else
+                    {
+                        foreach (Player p in use.To)
                         {
-                            foreach (Player p in use.To)
+                            if (skill.CheckSpecificAssignee(room, player, p, card, use.Pattern))
                             {
-                                if (skill.CheckSpecificAssignee(room, player, p, card, use.Pattern))
-                                {
-                                    if (!skill.SkillRelated) return;
-                                    targetModSkills.Add(skill);
-                                    break;
-                                }
+                                if (!skill.SkillRelated) return;
+                                targetModSkills.Add(skill);
+                                break;
                             }
                         }
                     }
@@ -311,24 +308,21 @@ namespace SanguoshaServer.Package
             {
                 List<TargetModSkill> showed = new List<TargetModSkill>();
                 targetModSkills.Clear();
-                foreach (string name in room.Skills)
+                foreach (TargetModSkill tarmod in room.TargetModSkills)
                 {
-                    if (Engine.GetSkill(name) is TargetModSkill tarmod)
+                    foreach (Player p in new List<Player>(correct_targets))
                     {
-                        foreach (Player p in new List<Player>(correct_targets))
+                        if (tarmod.GetDistanceLimit(room, player, p, card, use.Reason, use.Pattern))
                         {
-                            if (tarmod.GetDistanceLimit(room, player, p, card, use.Reason, use.Pattern))
+                            Skill main_skill = Engine.GetMainSkill(tarmod.Name);
+                            if (RoomLogic.PlayerHasShownSkill(room, player, main_skill) || !RoomLogic.PlayerHasSkill(room, player, main_skill.Name))
                             {
-                                Skill main_skill = Engine.GetMainSkill(tarmod.Name);
-                                if (RoomLogic.PlayerHasShownSkill(room, player, main_skill) || !RoomLogic.PlayerHasSkill(room, player, main_skill.Name))
-                                {
-                                    correct_targets.Remove(p);
-                                    if (!showed.Contains(tarmod))
-                                        showed.Add(tarmod);
-                                }
-                                else if (!targetModSkills.Contains(tarmod))
-                                    targetModSkills.Add(tarmod);
+                                correct_targets.Remove(p);
+                                if (!showed.Contains(tarmod))
+                                    showed.Add(tarmod);
                             }
+                            else if (!targetModSkills.Contains(tarmod))
+                                targetModSkills.Add(tarmod);
                         }
                     }
                 }
@@ -684,25 +678,22 @@ namespace SanguoshaServer.Package
             if (player.Phase != PlayerPhase.NotActive && player.UsedTimes(Name) > 1)
             {
                 List<string> q = new List<string>();
-                foreach (string name in room.Skills)
+                foreach (TargetModSkill skill in room.TargetModSkills)
                 {
-                    if (Engine.GetSkill(name) is TargetModSkill skill)
+                    if (player.UsedTimes(Name) <= Engine.CorrectCardTarget(room, TargetModSkill.ModType.Residue, player, card) + 1
+                            && player.UsedTimes("Analeptic_" + skill.Name) < skill.GetResidueNum(room, player, card))
                     {
-                        if (player.UsedTimes(Name) <= Engine.CorrectCardTarget(room, TargetModSkill.ModType.Residue, player, card) + 1
-                                && player.UsedTimes("Analeptic_" + name) < skill.GetResidueNum(room, player, card))
+                        if (!skill.SkillRelated)
                         {
-                            if (!skill.SkillRelated)
-                            {
-                                player.AddHistory("Analeptic_" + name);
-                                return;
-                            }
-                            q.Add(skill.Name);
+                            player.AddHistory("Analeptic_" + skill.Name);
+                            return;
                         }
-                        if (skill.CheckSpecificAssignee(room, player, player, card, use.Pattern))
-                        {
-                            if (!skill.SkillRelated) return;
-                            q.Add(skill.Name);
-                        }
+                        q.Add(skill.Name);
+                    }
+                    if (skill.CheckSpecificAssignee(room, player, player, card, use.Pattern))
+                    {
+                        if (!skill.SkillRelated) return;
+                        q.Add(skill.Name);
                     }
                 }
                 List<TriggerStruct> skills = new List<TriggerStruct>();
@@ -1284,32 +1275,29 @@ namespace SanguoshaServer.Package
             if (RoomLogic.DistanceTo(room, player, use.To[0], card) > 1)
             {
                 List<string> tarmods = new List<string>();
-                foreach (string name in room.Skills)
+                foreach (TargetModSkill tarmod in room.TargetModSkills)
                 {
-                    if (Engine.GetSkill(name) is TargetModSkill tarmod)
+                    if (tarmod.GetDistanceLimit(room, player, use.To[0], card, use.Reason, use.Pattern))
                     {
-                        if (tarmod.GetDistanceLimit(room, player, use.To[0], card, use.Reason, use.Pattern))
+                        if (!tarmod.SkillRelated) return;
+                        Skill main_skill = Engine.GetMainSkill(tarmod.Name);
+                        if (RoomLogic.PlayerHasShownSkill(room, player, main_skill) || !RoomLogic.PlayerHasSkill(room, player, main_skill.Name))
                         {
-                            if (!tarmod.SkillRelated) return;
-                            Skill main_skill = Engine.GetMainSkill(tarmod.Name);
-                            if (RoomLogic.PlayerHasShownSkill(room, player, main_skill) || !RoomLogic.PlayerHasSkill(room, player, main_skill.Name))
+                            room.NotifySkillInvoked(player, main_skill.Name);
+                            if (RoomLogic.PlayerHasSkill(room, player, main_skill.Name))
                             {
-                                room.NotifySkillInvoked(player, main_skill.Name);
-                                if (RoomLogic.PlayerHasSkill(room, player, main_skill.Name))
-                                {
-                                    GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, main_skill.Name);
-                                    string _skill_name = main_skill.Name;
-                                    string general = gsk.General;
-                                    int skin_id = gsk.SkinId;
-                                    int index = -1;
-                                    tarmod.GetEffectIndex(room, player, card, TargetModSkill.ModType.DistanceLimit, ref index, ref _skill_name, ref general, ref skin_id);
-                                    room.BroadcastSkillInvoke(_skill_name, "male", index, general, skin_id);
-                                }
-                                return;
+                                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, main_skill.Name);
+                                string _skill_name = main_skill.Name;
+                                string general = gsk.General;
+                                int skin_id = gsk.SkinId;
+                                int index = -1;
+                                tarmod.GetEffectIndex(room, player, card, TargetModSkill.ModType.DistanceLimit, ref index, ref _skill_name, ref general, ref skin_id);
+                                room.BroadcastSkillInvoke(_skill_name, "male", index, general, skin_id);
                             }
-                            else if (!tarmods.Contains(tarmod.Name))
-                                tarmods.Add(tarmod.Name);
+                            return;
                         }
+                        else if (!tarmods.Contains(tarmod.Name))
+                            tarmods.Add(tarmod.Name);
                     }
                 }
                 if (tarmods.Count > 0)
@@ -1575,33 +1563,30 @@ namespace SanguoshaServer.Package
 
             if (card.DistanceLimited && RoomLogic.DistanceTo(room, player, use.To[0], card) > 1)
             {
-                foreach (string name in room.Skills)
+                foreach (TargetModSkill tarmod in room.TargetModSkills)
                 {
-                    if (Engine.GetSkill(name) is TargetModSkill tarmod)
+                    if (tarmod.GetDistanceLimit(room, player, use.To[0], card, use.Reason, use.Pattern))
                     {
-                        if (tarmod.GetDistanceLimit(room, player, use.To[0], card, use.Reason, use.Pattern))
+                        if (!tarmod.SkillRelated) return;
+                        Skill main_skill = Engine.GetMainSkill(tarmod.Name);
+                        if (RoomLogic.PlayerHasShownSkill(room, player, main_skill) || !RoomLogic.PlayerHasSkill(room, player, main_skill.Name))
                         {
-                            if (!tarmod.SkillRelated) return;
-                            Skill main_skill = Engine.GetMainSkill(tarmod.Name);
-                            if (RoomLogic.PlayerHasShownSkill(room, player, main_skill) || !RoomLogic.PlayerHasSkill(room, player, main_skill.Name))
+                            room.NotifySkillInvoked(player, main_skill.Name);
+                            if (RoomLogic.PlayerHasSkill(room, player, main_skill.Name))
                             {
-                                room.NotifySkillInvoked(player, main_skill.Name);
-                                if (RoomLogic.PlayerHasSkill(room, player, main_skill.Name))
-                                {
-                                    GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, main_skill.Name);
-                                    string _skill_name = main_skill.Name;
-                                    string general = gsk.General;
-                                    int skin_id = gsk.SkinId;
-                                    int index = -1;
-                                    tarmod.GetEffectIndex(room, player, card, TargetModSkill.ModType.DistanceLimit, ref index, ref _skill_name, ref general, ref skin_id);
-                                    if (index != -2)
-                                        room.BroadcastSkillInvoke(_skill_name, "male", index, general, skin_id);
-                                }
-                                return;
+                                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, main_skill.Name);
+                                string _skill_name = main_skill.Name;
+                                string general = gsk.General;
+                                int skin_id = gsk.SkinId;
+                                int index = -1;
+                                tarmod.GetEffectIndex(room, player, card, TargetModSkill.ModType.DistanceLimit, ref index, ref _skill_name, ref general, ref skin_id);
+                                if (index != -2)
+                                    room.BroadcastSkillInvoke(_skill_name, "male", index, general, skin_id);
                             }
-                            else if (!tarmods.Contains(tarmod.Name))
-                                tarmods.Add(tarmod.Name);
+                            return;
                         }
+                        else if (!tarmods.Contains(tarmod.Name))
+                            tarmods.Add(tarmod.Name);
                     }
                 }
                 if (tarmods.Count > 0)

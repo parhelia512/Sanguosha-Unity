@@ -164,7 +164,8 @@ namespace SanguoshaServer.Scenario
                     player.Name,
                     "Kingdom",
                     string.Join("+", choices),
-                    JsonUntity.Object2Json(prompts)
+                    JsonUntity.Object2Json(prompts),
+                    string.Empty
                 };
                 Interactivity client = room.GetInteractivity(player);
                 if (client != null && !receivers.Contains(client))

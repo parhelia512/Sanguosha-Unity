@@ -17818,51 +17818,16 @@ namespace SanguoshaServer.Package
                     }
 
                     foreach (string skill in Engine.GetGeneralRelatedSkills("xushi", room.Setting.GameMode))
-                    {
-                        if (!room.Skills.Contains(skill))
-                        {
-                            room.Skills.Add(skill);
-                            Skill main = Engine.GetSkill(skill);
-                            if (main is TriggerSkill tskill)
-                                room.RoomThread.AddTriggerSkill(tskill);
-                        }
-
-                        foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                        {
-                            if (!room.Skills.Contains(_skill.Name))
-                            {
-                                room.Skills.Add(_skill.Name);
-                                if (_skill is TriggerSkill tskill)
-                                    room.RoomThread.AddTriggerSkill(tskill);
-                            }
-                        }
-                    }
+                        room.AddSkill2Game(skill);
 
                     foreach (string skill_name in Engine.GetGeneralSkills("xushi", room.Setting.GameMode, true))
                     {
-                        if (!room.Skills.Contains(skill_name))
-                        {
-                            room.Skills.Add(skill_name);
-                            Skill main = Engine.GetSkill(skill_name);
-                            if (main is TriggerSkill tskill)
-                                room.RoomThread.AddTriggerSkill(tskill);
-                        }
-
-                        foreach (Skill _skill in Engine.GetRelatedSkills(skill_name))
-                        {
-                            if (!room.Skills.Contains(_skill.Name))
-                            {
-                                room.Skills.Add(_skill.Name);
-                                if (_skill is TriggerSkill tskill)
-                                    room.RoomThread.AddTriggerSkill(tskill);
-                            }
-                        }
-
+                        room.AddSkill2Game(skill_name);
                         room.AddPlayerSkill(player, skill_name);
                     }
 
-                    if (!room.Skills.Contains("wenguavs"))
-                        room.Skills.Add("wenguavs");
+                    room.AddSkill2Game("wenguavs");
+
                     foreach (Player p in room.GetOtherPlayers(player))
                         room.HandleAcquireDetachSkills(p, "wenguavs", true);
 
@@ -19545,46 +19510,11 @@ namespace SanguoshaServer.Package
                     List<string> selected = new List<string>(skill_choice.Split('+'));
                     foreach (string skill in selected)
                     {
-                        if (!room.Skills.Contains(skill))
-                        {
-                            room.Skills.Add(skill);
-                            Skill main = Engine.GetSkill(skill);
-                            if (main is TriggerSkill tskill)
-                                room.RoomThread.AddTriggerSkill(tskill);
-                        }
-
-                        foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                        {
-                            if (!room.Skills.Contains(_skill.Name))
-                            {
-                                room.Skills.Add(_skill.Name);
-                                if (_skill is TriggerSkill tskill)
-                                    room.RoomThread.AddTriggerSkill(tskill);
-                            }
-                        }
-
+                        room.AddSkill2Game(skill);
                         string from_general = general_skill[skill];
                         room.HandleUsedGeneral(from_general);
                         foreach (string skill2 in Engine.GetGeneralRelatedSkills(from_general, room.Setting.GameMode))
-                        {
-                            if (!room.Skills.Contains(skill2))
-                            {
-                                room.Skills.Add(skill2);
-                                Skill main = Engine.GetSkill(skill2);
-                                if (main is TriggerSkill tskill)
-                                    room.RoomThread.AddTriggerSkill(tskill);
-                            }
-
-                            foreach (Skill _skill in Engine.GetRelatedSkills(skill2))
-                            {
-                                if (!room.Skills.Contains(_skill.Name))
-                                {
-                                    room.Skills.Add(_skill.Name);
-                                    if (_skill is TriggerSkill tskill)
-                                        room.RoomThread.AddTriggerSkill(tskill);
-                                }
-                            }
-                        }
+                            room.AddSkill2Game(skill2);
                     }
                     room.HandleAcquireDetachSkills(player, selected, true);
                 }

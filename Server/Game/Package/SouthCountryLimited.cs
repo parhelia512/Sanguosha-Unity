@@ -443,45 +443,12 @@ namespace SanguoshaServer.Package
 
                 foreach (string skill in Engine.GetGeneralRelatedSkills(to_general, room.Setting.GameMode))
                 {
-                    if (!room.Skills.Contains(skill))
-                    {
-                        room.Skills.Add(skill);
-                        Skill main = Engine.GetSkill(skill);
-                        if (main is TriggerSkill tskill)
-                            room.RoomThread.AddTriggerSkill(tskill);
-                    }
-
-                    foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                    {
-                        if (!room.Skills.Contains(_skill.Name))
-                        {
-                            room.Skills.Add(_skill.Name);
-                            if (_skill is TriggerSkill tskill)
-                                room.RoomThread.AddTriggerSkill(tskill);
-                        }
-                    }
+                    room.AddSkill2Game(skill);
                 }
 
                 foreach (string skill_name in Engine.GetGeneralSkills(to_general, room.Setting.GameMode, true))
                 {
-                    if (!room.Skills.Contains(skill_name))
-                    {
-                        room.Skills.Add(skill_name);
-                        Skill main = Engine.GetSkill(skill_name);
-                        if (main is TriggerSkill tskill)
-                            room.RoomThread.AddTriggerSkill(tskill);
-                    }
-
-                    foreach (Skill _skill in Engine.GetRelatedSkills(skill_name))
-                    {
-                        if (!room.Skills.Contains(_skill.Name))
-                        {
-                            room.Skills.Add(_skill.Name);
-                            if (_skill is TriggerSkill tskill)
-                                room.RoomThread.AddTriggerSkill(tskill);
-                        }
-                    }
-
+                    room.AddSkill2Game(skill_name);
                     room.AddPlayerSkill(target, skill_name);
                 }
 

@@ -3619,7 +3619,7 @@ namespace SanguoshaServer.Package
                 {
                     target.RemoveTag("shencai");
                     target.AddMark("shencai_4");
-                    room.SetPlayerStringMark(target, "shencai_4", target.GetMark("shencai").ToString());
+                    room.SetPlayerStringMark(target, "shencai_4", target.GetMark("shencai_4").ToString());
                     if (effect.From.Alive && !target.IsAllNude() && RoomLogic.CanGetCard(room, effect.From, target, "hej"))
                     {
                         int id = room.AskForCardChosen(effect.From, target, "hej", "shencai", false, HandlingMethod.MethodGet);
@@ -3826,8 +3826,13 @@ namespace SanguoshaServer.Package
 
     public class XunshiTar : TargetModSkill
     {
-        public XunshiTar() : base("#xunshi", false) { pattern = "."; }
-        public override int GetResidueNum(Room room, Player from, WrappedCard card) => card.Suit == WrappedCard.CardSuit.NoSuit ? 1000 : 0;
+        public XunshiTar() : base("#xunshi", false) { pattern = ".|no_suit"; }
+        public override int GetResidueNum(Room room, Player from, WrappedCard card)
+        {
+            int count = RoomLogic.PlayerHasSkill(room, from, "xunshi") ? 1000 : 0;
+            return count;
+        }
+
         public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => card.Suit == WrappedCard.CardSuit.NoSuit ? true : false;
     }
 }
