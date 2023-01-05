@@ -581,8 +581,7 @@ namespace SanguoshaServer.AI
                 {
                     ScoreStruct score = ai.GetDamageScore(new DamageStruct("paiyi", player, p));
                     score.Players = new List<Player> { p };
-                    if (score.Score > 0)
-                        scores.Add(score);
+                    if (score.Score > 0) scores.Add(score);
                 }
                 if (scores.Count > 0)
                 {
@@ -591,15 +590,16 @@ namespace SanguoshaServer.AI
                         damage_value += scores[i].Score;
                 }
             }
-            use.Card = card;
-            if (draw_value > damage_value)
+            if (draw_value > damage_value && draw_value > 2)
             {
                 ai.Choice["paiyi"] = "draw";
+                use.Card = card;
                 use.To.Add(player);
             }
-            else
+            else if (damage_value > 3)
             {
                 ai.Choice["paiyi"] = "damage";
+                use.Card = card;
                 for (int i = 0; i < Math.Min(scores.Count, count); i++)
                     use.To.AddRange(scores[i].Players);
             }

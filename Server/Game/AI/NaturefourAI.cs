@@ -2364,11 +2364,12 @@ namespace SanguoshaServer.AI
                 }
             }
 
-            if (card == -1 && player.GetMark(Name) == 0)
+            if ((card == -1 || values.Count == 0) && player.GetMark(Name) == 0)
                 return false;
 
             ai.Number[Name] = card;
-            if (values[0] > 3 && player.GetMark(Name) > 0) ai.Number[Name] = -1;
+            if ((values.Count == 0 || values[0] > 3) && player.GetMark(Name) > 0)
+                ai.Number[Name] = -1;
             
             Player.PlayerPhase phase = (Player.PlayerPhase)player.GetMark("qiaobianPhase");
 
