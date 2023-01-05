@@ -4395,7 +4395,10 @@ namespace SanguoshaServer.Package
                     int card_id = move.Card_ids[i];
                     WrappedCard card = room.GetCard(card_id);
                     if (room.GetCardPlace(card_id) == Place.PlaceTable && move.From_places[i] == Place.PlaceHand && (card.Name.Contains(Slash.ClassName) && WrappedCard.IsRed(card.Suit) || card.Name == Duel.ClassName))
+                    {
                         card.SetFlags(Name);
+                        room.SetTag(Name, true);
+                    }
                 }
             }
             else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
