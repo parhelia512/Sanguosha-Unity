@@ -3699,7 +3699,7 @@ namespace SanguoshaServer.Package
             }
             else if (triggerEvent == TriggerEvent.CardsMoveOneTime)
             {
-                room.AskForDiscard(player, "shencai", 1, 1, false, false, "@shencai-2", false);
+                room.AskForDiscard(ask_who, "shencai", 1, 1, false, false, "@shencai-2", false);
             }
             else if (triggerEvent == TriggerEvent.EventPhaseStart)
             {
