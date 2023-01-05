@@ -4381,14 +4381,14 @@ namespace SanguoshaServer.Package
     {
         public JiangJX() : base("jiang_jx")
         {
-            events = new List<TriggerEvent> { TriggerEvent.TargetConfirmed, TriggerEvent.TargetChosen, TriggerEvent.CardsMoveOneTime };
+            events = new List<TriggerEvent> { TriggerEvent.TargetConfirmed, TriggerEvent.TargetChosen, TriggerEvent.CardsMoveOneTime, TriggerEvent.EventPhaseChanging };
             frequency = Frequency.Frequent;
             skill_type = SkillType.Replenish;
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD
-                && move.To_place == Place.PlaceTable && base.Triggerable(move.From, room) && !move.From.HasFlag(Name))
+                && move.To_place == Place.PlaceTable && base.Triggerable(move.From, room) && room.ContainsTag(Name))
             {
                 for (int i = 0; i < move.Card_ids.Count; i++)
                 {
@@ -4398,17 +4398,23 @@ namespace SanguoshaServer.Package
                         card.SetFlags(Name);
                 }
             }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                room.RemoveTag(Name);
         }
-        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD
-                && move.To_place == Place.DiscardPile && base.Triggerable(move.From, room))
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && move.To_place == Place.DiscardPile)
             {
                 for (int i = 0; i < move.Card_ids.Count; i++)
                 {
                     int card_id = move.Card_ids[i];
                     if (room.GetCardPlace(card_id) == Place.DiscardPile && move.From_places[i] == Place.PlaceTable && room.GetCard(card_id).HasFlag(Name))
-                        return new TriggerStruct(Name, move.From);
+                    {
+                        foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                            triggers.Add(new TriggerStruct(Name, p));
+                        break;
+                    }
                 }
             }
             else if ((triggerEvent == TriggerEvent.TargetChosen || triggerEvent == TriggerEvent.TargetConfirmed) && base.Triggerable(player, room) && data is CardUseStruct use)
@@ -4417,10 +4423,10 @@ namespace SanguoshaServer.Package
                 if (fcard is Duel || (fcard is Slash && WrappedCard.IsRed(RoomLogic.GetCardSuit(room, use.Card))))
                 {
                     if (triggerEvent == TriggerEvent.TargetChosen || use.To.Contains(player))
-                        return new TriggerStruct(Name, player);
+                        triggers.Add(new TriggerStruct(Name, player));
                 }
             }
-            return new TriggerStruct();
+            return triggers;
         }
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player sunce, ref object data, Player ask_who, TriggerStruct info)
         {
