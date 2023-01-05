@@ -284,6 +284,9 @@ namespace SanguoshaServer.Package
                 { "zhaofu", new List<string>{ "#zhaofu" } },
                 { "jinjiu", new List<string>{ "#jinjiu-prohibit" } },
                 { "liandui", new List<string>{ "#liandui" } },
+                { "xiansi", new List<string>{ "#xiansi-tar" } },
+                { "zhuikong", new List<string>{ "#zhuikong-prohibit" } },
+                { "juexiang", new List<string>{ "#juexiang" } },
             };
         }
     }

@@ -134,6 +134,9 @@ namespace SanguoshaServer.Package
                 { "dimeng_classic", new List<string>{ "#dimeng_classic" } },
                 { "weimu_jx", new List<string>{ "#weimu_jx" } },
                 { "jiang_jx", new List<string>{ "#jiang-clear" } },
+                { "liegong_jx", new List<string>{ "#liegong-tar" } },
+                { "canyuan", new List<string>{ "#canyuan" } },
+                { "shuangxiong_jx", new List<string>{ "#shuangxiong_jx-get", "#shuangxiong-vs" } },
             };
         }
     }

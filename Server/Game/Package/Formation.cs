@@ -53,7 +53,7 @@ namespace SanguoshaServer.Package
 
             };
             related_skills = new Dictionary<string, List<string>> {
-                { "tuntian", new List<string>{"#tuntian-gotofield", "#tuntian-clear" } },
+                { "tuntian", new List<string>{"#tuntian-gotofield", "#tuntian-clear", "#tuntian-dist" } },
                 { "qianhuan", new List<string>{ "#qianhuan-clear" } },
                 { "zhangwu", new List<string>{ "#zhangwu-draw" } },
                 { "qiluan", new List<string>{ "#qiluan" } }

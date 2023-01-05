@@ -40,6 +40,13 @@ namespace SanguoshaServer.Game
         public List<string> Generals { get; private set; } = new List<string>();
         public List<string> Skills { get; private set; } = new List<string>();
         public List<TargetModSkill> TargetModSkills { get; private set; } = new List<TargetModSkill>();
+        public List<ProhibitSkill> ProhibitSkills { get; private set; } = new List<ProhibitSkill>();
+        public List<FixCardSkill> FixcardSkills { get; private set; } = new List<FixCardSkill>();
+        public List<DistanceSkill> DistanceSkills { get; private set; } = new List<DistanceSkill>();
+        public List<MaxCardsSkill> MaxcardsSkills { get; private set; } = new List<MaxCardsSkill>();
+        public List<AttackRangeSkill> AttackrangeSkills { get; private set; } = new List<AttackRangeSkill>();
+        public List<InvalidSkill> InvalidSkills { get; private set; } = new List<InvalidSkill>();
+        public List<ViewHasSkill> ViewHasSkills { get; private set; } = new List<ViewHasSkill>();
         public List<string> UsedGeneral { get; private set; } = new List<string>();
         public List<int> DiscardPile => m_discardPile;
         public int Round { get; private set; }
@@ -1637,16 +1644,30 @@ namespace SanguoshaServer.Game
             ShowGeneral(player, false);
         }
 
-        public void AddSkill2Game(string skill_name)
+        public void AddSkill2Game(string skill_name, bool add_trigger = true)
         {
             Skill skill = Engine.GetSkill(skill_name);
             if (!Skills.Contains(skill_name))
             {
                 Skills.Add(skill_name);
-                if (skill is TriggerSkill tskill)
+                if (skill is TriggerSkill tskill && add_trigger)
                     RoomThread.AddTriggerSkill(tskill);
                 else if (skill is TargetModSkill tar)
                     TargetModSkills.Add(tar);
+                else if (skill is ProhibitSkill pro)
+                    ProhibitSkills.Add(pro);
+                else if (skill is FixCardSkill fskill)
+                    FixcardSkills.Add(fskill);
+                else if (skill is DistanceSkill dskill)
+                    DistanceSkills.Add(dskill);
+                else if (skill is MaxCardsSkill mskill)
+                    MaxcardsSkills.Add(mskill);
+                else if (skill is AttackRangeSkill askill)
+                    AttackrangeSkills.Add(askill);
+                else if (skill is InvalidSkill iskill)
+                    InvalidSkills.Add(iskill);
+                else if (skill is ViewHasSkill vh)
+                    ViewHasSkills.Add(vh);
             }
 
             foreach (Skill _skill in Engine.GetRelatedSkills(skill_name))
@@ -1654,10 +1675,24 @@ namespace SanguoshaServer.Game
                 if (!Skills.Contains(_skill.Name))
                 {
                     Skills.Add(_skill.Name);
-                    if (_skill is TriggerSkill tskill)
+                    if (_skill is TriggerSkill tskill && add_trigger)
                         RoomThread.AddTriggerSkill(tskill);
-                    else if (skill is TargetModSkill tar)
+                    else if (_skill is TargetModSkill tar)
                         TargetModSkills.Add(tar);
+                    else if (_skill is ProhibitSkill pro)
+                        ProhibitSkills.Add(pro);
+                    else if (_skill is FixCardSkill fskill)
+                        FixcardSkills.Add(fskill);
+                    else if (_skill is DistanceSkill dskill)
+                        DistanceSkills.Add(dskill);
+                    else if (_skill is MaxCardsSkill mskill)
+                        MaxcardsSkills.Add(mskill);
+                    else if (_skill is AttackRangeSkill askill)
+                        AttackrangeSkills.Add(askill);
+                    else if (_skill is InvalidSkill iskill)
+                        InvalidSkills.Add(iskill);
+                    else if (_skill is ViewHasSkill vh)
+                        ViewHasSkills.Add(vh);
                 }
             }
         }
@@ -2976,107 +3011,28 @@ namespace SanguoshaServer.Game
             PreparePlayers();
 
             //加载本局游戏技能
-            foreach (Skill skill in Engine.GetCardPackSkills())
-            {
-                if (!Skills.Contains(skill.Name))
-                {
-                    Skills.Add(skill.Name);
-                    if (skill is TargetModSkill tar)
-                        TargetModSkills.Add(tar);
+            GameScenario scenario = Engine.GetScenario(Setting.GameMode);
+            foreach (Skill skill in scenario.GetGameRuleSkills())
+                AddSkill2Game(skill.Name, false);
 
-                    foreach (Skill _skill in Engine.GetRelatedSkills(skill.Name))
-                        if (!Skills.Contains(_skill.Name))
-                        {
-                            Skills.Add(_skill.Name);
-                            if (skill is TargetModSkill _tar)
-                                TargetModSkills.Add(_tar);
-                        }
-                }
-            }
+            foreach (Skill skill in Engine.GetCardPackSkills())
+                AddSkill2Game(skill.Name, false);
 
             foreach (Player p in Players)
             {
                 foreach (string skill in Engine.GetGeneralSkills(p.ActualGeneral1, Setting.GameMode))
-                {
-                    if (!Skills.Contains(skill))
-                        Skills.Add(skill);
-
-                    Skill real_skill = Engine.GetSkill(skill);
-                    if (real_skill is TargetModSkill tar)
-                        TargetModSkills.Add(tar);
-
-                    foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                    {
-                        if (!Skills.Contains(_skill.Name))
-                        {
-                            Skills.Add(_skill.Name);
-                            if (_skill is TargetModSkill _tar)
-                                TargetModSkills.Add(_tar);
-                        }
-                    }
-                }
+                    AddSkill2Game(skill, false);
 
                 foreach (string skill in Engine.GetGeneralRelatedSkills(p.ActualGeneral1, Setting.GameMode))
-                {
-                    if (!Skills.Contains(skill))
-                        Skills.Add(skill);
-
-                    Skill real_skill = Engine.GetSkill(skill);
-                    if (real_skill is TargetModSkill tar)
-                        TargetModSkills.Add(tar);
-
-                    foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                    {
-                        if (!Skills.Contains(_skill.Name))
-                        {
-                            Skills.Add(_skill.Name);
-                            if (_skill is TargetModSkill _tar)
-                                TargetModSkills.Add(_tar);
-                        }
-                    }
-                }
+                    AddSkill2Game(skill, false);
 
                 if (!string.IsNullOrEmpty(p.ActualGeneral2))
                 {
                     foreach (string skill in Engine.GetGeneralSkills(p.ActualGeneral2, Setting.GameMode))
-                    {
-                        if (!Skills.Contains(skill))
-                            Skills.Add(skill);
-
-                        Skill real_skill = Engine.GetSkill(skill);
-                        if (real_skill is TargetModSkill tar)
-                            TargetModSkills.Add(tar);
-
-                        foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                        {
-                            if (!Skills.Contains(_skill.Name))
-                            {
-                                Skills.Add(_skill.Name);
-                                if (_skill is TargetModSkill _tar)
-                                    TargetModSkills.Add(_tar);
-                            }
-                        }
-                    }
+                        AddSkill2Game(skill, false);
 
                     foreach (string skill in Engine.GetGeneralRelatedSkills(p.ActualGeneral2, Setting.GameMode))
-                    {
-                        if (!Skills.Contains(skill))
-                            Skills.Add(skill);
-
-                        Skill real_skill = Engine.GetSkill(skill);
-                        if (real_skill is TargetModSkill tar)
-                            TargetModSkills.Add(tar);
-
-                        foreach (Skill _skill in Engine.GetRelatedSkills(skill))
-                        {
-                            if (!Skills.Contains(_skill.Name))
-                            {
-                                Skills.Add(_skill.Name);
-                                if (_skill is TargetModSkill _tar)
-                                    TargetModSkills.Add(_tar);
-                            }
-                        }
-                    }
+                        AddSkill2Game(skill, false);
                 }
             }
 

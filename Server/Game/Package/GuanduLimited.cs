@@ -58,6 +58,7 @@ namespace SanguoshaServer.Package
                 { "moushi", new List<string> { "#moushi-draw" } },
                 { "hengjiang_jx", new List<string> { "#hengjiang_jx-draw", "#hengjiang_jx-fail" } },
                 { "qigong", new List<string> { "#qigong-target" } },
+                { "beizhan", new List<string> { "#beizhan-prohibit" } },
             };
         }
     }

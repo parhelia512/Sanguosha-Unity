@@ -98,6 +98,7 @@ namespace SanguoshaServer.Package
                 { "liegong_fz", new List<string> { "#liegong_fz-for-lord" } },
                 { "yongsi", new List<string> { "#yongshi-viewhas" } },
                 { "zhuwei", new List<string> { "#zhuwei-max", "#zhuwei-tar" } },
+                { "duanliang_cc", new List<string> { "#duanliang_cc-target" } },
             };
         }
     }

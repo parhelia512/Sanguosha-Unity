@@ -350,8 +350,8 @@ namespace SanguoshaServer.Scenario
         {
             game_cards = Engine.GetGameCards(room.Setting.CardPackage);
             m_drawPile = game_cards;
-            room.Skills.Add("landlord");
-            room.Skills.Add("landlord-tar");
+            room.AddSkill2Game("landlord");
+            room.AddSkill2Game("landlord-tar");
 
             Shuffle.shuffle(ref m_drawPile);
             AdjustSeats(room, ref room_players);

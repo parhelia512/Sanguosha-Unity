@@ -180,13 +180,15 @@ namespace SanguoshaServer.Package
                 { "bazhen", new List<string> { "#bazhenvh" } },
                 { "huoshou", new List<string> { "#sa_avoid_huoshou" } },
                 { "juxiang", new List<string> { "#sa_avoid_juxiang" } },
-                { "shuangxiong", new List<string> { "#shuangxiong-get" } },
+                { "shuangxiong", new List<string> { "#shuangxiong-get", "#shuangxiong-viewhas" } },
                 { "lirang", new List<string> { "#lirang-clear" } },
                 {"buqu", new List<string>{ "#buqu-clear" } },
                 {"haoshi", new List<string>{ "#haoshi-give" } },
                 {"guzheng", new List<string>{ "#guzheng-remove" } },
                 { "kurou", new List<string>{ "#kurou-tm" } },
-                { "tianyi", new List<string>{ "#tianyi-target" } }
+                { "tianyi", new List<string>{ "#tianyi-target" } },
+                { "tieqi", new List<string>{ "#tieqi-invalid" } },
+                { "wansha", new List<string>{ "#wansha-prohibit" } },
             };
 
             patterns = new Dictionary<string, CardPattern> {

@@ -131,7 +131,6 @@ namespace SanguoshaServer.AI
 
                 new HongyuanAI(),
                 new HuanshiAI(),
-                new MingzheAI(),
                 new AocaiAI(),
                 new DuwuAI(),
                 new HongdeAI(),
@@ -7499,69 +7498,46 @@ namespace SanguoshaServer.AI
     {
         public HongyuanAI() : base("hongyuan")
         {
-            key = new List<string> { "playerChosen:hongyuan" };
-        }
-        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
-        {
-            if (data is string choice && ai.Self != player)
-            {
-                string[] choices = choice.Split(':');
-                if (choices[1] == Name)
-                {
-                    Room room = ai.Room;
-                    List<Player> targets = new List<Player>();
-                    foreach (string name in choices[2].Split('+'))
-                        targets.Add(room.FindPlayer(name));
-
-                    foreach (Player p in targets)
-                        if (ai.GetPlayerTendency(p) != "unknown")
-                            ai.UpdatePlayerRelation(player, p, true);
-                }
-            }
         }
 
-        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
-            List<Player> friends = ai.FriendNoSelf;
-            List<Player> result = new List<Player>();
-            if (friends.Count > 0 && ai.WillSkipPlayPhase(player) || friends.Count > 1)
-            {
-                ai.SortByDefense(ref friends, false);
-                foreach (Player p in friends)
-                {
-                    if (ai.HasSkill("zishu", p)) continue;
-                    if (result.Count < 2)
-                        result.Add(p);
-                    else
-                        break;
-                }
+            CardUseStruct use = new CardUseStruct(null, player, new List<Player>());
+            List<int> cards = player.GetPile("#hongyuan");
+            List<Player> targets = new List<Player>();
+            foreach (Player p in ai.FriendNoSelf)
+                if (p.HasFlag("shushou")) targets.Add(p);
 
-                if (result.Count == 1)
+            if (targets.Count > 0)
+            {
+                Room room = ai.Room;
+                List<int> reds = new List<int>();
+                foreach (int id in cards)
+                    if (WrappedCard.IsRed(room.GetCard(id).Suit))
+                        reds.Add(id);
+                if (reds.Count > 0 && player.Phase != PlayerPhase.Play && !player.HasFlag(Name))
                 {
-                    foreach (Player p in friends)
+                    KeyValuePair<Player, int> keys = ai.GetCardNeedPlayer(reds, targets);
+                    if (keys.Key != null && keys.Value >= 0)
                     {
-                        if (result.Count < 2)
-                        {
-                            if (!result.Contains(p))
-                                result.Add(p);
-                        }
-                        else
-                            break;
+                        use.Card = new WrappedCard(ShushouCard.ClassName);
+                        use.Card.AddSubCard(keys.Value);
+                        use.To.Add(keys.Key);
+                    }
+                }
+                else if (ai.GetOverflow(player) > 0)
+                {
+                    KeyValuePair<Player, int> keys = ai.GetCardNeedPlayer(cards, targets);
+                    if (keys.Key != null && keys.Value >= 0)
+                    {
+                        use.Card = new WrappedCard(ShushouCard.ClassName);
+                        use.Card.AddSubCard(keys.Value);
+                        use.To.Add(keys.Key);
                     }
                 }
             }
 
-            return result;
-        }
-    }
-
-    public class MingzheAI : SkillEvent
-    {
-        public MingzheAI() : base("mingzhe") { }
-
-        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
-        {
-            return true;
+            return use;
         }
     }
 

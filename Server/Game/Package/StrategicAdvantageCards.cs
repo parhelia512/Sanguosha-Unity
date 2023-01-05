@@ -52,6 +52,12 @@ namespace SanguoshaServer.Package
                 new Edict(),
                 new OffensiveHorse("Jingfan")
             };
+
+            related_skills = new Dictionary<string, List<string>>
+            {
+                { IronArmor.ClassName , new List<string>{ "#IronArmor-pro" } },
+                { "lure_tiger_effect" , new List<string>{ "#lure_tiger-prohibit" } },
+            };
         }
     }
 }

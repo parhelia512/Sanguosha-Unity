@@ -103,6 +103,9 @@ namespace SanguoshaServer.Package
                 { "zhaxiang", new List<string> { "#zhaxiang-tm" } },
                 { "qianxun_jx", new List<string> { "#qianxun_jx-clear" } },
                 { "botu", new List<string> { "#botu" } },
+                { "yijue", new List<string> { "#yijue-invalid" } },
+                { "tieqi_jx", new List<string> { "#tieqi_jx-invalid" } },
+                { "qicai_jx", new List<string> { "#qicai-fix" } },
             };
         }
     }

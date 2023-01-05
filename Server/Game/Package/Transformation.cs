@@ -63,8 +63,9 @@ namespace SanguoshaServer.Package
             {
                 { "zhiman", new List<string>{ "#zhiman-second" } },
                 { "jiahe", new List<string>{ "#jiahe-clear" } },
-                { "yigui", new List<string>{ "#yigui-clear" } },
-                { "haoshiextra", new List<string>{ "#haoshi-give" } }
+                { "yigui", new List<string>{ "#yigui-clear", "#yigui-prohibit" } },
+                { "haoshiextra", new List<string>{ "#haoshi-give" } },
+                { "jubao", new List<string>{ "#jubao-treasure" } },
             };
         }
     }

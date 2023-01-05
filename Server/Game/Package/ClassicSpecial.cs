@@ -410,6 +410,7 @@ namespace SanguoshaServer.Package
                 { "genzhan", new List<string>{ "#genzhan" } },
                 { "qiongshou", new List<string>{ "#qiongshou" } },
                 { "qiaoli", new List<string>{ "#qiaoli" } },
+                { "beizhan_classic", new List<string>{ "#beizhan-c-prohibit" } },
             };
         }
     }
@@ -15224,13 +15225,18 @@ namespace SanguoshaServer.Package
     {
         public Hongyuan() : base("hongyuan")
         {
-            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime };
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime, TriggerEvent.EventPhaseChanging };
             view_as_skill = new HongyuanVS();
         }
-
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging)
+                foreach (Player p in room.GetAlivePlayers())
+                    p.SetFlags("-hongyuan");
+        }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is CardsMoveOneTimeStruct move)
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move)
             {
                 if (move.To != null && base.Triggerable(move.To, room) && !move.To.HasFlag(Name) && move.To_place == Place.PlaceHand && move.Card_ids.Count >= 2)
                     return new TriggerStruct(Name, move.To);
@@ -15239,7 +15245,6 @@ namespace SanguoshaServer.Package
             return new TriggerStruct();
         }
         
-
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             List<int> cards = ask_who.GetCards("he");

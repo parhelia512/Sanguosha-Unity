@@ -48,7 +48,7 @@ namespace SanguoshaServer.Game
         private static List<FixCardSkill> fixcard_skills = new List<FixCardSkill>();
         private static List<ViewHasSkill> viewhas_skills = new List<ViewHasSkill>();
         private static List<DistanceSkill> distance_skills = new List<DistanceSkill>();
-        private static List<MaxCardsSkill> maxcards_skills= new List<MaxCardsSkill>();
+        private static List<MaxCardsSkill> maxcards_skills = new List<MaxCardsSkill>();
         private static List<TargetModSkill> targetmod_skills = new List<TargetModSkill>();
         private static List<AttackRangeSkill> attackrange_skills = new List<AttackRangeSkill>();
         private static List<InvalidSkill> invalid_skills = new List<InvalidSkill>();
@@ -133,7 +133,6 @@ namespace SanguoshaServer.Game
                                 function_cards.Add(card.Name, card);
                         }
 
-                        AddSkills(pack.Skills, true);
                         foreach (Skill skill in pack.Skills)
                         {
                             if (skill is TriggerSkill trigger)
@@ -147,6 +146,8 @@ namespace SanguoshaServer.Game
 
                         foreach (string key in pack.RelatedSkills.Keys)
                             related_skills.Add(key, pack.RelatedSkills[key]);
+
+                        AddSkills(pack.Skills, true);
                     }
 
                 }
@@ -770,21 +771,42 @@ namespace SanguoshaServer.Game
                 skills.Add(skill.Name, skill);
 
                 if (skill is ProhibitSkill pskill)
+                {
+                    if (!skill.Visible) Debug.Assert(GetMainSkill(skill.Name) != skill, string.Format("miss related skill {0}", skill.Name));
                     prohibit_skills.Add(pskill);
+                }
                 else if (skill is FixCardSkill fskill)
+                {
+                    if (!skill.Visible) Debug.Assert(GetMainSkill(skill.Name) != skill, string.Format("miss related skill {0}", skill.Name));
                     fixcard_skills.Add(fskill);
+                }
                 else if (skill is ViewHasSkill vhskill)
+                {
+                    if (!skill.Visible) Debug.Assert(GetMainSkill(skill.Name) != skill, string.Format("miss related skill {0}", skill.Name));
                     viewhas_skills.Add(vhskill);
+                }
                 else if (skill is DistanceSkill dskill)
+                {
+                    if (!skill.Visible) Debug.Assert(GetMainSkill(skill.Name) != skill, string.Format("miss related skill {0}", skill.Name));
                     distance_skills.Add(dskill);
+                }
                 else if (skill is MaxCardsSkill mskill)
                     maxcards_skills.Add(mskill);
                 else if (skill is TargetModSkill tmskill)
+                {
+                    if (!skill.Visible) Debug.Assert(GetMainSkill(skill.Name) != skill, string.Format("miss related skill {0}", skill.Name));
                     targetmod_skills.Add(tmskill);
+                }
                 else if (skill is AttackRangeSkill askill)
+                {
+                    if (!skill.Visible) Debug.Assert(GetMainSkill(skill.Name) != skill, string.Format("miss related skill {0}", skill.Name));
                     attackrange_skills.Add(askill);
+                }
                 else if (skill is InvalidSkill iskill)
+                {
+                    if (!skill.Visible) Debug.Assert(GetMainSkill(skill.Name) != skill, string.Format("miss related skill {0}", skill.Name));
                     invalid_skills.Add(iskill);
+                }
                 else if (skill is TriggerSkill tskill)
                 {
                     if (tskill != null && tskill.Global)
@@ -851,7 +873,7 @@ namespace SanguoshaServer.Game
         public static List<ViewHasSkill> ViewHas(Room room, Player player, string skill_name, string flag)
         {
             List <ViewHasSkill> skills = new List<ViewHasSkill>();
-            foreach (ViewHasSkill skill in viewhas_skills)
+            foreach (ViewHasSkill skill in room.ViewHasSkills)
             {
                 if (flag == "armor" && skill.Armors.Contains(skill_name) && skill.ViewHas(room, player, skill_name))
                     skills.Add(skill);
@@ -878,7 +900,7 @@ namespace SanguoshaServer.Game
         }
         public static Skill IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null)
         {
-            foreach (ProhibitSkill skill in prohibit_skills)
+            foreach (ProhibitSkill skill in room.ProhibitSkills)
             {
                 if (skill.IsProhibited(room, from, to, card, others))
                     return skill;
@@ -889,7 +911,7 @@ namespace SanguoshaServer.Game
 
         public static Skill IsProhibited(Room room, Player from, Player to, ProhibitSkill.ProhibitType type)
         {
-            foreach (ProhibitSkill skill in prohibit_skills)
+            foreach (ProhibitSkill skill in room.ProhibitSkills)
             {
                 if (skill.IsProhibited(room, from, to, type))
                     return skill;
@@ -900,7 +922,7 @@ namespace SanguoshaServer.Game
 
         public static Skill Invalid(Room room, Player player, string skill)
         {
-            foreach (InvalidSkill sk in invalid_skills)
+            foreach (InvalidSkill sk in room.InvalidSkills)
                 if (sk.Invalid(room, player, skill))
                     return sk;
 
@@ -910,7 +932,7 @@ namespace SanguoshaServer.Game
         {
             int extra = 0;
 
-            foreach (AttackRangeSkill skill in attackrange_skills)
+            foreach (AttackRangeSkill skill in room.AttackrangeSkills)
             {
                 if (disctance_fixed)
                 {
@@ -1110,14 +1132,14 @@ namespace SanguoshaServer.Game
         {
             int correct = 0;
 
-            foreach (DistanceSkill skill in distance_skills)
+            foreach (DistanceSkill skill in room.DistanceSkills)
                 correct += skill.GetCorrect(room, from, to, card);
 
             return correct;
         }
         public static int GetFixedDistance(Room room, Player from, Player to)
         {
-            foreach (DistanceSkill skill in distance_skills)
+            foreach (DistanceSkill skill in room.DistanceSkills)
             {
                 int distance_fixed = skill.GetFixed(room, from, to);
                 if (distance_fixed > 0) return distance_fixed;
@@ -1127,7 +1149,7 @@ namespace SanguoshaServer.Game
         }
         public static FixCardSkill IsCardFixed(Room room, Player from, Player to, string flag, HandlingMethod method)
         {
-            foreach (FixCardSkill skill in fixcard_skills)
+            foreach (FixCardSkill skill in room.FixcardSkills)
             {
                 if (skill.IsCardFixed(room, from, to, flag, method))
                     return skill;
@@ -1137,9 +1159,8 @@ namespace SanguoshaServer.Game
         }
         public static List<ViewHasSkill> ViewHasArmorEffect(Room room, Player player)
         {
-
             List<ViewHasSkill> skills = new List<ViewHasSkill>();
-            foreach (ViewHasSkill skill in viewhas_skills)
+            foreach (ViewHasSkill skill in room.ViewHasSkills)
             {
                 foreach (string armor in skill.Armors)
                 {
@@ -1154,7 +1175,7 @@ namespace SanguoshaServer.Game
         {
             int extra = (fix ? -1 : 0);
 
-            foreach (MaxCardsSkill skill in maxcards_skills)
+            foreach (MaxCardsSkill skill in room.MaxcardsSkills)
             {
                 if (fix)
                 {
@@ -1173,7 +1194,7 @@ namespace SanguoshaServer.Game
 
         public static bool IgnoreHandCard(Room room, Player player, int card_id)
         {
-            foreach (MaxCardsSkill skill in maxcards_skills)
+            foreach (MaxCardsSkill skill in room.MaxcardsSkills)
                 if (skill.Ingnore(room, player, card_id))
                     return true;
 

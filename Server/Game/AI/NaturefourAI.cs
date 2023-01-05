@@ -38,6 +38,7 @@ namespace SanguoshaServer.AI
                 new NiepanJXAI(),
 
                 new FenjiJXAI(),
+                new JiangJxAI(),
                 new ZhibaAI(),
                 new ZhibaVSAI(),
                 new TianxiangJXAI(),
@@ -833,6 +834,47 @@ namespace SanguoshaServer.AI
                 return true;
 
             return false;
+        }
+    }
+    public class JiangJxAI : SkillEvent
+    {
+        public JiangJxAI() : base("jiang_jx") { }
+
+        public override double TargetValueAdjust(TrustedAI ai, WrappedCard card, Player from, List<Player> targets, Player to)
+        {
+            double value = 0;
+            if ((card.Name.Contains(Slash.ClassName) && WrappedCard.IsRed(card.Suit) || card.Name == Duel.ClassName) && ai.HasSkill(Name, to))
+                value += ai.IsFriend(to) ? 2 : -2;
+
+            return value;
+        }
+
+        public override double CardValue(TrustedAI ai, Player player, WrappedCard card, bool isUse, Player.Place place)
+        {
+            if (ai.HasSkill(Name, player) && (card.Name.Contains(Slash.ClassName) && WrappedCard.IsRed(card.Suit) || card.Name == Duel.ClassName) && isUse)
+                return 1.5;
+
+            return 0;
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
+        public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
+        {
+            if (!ai.WillSkipPlayPhase(player))
+            {
+                List<int> ids = player.GetPile("#jiang_jx");
+                if (player.Hp > 1)
+                {
+                    foreach (int id in ids)
+                    {
+                        WrappedCard card = ai.Room.GetCard(id);
+                        if (card.Name == Duel.ClassName)
+                            return new List<int> { id };
+                    }
+                    return new List<int> { ids[0] };
+                }
+            }
+            return new List<int>();
         }
     }
 
