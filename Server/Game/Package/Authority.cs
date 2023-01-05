@@ -202,7 +202,7 @@ namespace SanguoshaServer.Package
                 room.DrawCards(target, new DrawCardStruct(1, player, "ImperialOrder"));
                 List<Player> victims = new List<Player>();
                 foreach (Player p in room.GetOtherPlayers(target))
-                    if (RoomLogic.InMyAttackRange(room, target, p) && RoomLogic.CanSlash(room, target, p))
+                    if (RoomLogic.InMyAttackRange(room, target, p) && RoomLogic.CanSlash(room, target, p, 0, false))
                         victims.Add(p);
 
                 bool success = false;

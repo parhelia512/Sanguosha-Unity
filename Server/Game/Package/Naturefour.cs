@@ -3094,7 +3094,7 @@ namespace SanguoshaServer.Package
     {
         public static string ClassName = "TiaoxinJXCard";
         public TiaoxinJXCard() : base(ClassName) { }
-        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self && RoomLogic.CanSlash(room, to_select, Self);
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self && RoomLogic.InMyAttackRange(room, to_select, Self);
         public override void OnEffect(Room room, CardEffectStruct effect)
         {
             Player slasher = effect.To;

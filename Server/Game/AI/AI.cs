@@ -6459,7 +6459,7 @@ namespace SanguoshaServer.AI
             Dictionary<Player, ScoreStruct> available_targets = new Dictionary<Player, ScoreStruct>();
             foreach (Player target in targets)
             {
-                if (!RoomLogic.CanSlash(room, self, target, card, 0, current_targets) || SlashProhibit(card, target, self)) continue;
+                if (!RoomLogic.CanSlash(room, self, target, card, 0, true, current_targets) || SlashProhibit(card, target, self)) continue;
                 available_targets.Add(target, SlashIsEffective(card, target));
             }
 

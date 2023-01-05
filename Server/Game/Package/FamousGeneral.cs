@@ -4205,7 +4205,7 @@ namespace SanguoshaServer.Package
                 if (Slash.IsAvailable(room, target, slash))
                 {
                     foreach (Player p in room.GetOtherPlayers(target))
-                        if (RoomLogic.CanSlash(room, target, p))
+                        if (RoomLogic.CanSlash(room, target, p, 0, false))
                             targets.Add(p);
                 }
 
@@ -10929,7 +10929,7 @@ namespace SanguoshaServer.Package
                         bool check = false;
                         foreach (Player _p in room.GetOtherPlayers(p))
                         {
-                            if (RoomLogic.CanSlash(room, p, _p))
+                            if (RoomLogic.CanSlash(room, p, _p, 0, false))
                             {
                                 check = true;
                                 break;
@@ -10999,7 +10999,7 @@ namespace SanguoshaServer.Package
                     {
                         List<Player> targets = new List<Player>();
                         foreach (Player p in room.GetOtherPlayers(target))
-                            if (RoomLogic.CanSlash(room, target, p))
+                            if (RoomLogic.CanSlash(room, target, p, 0, false))
                                 targets.Add(p);
 
                         Player victim = room.AskForPlayerChosen(player, targets, Name, "@Collateral:" + target.Name, false, false, info.SkillPosition);

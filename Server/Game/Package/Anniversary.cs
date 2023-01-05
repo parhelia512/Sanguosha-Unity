@@ -14180,7 +14180,7 @@ namespace SanguoshaServer.Package
                         {
                             List<Player> vitcims = new List<Player>();
                             foreach (Player p in room.GetOtherPlayers(target))
-                                if (RoomLogic.CanSlash(room, target, p)) vitcims.Add(p);
+                                if (RoomLogic.CanSlash(room, target, p, 0, false)) vitcims.Add(p);
 
                             if (vitcims.Count > 0)
                             {

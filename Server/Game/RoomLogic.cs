@@ -29,7 +29,7 @@ namespace SanguoshaServer.Game
             return Engine.IsProhibited(room, from, to, card, others);
         }
 
-        public static bool CanSlash(Room room, Player slasher, Player other, WrappedCard slash, int rangefix = 0, List<Player> others = null)
+        public static bool CanSlash(Room room, Player slasher, Player other, WrappedCard slash, int rangefix = 0, bool invoke_skill = true, List<Player> others = null)
         {
             if (other == slasher || !other.Alive)
                 return false;
@@ -40,14 +40,14 @@ namespace SanguoshaServer.Game
 
             if (DistanceTo(room, slasher, other, slash) == -1) return false;
 
-            if (!slash.DistanceLimited || Engine.CorrectCardTarget(room, TargetModSkill.ModType.DistanceLimit, slasher, other, slash)) return true;
+            if (invoke_skill && (!slash.DistanceLimited || Engine.CorrectCardTarget(room, TargetModSkill.ModType.DistanceLimit, slasher, other, slash))) return true;
 
             return InMyAttackRange(room, slasher, other, slash, rangefix);
         }
 
-        public static bool CanSlash(Room room, Player slasher, Player other, int rangefix = 0, List<Player> others = null)
+        public static bool CanSlash(Room room, Player slasher, Player other, int rangefix = 0, bool invoke_skill = true, List<Player> others = null)
         {
-            return CanSlash(room, slasher, other, null, rangefix, others);
+            return CanSlash(room, slasher, other, null, rangefix, invoke_skill, others);
         }
 
         public static bool CanSlashWithoutCrossBow(Room room, Player player, WrappedCard slash = null)

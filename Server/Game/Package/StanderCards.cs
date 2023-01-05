@@ -446,13 +446,13 @@ namespace SanguoshaServer.Package
                 }
             }
 
-            if (!RoomLogic.CanSlash(room, Self, to_select, card, 0, targets) || targets.Count >= slash_targets) return false;
+            if (!RoomLogic.CanSlash(room, Self, to_select, card, 0, true, targets) || targets.Count >= slash_targets) return false;
 
             return true;
         }
         public override bool ExtratargetFilter(Room room, List<Player> selected, Player to_select, Player Self, WrappedCard card)
         {
-            return card.ExtraTarget && RoomLogic.CanSlash(room, Self, to_select, card, 0, selected);
+            return card.ExtraTarget && RoomLogic.CanSlash(room, Self, to_select, card, 0, true, selected);
         }
         public override bool IsAvailable(Room room, Player player, WrappedCard card)
         {
@@ -939,7 +939,7 @@ namespace SanguoshaServer.Package
                 // roomscene such that if it is collateral, then targetFilter's result is overriden
                 if (targets.Count == 2) return false;
                 Player slashFrom = targets[0];
-                return RoomLogic.CanSlash(room, slashFrom, to_select);
+                return RoomLogic.CanSlash(room, slashFrom, to_select, 0, false);
             }
             else
             {
@@ -949,7 +949,7 @@ namespace SanguoshaServer.Package
                 foreach (Player p in room.GetAllPlayers())
                 {
                     if (p == to_select) continue;
-                    if (RoomLogic.CanSlash(room, to_select, p))
+                    if (RoomLogic.CanSlash(room, to_select, p, 0, false))
                         return true;
                 }
             }
@@ -1000,7 +1000,7 @@ namespace SanguoshaServer.Package
                 // roomscene such that if it is collateral, then targetFilter's result is overriden
                 if (targets.Count == 2) return false;
                 Player slashFrom = targets[0];
-                return RoomLogic.CanSlash(room, slashFrom, to_select);
+                return RoomLogic.CanSlash(room, slashFrom, to_select, 0, false);
             }
             else
             {
@@ -1010,7 +1010,7 @@ namespace SanguoshaServer.Package
                 foreach (Player p in room.GetAllPlayers())
                 {
                     if (p == to_select) continue;
-                    if (RoomLogic.CanSlash(room, to_select, p))
+                    if (RoomLogic.CanSlash(room, to_select, p, 0, false))
                         return true;
                 }
             }

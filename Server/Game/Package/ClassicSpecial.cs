@@ -8818,7 +8818,7 @@ namespace SanguoshaServer.Package
                 List<Player> targets = new List<Player>();
                 foreach (Player p in room.GetOtherPlayers(target))
                 {
-                    if (RoomLogic.CanSlash(room, target, p))
+                    if (RoomLogic.CanSlash(room, target, p, 0, false))
                         targets.Add(p);
                 }
 
