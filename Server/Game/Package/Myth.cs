@@ -3609,13 +3609,8 @@ namespace SanguoshaServer.Package
                 if (fcard is Horse || judge.Card.Name == Snatch.ClassName || judge.Card.Name == SupplyShortage.ClassName)
                     ids.Add(3);
 
-                room.RemovePlayerStringMark(target, "shencai_0");
-                room.RemovePlayerStringMark(target, "shencai_1");
-                room.RemovePlayerStringMark(target, "shencai_2");
-                room.RemovePlayerStringMark(target, "shencai_3");
                 if (ids.Count == 0)
                 {
-                    target.RemoveTag("shencai");
                     target.AddMark("shencai_4");
                     room.SetPlayerStringMark(target, "shencai_4", target.GetMark("shencai_4").ToString());
                     if (effect.From.Alive && !target.IsAllNude() && RoomLogic.CanGetCard(room, effect.From, target, "hej"))
@@ -3627,6 +3622,11 @@ namespace SanguoshaServer.Package
                 else
                 {
                     target.SetTag("shencai", ids);
+                    room.RemovePlayerStringMark(target, "shencai_0");
+                    room.RemovePlayerStringMark(target, "shencai_1");
+                    room.RemovePlayerStringMark(target, "shencai_2");
+                    room.RemovePlayerStringMark(target, "shencai_3");
+
                     if (ids.Contains(0)) room.SetPlayerStringMark(target, "shencai_0", string.Empty);
                     if (ids.Contains(1)) room.SetPlayerStringMark(target, "shencai_1", string.Empty);
                     if (ids.Contains(2)) room.SetPlayerStringMark(target, "shencai_2", string.Empty);
