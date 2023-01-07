@@ -332,7 +332,7 @@ namespace SanguoshaServer.Package
                     if (archer)
                     {
                         room.Speak(player, "万箭齐发！！");
-                        WrappedCard card = new WrappedCard(ArcheryAttack.ClassName) { Skill = Name };
+                        WrappedCard card = new WrappedCard(ArcheryAttack.ClassName) { Skill = "_tianren_cr" };
                         room.UseCard(new CardUseStruct(card, ask_who, new List<Player>()));
                     }
                 }

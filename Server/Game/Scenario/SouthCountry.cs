@@ -54,7 +54,7 @@ namespace SanguoshaServer.Scenario
                         player.MaxHp = player.Hp = 4;
                         break;
                     case 5:
-                        player.General1 = player.ActualGeneral1 = player.General2 = player.ActualGeneral2 = "sujiang";
+                        player.General1 = player.ActualGeneral1 = "sujiang";
                         player.Kingdom = "wei";
                         player.MaxHp = player.Hp = 3;
                         break;
@@ -65,7 +65,7 @@ namespace SanguoshaServer.Scenario
                         player.MaxHp = player.Hp = 10;
                         break;
                     case 7:
-                        player.General1 = player.ActualGeneral1 = player.General2 = player.ActualGeneral2 = "sujiangf";
+                        player.General1 = player.ActualGeneral1 = "sujiangf";
                         player.PlayerGender = Player.Gender.Female;
                         player.Kingdom = "wei";
                         player.MaxHp = player.Hp = 3;
@@ -86,7 +86,7 @@ namespace SanguoshaServer.Scenario
 
                 if (i < 4)
                     room.HandleUsedGeneral(player.General1);
-                else
+                else if (!string.IsNullOrEmpty(player.General2))
                 {
                     player.General2Showed = true;
                     room.BroadcastProperty(player, "General2");
@@ -101,19 +101,6 @@ namespace SanguoshaServer.Scenario
                         room.SetPlayerMark(player, s.LimitMark, 1);
                 }
                 room.SendPlayerSkillsToOthers(player, true);
-                /*
-                if (i == 6)
-                {
-                    foreach (string skill in Engine.GetGeneralSkills(player.General2, Name, true))
-                    {
-                        room.AddPlayerSkill(player, skill, false);
-                        Skill s = Engine.GetSkill(skill);
-                        if (s != null && s.SkillFrequency == Frequency.Limited && !string.IsNullOrEmpty(s.LimitMark))
-                            room.SetPlayerMark(player, s.LimitMark, 1);
-                    }
-                    room.SendPlayerSkillsToOthers(player, false);
-                }
-                */
                 //技能预亮
                 player.SetSkillsPreshowed("hd");
                 room.NotifyPlayerPreshow(player);
@@ -285,18 +272,20 @@ namespace SanguoshaServer.Scenario
         {
             foreach (Player player in room.Players)
             {
-                string general2_name = player.ActualGeneral2;
-                foreach (string skill in Engine.GetGeneralSkills(general2_name, Name, true))
+                if (!string.IsNullOrEmpty(player.ActualGeneral2))
                 {
-                    Skill s = Engine.GetSkill(skill);
-                    if (s != null && !s.LordSkill)
+                    foreach (string skill in Engine.GetGeneralSkills(player.ActualGeneral2, Name, true))
                     {
-                        room.AddPlayerSkill(player, skill, false);
-                        if (s.SkillFrequency == Frequency.Limited && !string.IsNullOrEmpty(s.LimitMark))
-                            room.SetPlayerMark(player, s.LimitMark, 1);
+                        Skill s = Engine.GetSkill(skill);
+                        if (s != null && !s.LordSkill)
+                        {
+                            room.AddPlayerSkill(player, skill, false);
+                            if (s.SkillFrequency == Frequency.Limited && !string.IsNullOrEmpty(s.LimitMark))
+                                room.SetPlayerMark(player, s.LimitMark, 1);
+                        }
                     }
+                    room.SendPlayerSkillsToOthers(player, false);
                 }
-                room.SendPlayerSkillsToOthers(player, false);
 
                 //技能预亮
                 player.SetSkillsPreshowed("hd");

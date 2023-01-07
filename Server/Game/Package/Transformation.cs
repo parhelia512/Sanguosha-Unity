@@ -2181,7 +2181,7 @@ namespace SanguoshaServer.Package
                     skills.Add("-" + skill);
                 
                 player.RemoveTag(Name);
-                room.HandleAcquireDetachSkills(player, skills, true);
+                room.HandleAcquireDetachSkills(player, skills, true, false);
             }
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -2376,23 +2376,14 @@ namespace SanguoshaServer.Package
             events = new List<TriggerEvent> { TriggerEvent.GeneralShown, TriggerEvent.Death, TriggerEvent.DFDebut };
             frequency = Frequency.Compulsory;
         }
-        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (player == null)
-                return new TriggerStruct();
-            
-            if (triggerEvent == TriggerEvent.GeneralShown && player.General1Showed)
+            base.Record(triggerEvent, room, player, ref data);
+            if (triggerEvent == TriggerEvent.GeneralShown && player.General1Showed && base.Triggerable(player, room))
             {
-                if (base.Triggerable(player, room))
-                {
-                    foreach (Player p in room.GetAlivePlayers())
-                    {
-                        if (RoomLogic.WillBeFriendWith(room, p, player))
-                        {
-                            room.AttachSkillToPlayer(p, "flamemap");
-                        }
-                    }
-                }
+                foreach (Player p in room.GetAlivePlayers())
+                    if (RoomLogic.WillBeFriendWith(room, p, player))
+                        room.AttachSkillToPlayer(p, "flamemap");
             }
             else if (triggerEvent == TriggerEvent.Death && data is DeathStruct death && death.Who == player && RoomLogic.PlayerHasSkill(room, player, Name))
             {
@@ -2405,9 +2396,9 @@ namespace SanguoshaServer.Package
                 if (sunquan != null && RoomLogic.PlayerHasShownSkill(room, sunquan, Name) && !player.GetAcquiredSkills().Contains("flamemap"))
                     room.AttachSkillToPlayer(player, "flamemap");
             }
-
-            return new TriggerStruct();
         }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
     }
 
     public class JiaheClear : DetachEffectSkill

@@ -15288,6 +15288,7 @@ namespace SanguoshaServer.Package
             {
                 ask_who.SetFlags(Name);
                 room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                room.NotifySkillInvoked(ask_who, Name);
                 LogMessage l = new LogMessage
                 {
                     Type = "#ChoosePlayerWithSkill",

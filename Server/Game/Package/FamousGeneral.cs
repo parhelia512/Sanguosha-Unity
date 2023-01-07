@@ -2173,7 +2173,7 @@ namespace SanguoshaServer.Package
     {
         public Xiansi() : base("xiansi")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.EventAcquireSkill, TriggerEvent.GameStart, TriggerEvent.EventLoseSkill };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.EventAcquireSkill, TriggerEvent.GameStart, TriggerEvent.EventLoseSkill, TriggerEvent.Revived };
             skill_type = SkillType.Attack;
             view_as_skill = new XiansiViewAs();
         }
@@ -2184,18 +2184,20 @@ namespace SanguoshaServer.Package
             {
                 room.AddSkill2Game("xiansivs");
                 foreach (Player p in room.GetOtherPlayers(player))
-                    room.HandleAcquireDetachSkills(p, "xiansivs", true);
+                    room.HandleAcquireDetachSkills(p, "xiansivs", true, false);
             }
             else if (triggerEvent == TriggerEvent.EventAcquireSkill && data is InfoStruct info && info.Info == Name)
             {
                 room.AddSkill2Game("xiansivs");
                 foreach (Player p in room.GetOtherPlayers(player))
-                    room.HandleAcquireDetachSkills(p, "xiansivs", true);
+                    room.HandleAcquireDetachSkills(p, "xiansivs", true, false);
             }
             else if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct _info && _info.Info == Name)
             {
                 room.ClearOnePrivatePile(player, "revolt");
             }
+            else if (triggerEvent == TriggerEvent.Revived && !base.Triggerable(player, room))
+                room.HandleAcquireDetachSkills(player, "xiansivs", true, false);
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -2397,7 +2399,7 @@ namespace SanguoshaServer.Package
 
             GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, target, "xiansi", target == use.From ? use.Card.SkillPosition : null);
             Random ra = new Random();
-            int index = ra.Next(3, 5);
+            int index = target == use.From ? ra.Next(1, 3) : ra.Next(3, 5);
             room.BroadcastSkillInvoke("xiansi", "male", index, gsk.General, gsk.SkinId);
 
             WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_xiansi" };
@@ -8225,12 +8227,16 @@ namespace SanguoshaServer.Package
         public Biejun() : base("biejun")
         {
             events = new List<TriggerEvent> { TriggerEvent.DamageInflicted, TriggerEvent.CardsMoveOneTime, TriggerEvent.EventPhaseChanging,
-                TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill };
+                TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill, TriggerEvent.Revived };
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.DamageInflicted)
+            if (triggerEvent == TriggerEvent.Revived && !base.Triggerable(player, room))
+            {
+                room.HandleAcquireDetachSkills(player, "xiansivs", true, false);
+            }
+            else if (triggerEvent == TriggerEvent.DamageInflicted)
             {
                 player.AddMark(Name);
             }
@@ -8275,7 +8281,7 @@ namespace SanguoshaServer.Package
             {
                 room.AddSkill2Game("biejun_vs");
                 foreach (Player p in room.GetOtherPlayers(player))
-                    room.HandleAcquireDetachSkills(p, "biejun_vs", true);
+                    room.HandleAcquireDetachSkills(p, "biejun_vs", true, false);
             }
         }
 
@@ -10675,7 +10681,7 @@ namespace SanguoshaServer.Package
     {
         public Wengua() : base("wengua")
         {
-            events = new List<TriggerEvent> { TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill };
+            events = new List<TriggerEvent> { TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill, TriggerEvent.Revived };
             view_as_skill = new WenguaVS();
         }
 
@@ -10686,15 +10692,17 @@ namespace SanguoshaServer.Package
                 if (!room.Skills.Contains("wenguavs"))
                     room.Skills.Add("wenguavs");
                 foreach (Player p in room.GetOtherPlayers(player))
-                    room.HandleAcquireDetachSkills(p, "wenguavs", true);
+                    room.HandleAcquireDetachSkills(p, "wenguavs", true, false);
             }
             else if (triggerEvent == TriggerEvent.EventAcquireSkill && data is InfoStruct info && info.Info == Name)
             {
                 if (!room.Skills.Contains("wenguavs"))
                     room.Skills.Add("wenguavs");
                 foreach (Player p in room.GetOtherPlayers(player))
-                    room.HandleAcquireDetachSkills(p, "wenguavs", true);
+                    room.HandleAcquireDetachSkills(p, "wenguavs", true, false);
             }
+            else if (triggerEvent == TriggerEvent.Revived && !base.Triggerable(player, room))
+                room.HandleAcquireDetachSkills(player, "wenguavs", true, false);
         }
 
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)

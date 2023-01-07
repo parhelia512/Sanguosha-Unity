@@ -647,7 +647,7 @@ namespace SanguoshaServer.Game
 
         //skill.CanPreShow() || head ? player.General1Showed : player.General2Showed ,
 
-        public void HandleAcquireDetachSkills(Player player, List<string> skill_names, bool acquire_only = false)
+        public void HandleAcquireDetachSkills(Player player, List<string> skill_names, bool acquire_only = false, bool broadcast = true)
         {
             if (skill_names == null || skill_names.Count == 0) return;
             List<bool> isLost = new List<bool>(); ;
@@ -689,12 +689,15 @@ namespace SanguoshaServer.Game
 
                         DoBroadcastNotify(CommandType.S_COMMAND_LOG_EVENT, args);
 
-                        LogMessage log = new LogMessage("#LoseSkill")
+                        if (broadcast)
                         {
-                            From = player.Name,
-                            Arg = actual_skill
-                        };
-                        SendLog(log);
+                            LogMessage log = new LogMessage("#LoseSkill")
+                            {
+                                From = player.Name,
+                                Arg = actual_skill
+                            };
+                            SendLog(log);
+                        }
 
                         triggerList.Add(actual_skill);
                         isLost.Add(true);
@@ -729,12 +732,15 @@ namespace SanguoshaServer.Game
                         };
                         DoBroadcastNotify(CommandType.S_COMMAND_LOG_EVENT, arg);
 
-                        LogMessage log = new LogMessage("#AcquireSkill")
+                        if (broadcast)
                         {
-                            From = player.Name,
-                            Arg = skill_name
-                        };
-                        SendLog(log);
+                            LogMessage log = new LogMessage("#AcquireSkill")
+                            {
+                                From = player.Name,
+                                Arg = skill_name
+                            };
+                            SendLog(log);
+                        }
 
                         triggerList.Add(skill_name);
                         isLost.Add(false);
@@ -918,9 +924,9 @@ namespace SanguoshaServer.Game
             GetCard(card_id).ClearFlags();
         }
 
-        public void HandleAcquireDetachSkills(Player player, string skill_names, bool acquire_only = false)
+        public void HandleAcquireDetachSkills(Player player, string skill_names, bool acquire_only = false, bool broadcast = true)
         {
-            HandleAcquireDetachSkills(player, new List<string>(skill_names.Split('|')), acquire_only);
+            HandleAcquireDetachSkills(player, new List<string>(skill_names.Split('|')), acquire_only, broadcast);
         }
         public bool CardEffect(CardEffectStruct effect)
         {
@@ -9036,6 +9042,7 @@ namespace SanguoshaServer.Game
 
             List<string> new_big = RoomLogic.GetBigKingdoms(this);
             DoBroadcastNotify(CommandType.S_COMMAND_LOG_EVENT, new List<string> { GameEventType.S_GAME_EVENT_BIG_KINGDOM.ToString(), JsonUntity.Object2Json(new_big) });
+            RoomThread.Trigger(TriggerEvent.Revived, this, player);
         }
 
         public void RemoveGeneral(Player player, bool head_general = true)

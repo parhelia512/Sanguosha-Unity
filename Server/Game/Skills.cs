@@ -74,6 +74,7 @@ namespace SanguoshaServer.Game
         AskForPeachesDone,
         Death,
         BuryVictim,
+        Revived,
         BeforeGameOverJudge,
         GameOverJudge,
         GameFinished,

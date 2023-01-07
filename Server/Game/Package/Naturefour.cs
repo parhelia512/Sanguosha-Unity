@@ -529,11 +529,29 @@ namespace SanguoshaServer.Package
         public Huangtian() : base("huangtian")
         {
             lord_skill = true;
-            events = new List<TriggerEvent> { TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill };
+            events = new List<TriggerEvent> { TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill, TriggerEvent.Revived };
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
+            if (triggerEvent == TriggerEvent.Revived)
+            {
+                Player lord = RoomLogic.FindPlayerBySkillName(room, Name);
+                if (lord == player)
+                {
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (p.Kingdom == "qun" || p.General1 == "zuoci")
+                            room.HandleAcquireDetachSkills(p, "huangtianvs", true, false);
+                    }
+                }
+                else if (player.Kingdom == "qun" || player.General1 == "zuoci")
+                {
+                    room.HandleAcquireDetachSkills(player, "huangtianvs", true, false);
+                }
+                return;
+            }
+
             bool add = false;
             if (triggerEvent == TriggerEvent.GameStart && base.Triggerable(player, room))
                 add = true;
@@ -547,7 +565,7 @@ namespace SanguoshaServer.Package
                 foreach (Player p in room.GetOtherPlayers(player))
                 {
                     if (p.Kingdom == "qun" || p.General1 == "zuoci")
-                        room.HandleAcquireDetachSkills(p, "huangtianvs", true);
+                        room.HandleAcquireDetachSkills(p, "huangtianvs", true, false);
                 }
             }
         }
@@ -4561,12 +4579,29 @@ namespace SanguoshaServer.Package
     {
         public Zhiba() : base("zhiba")
         {
-            events = new List<TriggerEvent> { TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill };
+            events = new List<TriggerEvent> { TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill, TriggerEvent.Revived };
             lord_skill = true;
             view_as_skill = new ZhibaLordVS();
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
+            if (triggerEvent == TriggerEvent.Revived)
+            {
+                Player lord = RoomLogic.FindPlayerBySkillName(room, Name);
+                if (lord == player)
+                {
+                    foreach (Player p in room.GetOtherPlayers(player))
+                    {
+                        if (p.Kingdom == "wu" || p.General1 == "zuoci")
+                            room.HandleAcquireDetachSkills(p, "zhibavs", true, false);
+                    }
+                }
+                else if (player.Kingdom == "wu" || player.General1 == "zuoci")
+                {
+                    room.HandleAcquireDetachSkills(player, "zhibavs", true, false);
+                }
+                return;
+            }
             bool add = false;
             if (triggerEvent == TriggerEvent.GameStart && base.Triggerable(player, room))
                 add = true;
@@ -4580,7 +4615,7 @@ namespace SanguoshaServer.Package
                 foreach (Player p in room.GetOtherPlayers(player))
                 {
                     if (p.Kingdom == "wu" || p.General1 == "zuoci")
-                        room.HandleAcquireDetachSkills(p, "zhibavs", true);
+                        room.HandleAcquireDetachSkills(p, "zhibavs", true, false);
                 }
             }
         }
