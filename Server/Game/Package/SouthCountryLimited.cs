@@ -37,7 +37,7 @@ namespace SanguoshaServer.Package
     {
         public Wall() : base("wall")
         {
-            events = new List<TriggerEvent> { TriggerEvent.RoundStart, TriggerEvent.CardsMoveOneTime, TriggerEvent.GameStart, TriggerEvent.PostHpReduced };
+            events = new List<TriggerEvent> { TriggerEvent.RoundStart, TriggerEvent.CardsMoveOneTime, TriggerEvent.GameStart, TriggerEvent.PostHpReduced, TriggerEvent.EventPhaseStart };
             frequency = Frequency.Compulsory;
         }
 
@@ -60,6 +60,10 @@ namespace SanguoshaServer.Package
                 return new TriggerStruct(Name, move.To);
             }
             else if (triggerEvent == TriggerEvent.PostHpReduced && base.Triggerable(player, room) && player.Hp <= 0)
+            {
+                return new TriggerStruct(Name, player);
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Start && !player.Removed)
             {
                 return new TriggerStruct(Name, player);
             }
@@ -87,6 +91,13 @@ namespace SanguoshaServer.Package
                     room.BroadcastProperty(player, "Removed");
                 }
                 return true;
+            }
+            else  if (triggerEvent == TriggerEvent.EventPhaseStart)
+            {
+                Player target = RoomLogic.FindPlayerBySkillName(room, "tianren_cr");
+                room.Speak(target, "万箭齐发！！");
+                WrappedCard card = new WrappedCard(ArcheryAttack.ClassName) { Skill = "_wall" };
+                room.UseCard(new CardUseStruct(card, ask_who, new List<Player>()));
             }
             else
             {
@@ -199,12 +210,9 @@ namespace SanguoshaServer.Package
                 if (ask_who != null)
                     triggers.Add(new TriggerStruct(Name, ask_who));
             }
-            else if (triggerEvent == TriggerEvent.EventPhaseStart)
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish)     //结束阶段返回游戏，添加援军
             {
-                if (base.Triggerable(player, room) && player.Phase == PlayerPhase.Start)            //准备阶段万箭齐发
-                    triggers.Add(new TriggerStruct(Name, player));
-                else if (base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish)     //结束阶段返回游戏，添加援军
-                    triggers.Add(new TriggerStruct(Name, player));
+                triggers.Add(new TriggerStruct(Name, player));
             }
             else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
             {
@@ -317,27 +325,6 @@ namespace SanguoshaServer.Package
             }
             else if (triggerEvent == TriggerEvent.EventPhaseStart)
             {
-                if (player.Phase == PlayerPhase.Start)
-                {
-                    bool archer = false;
-                    foreach (Player p in RoomLogic.FindPlayersBySkillName(room, "wall"))
-                    {
-                        if (!p.Removed)
-                        {
-                            archer = true;
-                            break;
-                        }
-                    }
-
-                    if (archer)
-                    {
-                        room.Speak(player, "万箭齐发！！");
-                        WrappedCard card = new WrappedCard(ArcheryAttack.ClassName) { Skill = "_tianren_cr" };
-                        room.UseCard(new CardUseStruct(card, ask_who, new List<Player>()));
-                    }
-                }
-                else
-                {
                     room.SendCompulsoryTriggerLog(player, Name);
                     int count = 0;
                     foreach (Player p in room.GetOtherPlayers(player))
@@ -361,7 +348,6 @@ namespace SanguoshaServer.Package
                         count -= draw;
                         if (count <= 0) break;
                     }
-                }
             }
             else if (triggerEvent == TriggerEvent.EventPhaseProceeding && data is int count)
             {
