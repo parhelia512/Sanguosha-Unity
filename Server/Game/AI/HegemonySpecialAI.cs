@@ -373,7 +373,10 @@ namespace SanguoshaServer.AI
         {
             WrappedCard slash = new WrappedCard(Slash.ClassName) { DistanceLimited = false };
             List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { slash }, targets, false);
-            return scores[0].Players;
+            if (scores.Count > 0)
+                return scores[0].Players;
+            else
+                return new List<Player>();
         }
     }
 

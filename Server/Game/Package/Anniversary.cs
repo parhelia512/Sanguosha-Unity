@@ -4094,7 +4094,7 @@ namespace SanguoshaServer.Package
                 && move.Card_ids.Count == 1 && WrappedCard.IsRed(room.GetCard(move.Card_ids[0]).Suit) && base.Triggerable(move.From, room))
             {
                 bool check = true;
-                foreach (int id in player.GetCards("h"))
+                foreach (int id in move.From.GetCards("h"))
                 {
                     if (WrappedCard.IsRed(room.GetCard(id).Suit))
                     {
