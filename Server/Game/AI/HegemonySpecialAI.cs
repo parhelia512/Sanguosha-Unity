@@ -435,44 +435,22 @@ namespace SanguoshaServer.AI
     {
         public TunchuAI() : base("tunchu") { }
 
-        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
-        {
-            return true;
-        }
-
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => ai.WillShowForAttack() || ai.WillShowForDefence();
         public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
         {
             Room room = ai.Room;
-            if (ai.WillSkipPlayPhase(player))
+            List<int> ids = new List<int>(), cards = player.GetCards("h");
+            ai.SortByKeepValue(ref cards, false);
+            if (RoomLogic.IsFriendWith(room, player, room.GetNextAlive(player)) && cards.Count >= 2)
             {
-                List<int> ids = new List<int>(), cards = player.GetCards("h");
-                ai.SortByKeepValue(ref cards, false);
-
-                while (cards.Count >= player.Hp)
-                {
-                    ids.Add(cards[0]);
-                    cards.RemoveAt(0);
-                }
-
-                if (ids.Count == 0 && cards.Count > 0)
-                    return new List<int> { cards[0] };
-                else
-                    return ids;
+                for (int i = 0; i < 2; i++)
+                    ids.Add(cards[i]);
             }
-            if (ai is SmartAI)
+            else if (ai.WillSkipPlayPhase(player))
             {
-                if (ai.GetOverflow(player) > 0 && !ai.IsSituationClear())
-                {
-                    List<int> ids = new List<int>();
-                    foreach (int id in player.GetCards("h"))
-                        if (room.GetCard(id).Name.Contains("Slash"))
-                            ids.Add(id);
-
-                    return ids;
-                }
+                ids.Add(cards[0]);
             }
-
-            return new List<int>();
+            return ids;
         }
     }
 
@@ -480,29 +458,6 @@ namespace SanguoshaServer.AI
     {
         public ShuliangAI() : base("shuliang")
         {
-            key = new List<string> { "cardExchange:shuliang" };
-        }
-        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
-        {
-            if (triggerEvent == TriggerEvent.ChoiceMade && data is string str)
-            {
-                Room room = ai.Room;
-                string[] strs = str.Split(':');
-                if (strs[1] == Name)
-                {
-                    Player target = room.Current;
-                    if (ai is SmartAI && player != ai.Self)
-                    {
-                        if (ai.GetPlayerTendency(target) == "unknown")
-                            ai.UpdatePlayerRelation(player, target, true);
-                    }
-                    else if (ai is StupidAI _ai)
-                    {
-                        if (_ai.GetPlayerTendency(target) != "unknown")
-                            _ai.UpdatePlayerRelation(player, target, true);
-                    }
-                }
-            }
         }
         public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
         {

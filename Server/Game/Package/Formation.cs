@@ -31,6 +31,7 @@ namespace SanguoshaServer.Package
                 new Shangyi(),
                 new Niaoxiang(),
                 new Yicheng(),
+                new YichengDiscard(),
                 new Qianhuan(),
                 new QianhuanClear(),
                 new Zhendu(),
@@ -56,7 +57,8 @@ namespace SanguoshaServer.Package
                 { "tuntian", new List<string>{"#tuntian-gotofield", "#tuntian-clear", "#tuntian-dist" } },
                 { "qianhuan", new List<string>{ "#qianhuan-clear" } },
                 { "zhangwu", new List<string>{ "#zhangwu-draw" } },
-                { "qiluan", new List<string>{ "#qiluan" } }
+                { "qiluan", new List<string>{ "#qiluan" } },
+                { "yicheng", new List<string>{ "#yicheng" } },
             };
         }
     }
@@ -887,36 +889,63 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            CardUseStruct use = (CardUseStruct)data;
-            FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-            if (fcard is Slash && use.To.Contains(player))
+            if (data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && use.To.Contains(player))
             {
                 foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
-                    if (RoomLogic.IsFriendWith(room, player, p))
-                        return new TriggerStruct(Name, player, p);
+                    if (RoomLogic.WillBeFriendWith(room, p, player))
+                        return new TriggerStruct(Name, p);
             }
             return new TriggerStruct();
         }
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            Player owner = room.FindPlayer(info.SkillOwner);
-            if (owner != null && room.AskForSkillInvoke(ask_who, Name, data, info.SkillPosition))
+            if (room.AskForSkillInvoke(ask_who, Name, player, info.SkillPosition))
             {
-                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, owner.Name, ask_who.Name);
-                room.BroadcastSkillInvoke(Name, owner, info.SkillPosition);
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                 return info;
             }
             return new TriggerStruct();
         }
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            Player owner = room.FindPlayer(info.SkillOwner);
-            room.DrawCards(ask_who, new DrawCardStruct(1, owner, Name));
-            if (ask_who.Alive && RoomLogic.CanDiscard(room, ask_who, ask_who, "he"))
-                room.AskForDiscard(ask_who, Name, 1, 1, false, true, null, false, info.SkillPosition);
+            room.DrawCards(player, new DrawCardStruct(1, ask_who, Name));
+            player.AddMark(Name);
+            if (player.Alive)
+                room.AskForUseCard(player, RespondType.Equip, "EquipCard", string.Format("@yicheng:{0}", ask_who.Name), null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+
             return false;
         }
     }
+
+    public class YichengDiscard : TriggerSkill
+    {
+        public YichengDiscard() : base("#yicheng")
+        {
+            events.Add(TriggerEvent.EventPhaseChanging);
+            frequency = Frequency.Compulsory;
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                foreach (Player p in room.GetAlivePlayers())
+                    if (p.GetMark("yichen") > 0) triggers.Add(new TriggerStruct(Name, p));
+
+            return triggers;
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int count = ask_who.GetMark("yicheng");
+            ask_who.SetMark("yicheng", 0);
+            if (!ask_who.IsNude() && RoomLogic.CanDiscard(room, ask_who, ask_who, "he"))
+                room.AskForDiscard(ask_who, "yicheng", count, count, false, true, string.Format("@yicheng-discard:::{0}", count), false, info.SkillPosition);
+            return false;
+        }
+    }
+
     public class QianhuanCard:SkillCard
     {
         public QianhuanCard() : base("QianhuanCard")

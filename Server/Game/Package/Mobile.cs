@@ -137,6 +137,10 @@ namespace SanguoshaServer.Package
                 new LiegongMobileTar(),
                 new YanyuMobile(),
                 new QiaoshiMobile(),
+                new TunchuJX(),
+                new TunchuJxAdd(),
+                new TunchuProhibitJX(),
+                new ShuliangJX(),
 
                 new Yingjian(),
                 new Shixin(),
@@ -223,6 +227,7 @@ namespace SanguoshaServer.Package
                 { "qishe", new List<string> { "#qishe" } },
                 { "liegong_mobile", new List<string> { "#liegong_mobile-tar" } },
                 { "hongyi", new List<string> { "#hongyi" } },
+                { "tunchu_jx", new List<string> { "#tunchu_jx-add", "#tunchu_jx-prohibit" } },
             };
         }
     }
@@ -7541,6 +7546,147 @@ namespace SanguoshaServer.Package
                     room.DrawCards(ask_who, 2, Name);
             }
 
+            return false;
+        }
+    }
+
+    //lifeng
+    public class TunchuJX : DrawCardsSkill
+    {
+        public TunchuJX() : base("tunchu_jx")
+        {
+            skill_type = SkillType.Replenish;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && player.Phase == PlayerPhase.Draw && player.GetPile("commissariat").Count == 0)
+                return new TriggerStruct(Name, player);
+
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, null, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.SetTag(Name, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override int GetDrawNum(Room room, Player player, int n)
+        {
+            player.SetFlags(Name);
+            return n + 2;
+        }
+    }
+
+    public class TunchuJxAdd : TriggerSkill
+    {
+        public TunchuJxAdd() : base("#tunchu_jx-add")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventLoseSkill, TriggerEvent.AfterDrawNCards };
+            frequency = Frequency.Compulsory;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == "tunchu_jx")
+                room.ClearOnePrivatePile(player, "commissariat");
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.AfterDrawNCards && player != null && player.Alive && player.HasFlag("tunchu_jx"))
+            {
+                if (player.IsKongcheng())
+                {
+                    player.SetFlags("-tunchu_jx");
+                    return new TriggerStruct();
+                }
+                TriggerStruct trigger = new TriggerStruct(Name, player)
+                {
+                    SkillPosition = (string)player.GetTag("tunchu_jx")
+                };
+                return trigger;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            player.SetFlags("-tunchu_jx");
+            player.RemoveTag("tunchu_jx");
+
+            List<int> ids = room.AskForExchange(player, "tunchu", player.HandcardNum, 0, "@tunchu_jx", string.Empty, ".|.|.|hand", info.SkillPosition);
+            if (ids.Count > 0) room.AddToPile(player, "commissariat", ids);
+
+            return false;
+        }
+    }
+
+
+    public class TunchuProhibitJX : ProhibitSkill
+    {
+        public TunchuProhibitJX() : base("#tunchu_jx-prohibit")
+        {
+        }
+        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null)
+        {
+            if (from != null && from.GetPile("commissariat").Count > 0 && card != null && card.Name.Contains("Slash"))
+            {
+                CardUseReason reason = room.GetRoomState().GetCurrentCardUseReason();
+                return reason == CardUseReason.CARD_USE_REASON_PLAY || reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE;
+            }
+
+            return false;
+        }
+    }
+
+    public class ShuliangJX : TriggerSkill
+    {
+        public ShuliangJX() : base("shuliang_jx")
+        {
+            events.Add(TriggerEvent.EventPhaseStart);
+            skill_type = SkillType.Replenish;
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> skill_list = new List<TriggerStruct>();
+            if (player.Alive && player.Phase == PlayerPhase.Finish && player.HandcardNum < player.Hp)
+            {
+                List<Player> lifengs = RoomLogic.FindPlayersBySkillName(room, Name);
+                foreach (Player p in lifengs)
+                {
+                    if (p.GetPile("commissariat").Count > 0)
+                    {
+                        TriggerStruct trigger = new TriggerStruct(Name, p);
+                        skill_list.Add(trigger);
+                    }
+                }
+            }
+            return skill_list;
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player lifeng, TriggerStruct info)
+        {
+            if (player.Alive && player.Phase == PlayerPhase.Finish && player.HandcardNum < player.Hp && lifeng.GetPile("commissariat").Count > 0)
+            {
+                List<int> ids = room.AskForExchange(lifeng, Name, 1, 0, "@shuliang:" + player.Name, "commissariat", string.Empty, info.SkillPosition);
+                if (ids.Count > 0)
+                {
+                    CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_REMOVE_FROM_PILE, string.Empty, Name, Name);
+                    room.ThrowCard(ref ids, reason, null);
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, lifeng.Name, player.Name);
+                    room.BroadcastSkillInvoke(Name, lifeng, info.SkillPosition);
+                    return info;
+                }
+            }
+
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.Alive)
+                room.DrawCards(player, new DrawCardStruct(2, ask_who, Name));
             return false;
         }
     }

@@ -796,11 +796,10 @@ namespace SanguoshaServer.Package
                     player.SetFlags("-tunchu");
                     return new TriggerStruct();
                 }
-                TriggerStruct trigger = new TriggerStruct(Name, player)
+                else
                 {
-                    SkillPosition = (string)player.GetTag("tunchu")
-                };
-                return trigger;
+                    return new TriggerStruct(Name, player) { SkillPosition = (string)player.GetTag("tunchu") };
+                }
             }
             return new TriggerStruct();
         }
@@ -809,7 +808,7 @@ namespace SanguoshaServer.Package
             player.SetFlags("-tunchu");
             player.RemoveTag("tunchu");
 
-            List<int> ids = room.AskForExchange(player, "tunchu", player.HandcardNum, 0, "@tunchu", string.Empty, ".|.|.|hand", info.SkillPosition);
+            List<int> ids = room.AskForExchange(player, "tunchu", 2, 0, "@tunchu", string.Empty, ".|.|.|hand", info.SkillPosition);
             if (ids.Count > 0) room.AddToPile(player, "commissariat", ids);
 
             return false;
@@ -824,7 +823,7 @@ namespace SanguoshaServer.Package
         }
         public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null)
         {
-            if (from != null && from.GetPile("commissariat").Count > 0 && card != null && card.Name.Contains("Slash"))
+            if (from != null && from.GetPile("commissariat").Count > 0 && card != null && card.Name.Contains("Slash") && from.Phase != PlayerPhase.NotActive)
             {
                 CardUseReason reason = room.GetRoomState().GetCurrentCardUseReason();
                 return reason == CardUseReason.CARD_USE_REASON_PLAY || reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE;
@@ -844,12 +843,14 @@ namespace SanguoshaServer.Package
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             List<TriggerStruct> skill_list = new List<TriggerStruct>();
-            if (player.Alive && player.Phase == PlayerPhase.Finish && player.HandcardNum < player.Hp)
+            if (player.Alive && player.Phase == PlayerPhase.Finish)
             {
                 List<Player> lifengs = RoomLogic.FindPlayersBySkillName(room, Name);
                 foreach (Player p in lifengs)
                 {
-                    if (p.GetPile("commissariat").Count > 0)
+                    int count = p.GetPile("commissariat").Count;
+                    int distance = RoomLogic.DistanceTo(room, p, player);
+                    if (count > 0 && RoomLogic.IsFriendWith(room, p, player) && count >= distance && distance >= 0)
                     {
                         TriggerStruct trigger = new TriggerStruct(Name, p);
                         skill_list.Add(trigger);
@@ -860,7 +861,7 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player lifeng, TriggerStruct info)
         {
-            if (player.Alive && player.Phase == PlayerPhase.Finish && player.HandcardNum < player.Hp && lifeng.GetPile("commissariat").Count > 0)
+            if (player.Alive && player.Phase == PlayerPhase.Finish && lifeng.GetPile("commissariat").Count > 0)
             {
                 List<int> ids = room.AskForExchange(lifeng, Name, 1, 0, "@shuliang:" + player.Name, "commissariat", string.Empty, info.SkillPosition);
                 if (ids.Count > 0)
