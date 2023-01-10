@@ -448,6 +448,7 @@ namespace SanguoshaServer.Package
                     {
                         p.SetMark("zhuihuan_0", 0);
                         p.SetMark("zhuihuan_1", 0);
+                        room.RemovePlayerStringMark(p, Name);
                     }
                 }
                 player.RemoveTag(Name);

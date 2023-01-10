@@ -931,7 +931,7 @@ namespace SanguoshaServer.Package
             List<TriggerStruct> triggers = new List<TriggerStruct>();
             if (data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
                 foreach (Player p in room.GetAlivePlayers())
-                    if (p.GetMark("yichen") > 0) triggers.Add(new TriggerStruct(Name, p));
+                    if (p.GetMark("yicheng") > 0) triggers.Add(new TriggerStruct(Name, p));
 
             return triggers;
         }

@@ -548,9 +548,25 @@ namespace SanguoshaServer.AI
         public YichengAI() : base("yicheng")
         {
         }
-        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => ai.WillShowForDefence();
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
-            return ai.WillShowForDefence();
+            CardUseStruct use = new CardUseStruct(null, player, new List<Player>());
+            List<int> ids = player.GetCards("h"), can_use = new List<int>();
+            ids.AddRange(player.GetHandPile());
+            Room room = ai.Room;
+            foreach (int id in ids)
+            {
+                if (Engine.GetFunctionCard(room.GetCard(id).Name) is EquipCard && !RoomLogic.IsCardLimited(room, player, room.GetCard(id), HandlingMethod.MethodUse))
+                    can_use.Add(id);
+            }
+            if (can_use.Count > 0)
+            {
+                List<double> values = ai.SortByUseValue(ref can_use);
+                if (values[0] > 0)
+                    use.Card = room.GetCard(can_use[0]);
+            }
+            return use;
         }
     }
 
