@@ -4924,7 +4924,8 @@ namespace SanguoshaServer.Game
             RoomThread.Trigger(TriggerEvent.ChoiceMade, this, player, ref decisionData);
             return invoked;
         }
-
+        public string AskForChoice(Player player, string skill_name, List<string> choices, List<string> descriptions = null, object data = null, string position = null)
+            => AskForChoice(player, skill_name, string.Join("+", choices), descriptions, data, position);
         public string AskForChoice(Player player, string skill_name, string choices, List<string> descriptions = null, object data = null, string position = null)
         {
             if (position == null) position = string.Empty;

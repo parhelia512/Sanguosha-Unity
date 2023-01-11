@@ -94,6 +94,8 @@ namespace SanguoshaServer.Package
                 new Fenyan(),
                 new Fudao(),
                 new FudaoPro(),
+                new Funing(),
+                new Bingji(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -368,6 +370,7 @@ namespace SanguoshaServer.Package
                 new WeilieCard(),
                 new QuanjianCard(),
                 new FenyanCard(),
+                new BingjiCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -5798,6 +5801,165 @@ namespace SanguoshaServer.Package
         public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null) => from != null && from.HasFlag("fudao_pro");
     }
 
+    public class Funing : TriggerSkill
+    {
+        public Funing() : base("funing")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardUsed, TriggerEvent.CardResponded };
+            skill_type = SkillType.Replenish;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                foreach (Player p in room.GetAlivePlayers())
+                    p.SetMark(Name, 0);
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if ((triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name)) || (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Use))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int count = player.GetMark(Name) + 1;
+            if (room.AskForSkillInvoke(player, Name, string.Format("@funing:::{0}", count), info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.AddMark(Name);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.DrawCards(player, 2, Name);
+            if (player.Alive && !player.IsNude() && RoomLogic.CanDiscard(room, player, player, "he"))
+            {
+                int count = player.GetMark(Name);
+                room.AskForDiscard(player, Name, count, count, false, true, string.Format("@funing-discard:::{0}", count), false, info.SkillPosition);
+            }
+            return false;
+        }
+    }
+    public class Bingji : TriggerSkill
+    {
+        public Bingji() : base("bingji")
+        {
+            view_as_skill = new BingjiVS();
+            events.Add(TriggerEvent.EventPhaseChanging);
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is PhaseChangeStruct change && change.From == PlayerPhase.Play)
+            {
+                player.SetFlags("-bingji_spade");
+                player.SetFlags("-bingji_heart");
+                player.SetFlags("-bingji_club");
+                player.SetFlags("-bingji_diamond");
+            }
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+    public class BingjiVS : ZeroCardViewAsSkill
+    {
+        public BingjiVS() : base("bingji") { }
+        public override bool IsEnabledAtPlay(Room room, Player invoker)
+        {
+            if (!invoker.IsKongcheng())
+            {
+                List<int> ids = invoker.GetCards("h");
+                WrappedCard.CardSuit suit = room.GetCard(ids[0]).Suit;
+                switch (suit)
+                {
+                    case WrappedCard.CardSuit.Club when invoker.HasFlag("bingji_club"):
+                        return false;
+                    case WrappedCard.CardSuit.Diamond when invoker.HasFlag("bingji_diamond"):
+                        return false;
+                    case WrappedCard.CardSuit.Spade when invoker.HasFlag("bingji_spade"):
+                        return false;
+                    case WrappedCard.CardSuit.Heart when invoker.HasFlag("bingji_heart"):
+                        return false;
+                }
+                for (int i = 1; i < ids.Count; i++)
+                {
+                    if (room.GetCard(ids[i]).Suit != suit)
+                        return false;
+                }
+                return true;
+            }
+            return false;
+        }
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(BingjiCard.ClassName) { Skill = Name };
+    }
+
+    public class BingjiCard : SkillCard
+    {
+        public static string ClassName = "BingjiCard";
+        public BingjiCard() : base(ClassName)
+        {
+            target_fixed = true;
+            will_throw = false;
+        }
+
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From;
+            List<int> ids = player.GetCards("h");
+            WrappedCard.CardSuit suit = room.GetCard(ids[0]).Suit;
+            switch (suit)
+            {
+                case WrappedCard.CardSuit.Club:
+                    player.SetFlags("bingji_club");
+                    break;
+                case WrappedCard.CardSuit.Diamond:
+                    player.SetFlags("bingji_diamond");
+                    break;
+                case WrappedCard.CardSuit.Spade:
+                    player.SetFlags("bingji_spade");
+                    break;
+                case WrappedCard.CardSuit.Heart:
+                    player.SetFlags("bingji_heart");
+                    break;
+            }
+            room.ShowAllCards(player);
+            if (player.Alive)
+            {
+                List<Player> targets = new List<Player>();
+                WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = "_bingji" };
+                WrappedCard peach = new WrappedCard(Peach.ClassName) { Skill = "_bingji" };
+                foreach (Player p in room.GetOtherPlayers(player))
+                {
+                    if ((p.IsWounded() && RoomLogic.IsProhibited(room, player, p, peach) == null) || RoomLogic.CanSlash(room, player, p, slash))
+                        targets.Add(p);
+                }
+
+                if (targets.Count > 0)
+                {
+                    Player target = room.AskForPlayerChosen(player, targets, Name, "@bingji", true, true, card_use.Card.SkillPosition);
+                    if (target != null)
+                    {
+                        List<string> choices = new List<string>();
+                        if (target.IsWounded() && RoomLogic.IsProhibited(room, player, target, peach) == null)
+                            choices.Add("peach");
+                        if (RoomLogic.CanSlash(room, player, target, slash))
+                            choices.Add("slash");
+                        string choice = room.AskForChoice(player, Name, choices, new List<string> { "@to-player:" + target.Name }, target, card_use.Card.SkillPosition);
+                        if (choice == "slash")
+                            room.UseCard(new CardUseStruct(slash, player, target), true, true);
+                        else
+                            room.UseCard(new CardUseStruct(peach, player, target), true, true);
+                    }
+                }
+            }
+        }
+    }
+
     public class Tunan : ViewAsSkill
     {
         public Tunan() : base("tunan")
@@ -5825,11 +5987,7 @@ namespace SanguoshaServer.Package
             return null;
         }
 
-        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
-        {
-            return false;
-        }
-
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => false;
         public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
         {
             List<WrappedCard> result = new List<WrappedCard>();
