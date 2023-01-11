@@ -963,7 +963,7 @@ namespace SanguoshaServer.Package
                 DistanceLimited = false
             };
 
-            room.UseCard(new CardUseStruct(slash, player, targets));
+            room.UseCard(new CardUseStruct(slash, player, targets) { Reason = CardUseReason.CARD_USE_REASON_RESPONSE_USE });
             return false;
         }
 

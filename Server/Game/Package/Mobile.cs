@@ -7076,7 +7076,7 @@ namespace SanguoshaServer.Package
                         case WrappedCard.CardSuit.Diamond:
                             WrappedCard slash = new WrappedCard(FireSlash.ClassName) { Skill = "_xizhan", DistanceLimited = false };
                             if (RoomLogic.IsProhibited(room, ask_who, player, slash) == null)
-                                room.UseCard(new CardUseStruct(slash, ask_who, player));
+                                room.UseCard(new CardUseStruct(slash, ask_who, player) { Reason = CardUseReason.CARD_USE_REASON_RESPONSE_USE });
                             break;
                     }
                 }
@@ -7250,7 +7250,7 @@ namespace SanguoshaServer.Package
                             int index = room.ContainsTag("xianchou_count") ? (int)room.GetTag("xianchou_count") : 0;
                             index++;
                             room.SetTag("xianchou_count", index);
-                            room.UseCard(new CardUseStruct(slash, target, damage.From));
+                            room.UseCard(new CardUseStruct(slash, target, damage.From) { Reason = CardUseReason.CARD_USE_REASON_RESPONSE_USE });
                             string mark = "xianchou_" + index.ToString();
                             bool succe = room.ContainsTag(mark);
                             room.RemoveTag(mark);

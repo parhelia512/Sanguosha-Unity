@@ -5818,7 +5818,8 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if ((triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name)) || (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Use))
+            if (((triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name)) || (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Use))
+                && base.Triggerable(player, room))
                 return new TriggerStruct(Name, player);
             return new TriggerStruct();
         }
@@ -5941,7 +5942,7 @@ namespace SanguoshaServer.Package
 
                 if (targets.Count > 0)
                 {
-                    Player target = room.AskForPlayerChosen(player, targets, Name, "@bingji", true, true, card_use.Card.SkillPosition);
+                    Player target = room.AskForPlayerChosen(player, targets, "bingji", "@bingji", true, true, card_use.Card.SkillPosition);
                     if (target != null)
                     {
                         List<string> choices = new List<string>();
@@ -5949,11 +5950,13 @@ namespace SanguoshaServer.Package
                             choices.Add("peach");
                         if (RoomLogic.CanSlash(room, player, target, slash))
                             choices.Add("slash");
-                        string choice = room.AskForChoice(player, Name, choices, new List<string> { "@to-player:" + target.Name }, target, card_use.Card.SkillPosition);
+                        string choice = room.AskForChoice(player, "bingji", choices, new List<string> { "@to-player:" + target.Name }, target, card_use.Card.SkillPosition);
+                        CardUseStruct use = new CardUseStruct(null, player, target) { Reason = CardUseReason.CARD_USE_REASON_RESPONSE_USE };
                         if (choice == "slash")
-                            room.UseCard(new CardUseStruct(slash, player, target), true, true);
+                            use.Card = slash;
                         else
-                            room.UseCard(new CardUseStruct(peach, player, target), true, true);
+                            use.Card = peach;
+                        room.UseCard(use, true, true);
                     }
                 }
             }

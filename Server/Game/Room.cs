@@ -5048,6 +5048,9 @@ namespace SanguoshaServer.Game
                 DoBroadcastNotify(CommandType.S_COMMAND_UNKNOWN, new List<string> { false.ToString() });
             }
 
+            if (string.IsNullOrEmpty(answer) && !can_refuse && validChoices.Count > 0)
+                answer = validChoices[0];
+
             if (RoomThread != null)
             {
                 object decisionData = "skillChoice:" + skillname + ":" + answer;
@@ -7272,9 +7275,8 @@ namespace SanguoshaServer.Game
             card_use.Card = card;
             fcard = Engine.GetFunctionCard(card.Name);
             if (card_use.From.Phase == PlayerPhase.Play && add_history
-                    && (!(fcard is Slash) || _m_roomState.GetCurrentCardUseReason() == CardUseStruct.CardUseReason.CARD_USE_REASON_PLAY
-                    || card_use.Reason == CardUseStruct.CardUseReason.CARD_USE_REASON_PLAY || card_use.Pattern == "@@rende")
-                    && !Engine.CorrectCardTarget(this, TargetModSkill.ModType.History, card_use.From, null, card))
+                    && (!(fcard is Slash) || (_m_roomState.GetCurrentCardUseReason() == CardUseStruct.CardUseReason.CARD_USE_REASON_PLAY && card_use.Reason == CardUseStruct.CardUseReason.CARD_USE_REASON_UNKNOWN)
+                    || card_use.Reason == CardUseStruct.CardUseReason.CARD_USE_REASON_PLAY || card_use.Pattern == "@@rende") && !Engine.CorrectCardTarget(this, TargetModSkill.ModType.History, card_use.From, null, card))
             {
                 card_use.AddHistory = true;
                 card_use.From.AddHistory(key);
