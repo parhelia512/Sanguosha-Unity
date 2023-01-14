@@ -96,6 +96,10 @@ namespace SanguoshaServer.Package
                 new FudaoPro(),
                 new Funing(),
                 new Bingji(),
+                new Xieshou(),
+                new XieshouMax(),
+                new Qingyan(),
+                new Qizi(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -438,6 +442,7 @@ namespace SanguoshaServer.Package
                 { "jieshu", new List<string>{ "#jieshu" } },
                 { "huishu", new List<string>{ "#huishu" } },
                 { "fudao", new List<string>{ "#fudao" } },
+                { "xieshou", new List<string>{ "#xieshou" } },
             };
         }
     }
@@ -5961,6 +5966,129 @@ namespace SanguoshaServer.Package
                 }
             }
         }
+    }
+
+    public class Xieshou : TriggerSkill
+    {
+        public Xieshou() : base("xieshou")
+        {
+            events.Add(TriggerEvent.Damaged);
+            skill_type = SkillType.Recover;
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (player != null && player.Alive)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                {
+                    int count = RoomLogic.DistanceTo(room, p, player);
+                    if (!p.HasFlag(Name) && count >= 0 && count <= 2)
+                        triggers.Add(new TriggerStruct(Name, p));
+                }
+            }
+            return triggers;
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(ask_who, Name, player, info.SkillPosition))
+            {
+                room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, player.Name);
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                ask_who.AddMark(Name);
+                room.SetPlayerStringMark(ask_who, "xieshou_max", (-ask_who.GetMark("xieshou")).ToString());
+                ask_who.SetFlags(Name);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<string> choices = new List<string> { "reset" };
+            if (player.IsWounded()) choices.Add("recover");
+            string choice = room.AskForChoice(player, Name, choices, null, null, info.SkillPosition);
+            if (choice == "recover")
+            {
+                room.Recover(player);
+            }
+            else
+            {
+                if (player.Chained)
+                    room.SetPlayerChained(player, false);
+                if (player.Alive && !player.FaceUp)
+                    room.TurnOver(player);
+                if (player.Alive)
+                    room.DrawCards(player, new DrawCardStruct(2, ask_who, Name));
+            }
+            return false;
+        }
+    }
+
+    public class XieshouMax : MaxCardsSkill
+    {
+        public XieshouMax() : base("#xieshou") { }
+        public override int GetExtra(Room room, Player target) => -target.GetMark("xieshou");
+    }
+
+    public class Qingyan : TriggerSkill
+    {
+        public Qingyan() : base("qingyan")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TargetConfirmed, TriggerEvent.EventPhaseChanging };
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                foreach (Player p in room.GetAlivePlayers())
+                    p.SetMark(Name, 0);
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.TargetConfirmed && data is CardUseStruct use && use.From != null && use.From != player && WrappedCard.IsBlack(use.Card.Suit) && player.GetMark(Name) < 2)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            bool invoke = false;
+            if (player.HandcardNum < player.Hp && room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                invoke = true;
+                player.SetFlags(Name);
+            }
+            else if (player.HandcardNum >= player.Hp && !player.IsKongcheng() && room.AskForDiscard(player, Name, 1, 1, true, false, "@qingyan", true, info.SkillPosition))
+            {
+                invoke = true;
+                player.AddMark("xieshou", -1);
+            }
+            if (invoke)
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.AddMark(Name);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.HasFlag(Name))
+            {
+                player.SetFlags("-qingyan");
+                int count = player.MaxHp - player.HandcardNum;
+                if (count > 0) room.DrawCards(player, count, Name);
+            }
+            else
+                room.SetPlayerStringMark(player, "xieshou_max", (-player.GetMark("xieshou")).ToString());
+
+            return false;
+        }
+    }
+
+    public class Qizi : ProhibitSkill
+    {
+        public Qizi() : base("qizi") { }
+        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null)
+            => card.Name == Peach.ClassName && to != null && to.HasFlag("Global_Dying") && from != to && RoomLogic.DistanceTo(room, from, to, card) > 2;
     }
 
     public class Tunan : ViewAsSkill
