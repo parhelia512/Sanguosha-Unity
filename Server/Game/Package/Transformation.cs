@@ -1078,32 +1078,36 @@ namespace SanguoshaServer.Package
 
         public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
         {
-            string[] strs = card.UserString.Split('_');
+            List<string> strs = new List<string>(card.UserString.Split('_'));
             FunctionCard fcard = Engine.GetFunctionCard(strs[0]);
-            WrappedCard _card = new WrappedCard(strs[0])
+            string flag = strs[0];
+            strs.RemoveAt(0);
+            WrappedCard _card = new WrappedCard(flag)
             {
                 Skill = "yigui",
                 ShowSkill = "yigui",
-                UserString = strs[1]
+                UserString = string.Join("_", strs)
             };
             return fcard != null && fcard.TargetFilter(room, targets, to_select, Self, _card);
         }
         public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card)
         {
-            string[] strs = card.UserString.Split('_');
+            List<string> strs = new List<string>(card.UserString.Split('_'));
             FunctionCard fcard = Engine.GetFunctionCard(strs[0]);
-            WrappedCard _card = new WrappedCard(strs[0])
+            string flag = strs[0];
+            strs.RemoveAt(0);
+            WrappedCard _card = new WrappedCard(flag)
             {
                 Skill = "yigui",
                 ShowSkill = "yigui",
-                UserString = strs[1]
+                UserString = string.Join("_", strs)
             };
             return fcard.TargetsFeasible(room, targets, Self, _card);
         }
 
         public override WrappedCard Validate(Room room, CardUseStruct use)
         {
-            string[] strs = use.Card.UserString.Split('_');
+            List<string> strs = new List<string>(use.Card.UserString.Split('_'));
             //move general card
             GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, use.From, "yigui", use.Card.SkillPosition);
             room.NotifySkillInvoked(use.From, "yigui");
@@ -1111,14 +1115,15 @@ namespace SanguoshaServer.Package
 
             Yigui.RemoveHuashen(room, use.From, new List<string> { strs[1] });
 
-            WrappedCard _card = new WrappedCard(strs[0])
+            string flag = strs[0];
+            strs.RemoveAt(0);
+            WrappedCard _card = new WrappedCard(flag)
             {
                 Skill = "_yigui",
                 ShowSkill = "yigui",
-                UserString = strs[1]
+                UserString = string.Join("_", strs)
             };
 
-            string flag = strs[0];
             if (flag.Contains(Slash.ClassName))
                 flag = Slash.ClassName;
             use.From.SetFlags("yigui_" + flag);
