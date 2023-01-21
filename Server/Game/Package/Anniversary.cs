@@ -130,6 +130,8 @@ namespace SanguoshaServer.Package
                 new QuanjianEffect(),
                 new QuanjianPro(),
                 new Tujue(),
+                new Tongguan(),
+                new Mengjie(),
 
                 new Jiedao(),
                 new JiedaoDis(),
@@ -8185,6 +8187,209 @@ namespace SanguoshaServer.Package
                     int count = Math.Min(ids.Count, player.GetLostHp());
                     room.Recover(player, count);
                     if (player.Alive) room.DrawCards(player, ids.Count, Name);
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class Tongguan : TriggerSkill
+    {
+        public Tongguan() : base("tongguan")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TurnStart, TriggerEvent.Damage, TriggerEvent.HpRecover, TriggerEvent.CardsMoveOneTime };
+            frequency = Frequency.Compulsory;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.Damage && player != null && player.Alive && player.Phase != PlayerPhase.NotActive && player.GetMark("tongguan_0") > 0)
+            {
+                player.SetFlags("tongguan_0");
+            }
+            else if (triggerEvent == TriggerEvent.HpRecover && player.Alive && player.GetMark("tongguan_1") > 0)
+            {
+                player.SetFlags("tongguan_1");
+            }
+            else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move)
+            {
+                if (move.To != null && move.To.Alive && move.To.Phase != PlayerPhase.NotActive && move.To.Phase != PlayerPhase.Draw
+                    && move.To.GetMark("tongguan_2") > 0 && move.To_place == Place.PlaceHand && move.Reason.Reason == MoveReason.S_REASON_DRAW)
+                {
+                    move.To.SetFlags("tongguan_2");
+                }
+                else if ((move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && move.From != null && move.Reason.TargetId == move.From.Name && !string.IsNullOrEmpty(move.Reason.PlayerId)
+                    && move.Reason.TargetId != move.Reason.PlayerId)
+                {
+                    Player target = room.FindPlayer(move.Reason.PlayerId);
+                    if (target != null && target.Phase != PlayerPhase.NotActive && target.GetMark("tongguan_3") > 0)
+                        target.SetFlags("tongguan_3");
+                }
+                else if (move.To != null && move.To.Alive && move.To.Phase != PlayerPhase.NotActive && move.To.GetMark("tongguan_3") > 0 && move.To_place == Place.PlaceHand && move.From != null &&
+                    move.From != move.To && move.Reason.Reason == MoveReason.S_REASON_EXTRACTION)
+                {
+                    move.To.SetFlags("tongguan_3");
+                }
+                else if (move.To != null && move.Reason.Reason == MoveReason.S_REASON_GIVE && !string.IsNullOrEmpty(move.Reason.PlayerId) && move.Reason.TargetId == move.To.Name && move.Reason.TargetId != move.Reason.PlayerId)
+                {
+                    Player target = room.FindPlayer(move.Reason.PlayerId);
+                    if (target != null && target.Phase != PlayerPhase.NotActive && target.GetMark("tongguan_4") > 0)
+                        target.SetFlags("tongguan_4");
+                }
+            }
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.TurnStart && player != null && player.Alive && player.GetMark("tongguan_0") == 0 && player.GetMark("tongguan_1") == 0
+                && player.GetMark("tongguan_2") == 0 && player.GetMark("tongguan_3") == 0 && player.GetMark("tongguan_4") == 0)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                {
+                    if (p.GetMark(Name) < 10)
+                        triggers.Add(new TriggerStruct(Name, p));
+                }
+            }
+            return triggers;
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(ask_who, Name);
+            room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+            ask_who.AddMark(Name);
+
+            List<string> choices = new List<string>();
+            if (ask_who.GetMark("tongguan_f0") < 2) choices.Add("tongguan_0");
+            if (ask_who.GetMark("tongguan_f1") < 2) choices.Add("tongguan_1");
+            if (ask_who.GetMark("tongguan_f2") < 2) choices.Add("tongguan_2");
+            if (ask_who.GetMark("tongguan_f3") < 2) choices.Add("tongguan_3");
+            if (ask_who.GetMark("tongguan_f4") < 2) choices.Add("tongguan_4");
+            string choice = room.AskForChoice(ask_who, Name, choices, new List<string> { "@to-player:" + player.Name }, player, info.SkillPosition);
+            player.AddMark(choice);
+            room.SetPlayerStringMark(player, choice, string.Empty);
+            switch (choice)
+            {
+                case "tongguan_0":
+                    ask_who.AddMark("tongguan_f0");
+                    break;
+                case "tongguan_1":
+                    ask_who.AddMark("tongguan_f1");
+                    break;
+                case "tongguan_2":
+                    ask_who.AddMark("tongguan_f2");
+                    break;
+                case "tongguan_3":
+                    ask_who.AddMark("tongguan_f3");
+                    break;
+                case "tongguan_4":
+                    ask_who.AddMark("tongguan_f4");
+                    break;
+            }
+
+            return false;
+        }
+    }
+
+    public class Mengjie : TriggerSkill
+    {
+        public Mengjie() : base("mengjie")
+        {
+            events.Add(TriggerEvent.EventPhaseChanging);
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                if (player.HasFlag("tongguan_0") || player.HasFlag("tongguan_1") || player.HasFlag("tongguan_2") || player.HasFlag("tongguan_3") || player.HasFlag("tongguan_4")
+                    || (player.GetMark("tongguan_1") > 0 && player.HandcardNum > player.Hp))
+                {
+                    foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                        triggers.Add(new TriggerStruct(Name, p));
+                }
+            }
+            return triggers;
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.HasFlag("tongguan_0"))
+            {
+                Player target = room.AskForPlayerChosen(ask_who, room.GetOtherPlayers(ask_who), Name, "@mengjie-damage", true, true, info.SkillPosition);
+                if (target != null)
+                {
+                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, target.Name);
+                    room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                    room.Damage(new DamageStruct(Name, ask_who, target));
+                }
+            }
+            else if (player.HasFlag("tongguan_1") || (player.GetMark("tongguan_1") > 0 && player.HandcardNum > player.Hp))
+            {
+                List<Player> targets = new List<Player>();
+                foreach (Player p in room.GetAlivePlayers())
+                    if (p.IsWounded()) targets.Add(p);
+                if (targets.Count > 0)
+                {
+                    Player target = room.AskForPlayerChosen(ask_who, targets, Name, "@mengjie-recover", true, true, info.SkillPosition);
+                    if (target != null)
+                    {
+                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, target.Name);
+                        room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                        RecoverStruct recover = new RecoverStruct
+                        {
+                            Recover = 1,
+                            Who = ask_who
+                        };
+                        room.Recover(target, recover, true);
+                    }
+                }
+            }
+            else if (player.HasFlag("tongguan_2"))
+            {
+                if (room.AskForSkillInvoke(ask_who, Name, "@mengjie-draw", info.SkillPosition))
+                {
+                    room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                    room.DrawCards(ask_who, 2, Name);
+                }
+            }
+            else if (player.HasFlag("tongguan_3"))
+            {
+                List<Player> targets = new List<Player>();
+                foreach (Player p in room.GetAlivePlayers())
+                    if (!p.IsNude() && RoomLogic.CanDiscard(room, ask_who, p, "hej")) targets.Add(p);
+
+                if (targets.Count > 0)
+                {
+                    Player target = room.AskForPlayerChosen(ask_who, targets, Name, "@mengjie-discard", true, true, info.SkillPosition);
+                    if (target != null)
+                    {
+                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, target.Name);
+                        room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                        List<int> ids = room.AskForCardsChosen(ask_who, target, "hej", Name, 1, 2, false, HandlingMethod.MethodDiscard);
+                        if (ids.Count > 0)
+                            room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, ask_who.Name, target.Name, Name, string.Empty), target, ask_who);
+                    }
+                }
+            }
+            else
+            {
+
+                List<Player> targets = new List<Player>();
+                foreach (Player p in room.GetAlivePlayers())
+                    if (p.HandcardNum < p.MaxHp) targets.Add(p);
+
+                if (targets.Count > 0)
+                {
+                    Player target = room.AskForPlayerChosen(ask_who, targets, Name, "@mengjie", true, true, info.SkillPosition);
+                    if (target != null)
+                    {
+                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, ask_who.Name, target.Name);
+                        room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                        int count = Math.Min(5, target.MaxHp - target.HandcardNum);
+                        room.DrawCards(target, new DrawCardStruct(count, ask_who, Name));
+                    }
                 }
             }
 
