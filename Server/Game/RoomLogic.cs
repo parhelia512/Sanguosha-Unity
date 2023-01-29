@@ -65,7 +65,7 @@ namespace SanguoshaServer.Game
             if (player.HasFlag("InfinityAttackRange") || player.GetMark("InfinityAttackRange") > 0)
                 return 1000;
 
-            include_weapon = include_weapon && player.Weapon.Key != -1;
+            include_weapon = include_weapon && player.Weapon.Key != -1 && player.GetMark("Equips_nullified_to_Yourself") == 0;
 
             int fixeddis = Engine.CorrectAttackRange(room, player, include_weapon, true);
             if (fixeddis > 0)

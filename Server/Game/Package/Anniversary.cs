@@ -132,6 +132,9 @@ namespace SanguoshaServer.Package
                 new Tujue(),
                 new Tongguan(),
                 new Mengjie(),
+                new Juluan(),
+                new Baoxing(),
+                new BaoxingRange(),
 
                 new Jiedao(),
                 new JiedaoDis(),
@@ -445,6 +448,7 @@ namespace SanguoshaServer.Package
                 { "huishu", new List<string>{ "#huishu" } },
                 { "fudao", new List<string>{ "#fudao" } },
                 { "xieshou", new List<string>{ "#xieshou" } },
+                { "baoxing", new List<string>{ "#baoxing" } },
             };
         }
     }
@@ -8394,6 +8398,118 @@ namespace SanguoshaServer.Package
             }
 
             return false;
+        }
+    }
+
+    public class Juluan : TriggerSkill
+    {
+        public Juluan() : base("juluan")
+        {
+            events.Add(TriggerEvent.TargetChosen);
+            skill_type = SkillType.Replenish;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && base.Triggerable(player, room) && !player.HasFlag(Name) && player.HasEquip())
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.SetFlags(Name);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int count = player.GetEquips().Count;
+            room.DrawCards(player, count, Name);
+            if (player.Alive && data is CardUseStruct use)
+            {
+                int min = Math.Min(count, use.To.Count);
+                List<Player> targets = room.AskForPlayersChosen(player, use.To, Name, 0, min, string.Format("@juluan:::{0}:{1}", min, use.Card.Name), true, info.SkillPosition);
+                if (targets.Count > 0)
+                {
+                    foreach (CardBasicEffect effect in use.EffectCount)
+                        if (targets.Contains(effect.To))
+                            effect.Nullified = true;
+                }
+                data = use;
+            }
+            return false;
+        }
+    }
+    public class Baoxing : TriggerSkill
+    {
+        public Baoxing() : base("baoxing")
+        {
+            events.Add(TriggerEvent.CardTargetAnnounced);
+            skill_type = SkillType.Attack;
+            frequency = Frequency.Compulsory;
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && base.Triggerable(player, room))
+            {
+                foreach (Player p in room.GetOtherPlayers(player))
+                    if (!use.To.Contains(p) && RoomLogic.InMyAttackRange(room, player, p, use.Card) && RoomLogic.IsProhibited(room, player, p, use.Card) == null)
+                        return new TriggerStruct(Name, player);
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardUseStruct use)
+            {
+                List<Player> targets = new List<Player>();
+                foreach (Player p in room.GetOtherPlayers(player))
+                {
+                    if (!use.To.Contains(p) && RoomLogic.InMyAttackRange(room, player, p, use.Card) && RoomLogic.IsProhibited(room, player, p, use.Card) == null)
+                    {
+                        use.To.Add(p);
+                        targets.Add(p);
+                    }
+                }
+                room.SendCompulsoryTriggerLog(player, Name);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                LogMessage log = new LogMessage
+                {
+                    Type = "$extra_target",
+                    From = player.Name,
+                    Card_str = RoomLogic.CardToString(room, use.Card),
+                    Arg = Name
+                };
+                log.SetTos(targets);
+                room.SendLog(log);
+                room.SortByActionOrder(ref use);
+                data = use;
+            }
+            return false;
+        }
+    }
+
+    public class BaoxingRange : AttackRangeSkill
+    {
+        public BaoxingRange() : base("#baoxing") { }
+        public override int GetExtra(Room room, Player target, bool include_weapon)
+        {
+            int count = 0;
+            if (RoomLogic.PlayerHasShownSkill(room, target, "baoxing")) count += 1;
+            if (include_weapon && target.GetWeapon() && target.GetMark("Equips_nullified_to_Yourself") == 0)
+            {
+                Weapon card = (Weapon)Engine.GetFunctionCard(room.GetCard(target.Weapon.Key).Name);
+                count = count - (1 - card.Range);
+            }
+            return count;
         }
     }
 
