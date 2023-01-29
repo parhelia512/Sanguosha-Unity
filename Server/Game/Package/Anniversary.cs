@@ -8507,7 +8507,7 @@ namespace SanguoshaServer.Package
             if (include_weapon && target.GetWeapon() && target.GetMark("Equips_nullified_to_Yourself") == 0)
             {
                 Weapon card = (Weapon)Engine.GetFunctionCard(room.GetCard(target.Weapon.Key).Name);
-                count = count - (1 - card.Range);
+                count = count + (1 - card.Range);
             }
             return count;
         }
