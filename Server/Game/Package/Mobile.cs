@@ -111,6 +111,7 @@ namespace SanguoshaServer.Package
                 new Huaizi(),
                 new Yizan(),
                 new Longyuan(),
+                new Qingren(),
                 new Zhiyi(),
                 new Duoduan(),
                 new Gongshun(),
@@ -5729,7 +5730,7 @@ namespace SanguoshaServer.Package
     {
         public Yizan() : base("yizan")
         {
-            events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.CardResponded };
+            events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.CardResponded, TriggerEvent.EventPhaseChanging };
             skill_type = SkillType.Alter;
             view_as_skill = new YizanVS();
         }
@@ -5737,9 +5738,17 @@ namespace SanguoshaServer.Package
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
             if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && use.Card.Skill == Name)
+            {
                 player.AddMark(Name);
+                if (player.Phase != PlayerPhase.NotActive) player.AddMark("yizan_draw");
+            }
             else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Card.Skill == Name)
+            {
                 player.AddMark(Name);
+                if (player.Phase != PlayerPhase.NotActive) player.AddMark("yizan_draw");
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                player.SetMark("yizan_draw", 0);
         }
 
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
@@ -5842,28 +5851,64 @@ namespace SanguoshaServer.Package
         public override bool IsEnabledAtPlay(Room room, Player player) => true;
     }
 
-    public class Longyuan : PhaseChangeSkill
+    public class Longyuan : TriggerSkill
     {
         public Longyuan() : base("longyuan")
         {
             frequency = Frequency.Wake;
+            events.Add(TriggerEvent.EventPhaseChanging);
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                    if (p.GetMark(Name) == 0 && p.GetMark("yizan") >= 3)
+                        triggers.Add(new TriggerStruct(Name, p));
+            }
+            return triggers;
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.SendCompulsoryTriggerLog(ask_who, Name);
+            room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+            room.DoSuperLightbox(ask_who, info.SkillPosition, Name);
+            room.SetPlayerMark(ask_who, Name, 1);
+            room.SetPlayerMark(ask_who, "yizan_description_index", 1);
+            room.RefreshSkill(ask_who);
+            return false;
+        }
+    }
+
+    public class Qingren : TriggerSkill
+    {
+        public Qingren() : base("qingren")
+        {
+            events.Add(TriggerEvent.EventPhaseStart);
+            skill_type = SkillType.Replenish;
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (player.Phase == PlayerPhase.Start && player.GetMark(Name) == 0 && base.Triggerable(player, room) && player.GetMark("yizan") >= 3)
+            if (base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish && player.GetMark("yizan_draw") > 0)
                 return new TriggerStruct(Name, player);
-
             return new TriggerStruct();
         }
-
-        public override bool OnPhaseChange(Room room, Player player, TriggerStruct info)
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
-            room.DoSuperLightbox(player, info.SkillPosition, Name);
-            room.SetPlayerMark(player, Name, 1);
-            room.SendCompulsoryTriggerLog(player, Name);
-
+            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.DrawCards(player, player.GetMark("yizan_draw"), Name);
             return false;
         }
     }
