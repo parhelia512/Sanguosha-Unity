@@ -5879,6 +5879,10 @@ namespace SanguoshaServer.Package
             room.SetPlayerMark(ask_who, Name, 1);
             room.SetPlayerMark(ask_who, "yizan_description_index", 1);
             room.RefreshSkill(ask_who);
+
+            room.DrawCards(ask_who, 2, Name);
+            if (ask_who.Alive && ask_who.IsWounded()) room.Recover(ask_who);
+
             return false;
         }
     }
