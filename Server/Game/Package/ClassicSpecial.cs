@@ -255,6 +255,8 @@ namespace SanguoshaServer.Package
                 new Qiongshou(),
                 new QiongshouMax(),
                 new Fenrui(),
+                new Xiaosi(),
+                new XiaosiTag(),
 
                 new Hongyuan(),
                 new Huanshi(),
@@ -350,6 +352,7 @@ namespace SanguoshaServer.Package
                 new ChuitiCard(),
                 new YuanhuCard(),
                 new AichenCard(),
+                new XiaosiCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -411,6 +414,7 @@ namespace SanguoshaServer.Package
                 { "qiongshou", new List<string>{ "#qiongshou" } },
                 { "qiaoli", new List<string>{ "#qiaoli" } },
                 { "beizhan_classic", new List<string>{ "#beizhan-c-prohibit" } },
+                { "xiaosi", new List<string>{ "#xiaosi-tar" } },
             };
         }
     }
@@ -15218,6 +15222,102 @@ namespace SanguoshaServer.Package
             }
 
             return false;
+        }
+    }
+
+    public class Xiaosi : OneCardViewAsSkill
+    {
+        public Xiaosi() : base("xiaosi") { expand_pile = "#xiaosi"; skill_type = SkillType.Attack; }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(XiaosiCard.ClassName);
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern) => pattern == "@@xiaosi";
+        public override bool ViewFilter(Room room, WrappedCard to_select, Player player)
+        {
+            if (room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE)
+                return to_select.Name != Jink.ClassName && player.GetPile("#xiaosi").Contains(to_select.Id);
+            else
+                return player.GetCards("h").Contains(to_select.Id) && Engine.GetFunctionCard(to_select.Name) is BasicCard && RoomLogic.CanDiscard(room, player, player, to_select.Id);
+        }
+        public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
+        {
+            if (room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE)
+                return card;
+            else
+            {
+                WrappedCard xs = new WrappedCard(XiaosiCard.ClassName) { Skill = Name };
+                xs.AddSubCard(card);
+                return xs;
+            }
+        }
+    }
+
+    public class XiaosiTag : TargetModSkill
+    {
+        public XiaosiTag() : base("#xiaosi-tar", false) { pattern = ".|.|.|$xiaosi"; }
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && pattern == "@@xiaosi" ? true : false;
+        public override bool CheckSpecificAssignee(Room room, Player from, Player to, WrappedCard card, string pattern) => pattern == "@@xiaosi" ? true : false;
+    }
+
+    public class XiaosiCard : SkillCard
+    {
+        public static string ClassName = "XiaosiCard";
+        public XiaosiCard() : base(ClassName) { will_throw = true; }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self;
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From;
+            Player target = card_use.To[0];
+
+            bool draw = true;
+            int card_id = -1;
+            if (target.Alive && !target.IsKongcheng())
+            {
+                List<int> available = new List<int>();
+                foreach (int id in target.GetCards("h"))
+                {
+                    if (Engine.GetFunctionCard(room.GetCard(id).Name) is BasicCard && RoomLogic.CanDiscard(room, target, target, id))
+                        available.Add(id);
+                }
+                if (available.Count == 1)
+                {
+                    card_id = available[0];
+                    draw = false;
+                    room.ThrowCard(ref available, new CardMoveReason(MoveReason.S_REASON_THROW, target.Name, "xiaosi", string.Empty), target, null, null);
+                }
+                else if (available.Count > 1)
+                {
+                    string pattern = string.Join("#", available);
+                    List<int> ids = room.AskForExchange(target, "xiaosi", 1, 1, string.Format("@xiaosi:{0}", player.Name), string.Empty, pattern, string.Empty);
+                    if (ids.Count != 1)
+                    {
+                        card_id = available[0];
+                        ids.Clear();
+                        ids.Add(card_id);
+                    }
+                    card_id = ids[0];
+                    draw = false;
+                    room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_THROW, target.Name, "xiaosi", string.Empty), target, null, null);
+                }
+            }
+            if (player.Alive)
+            {
+                List<int> can_use = new List<int>();
+                if (room.GetCardPlace(card_use.Card.GetEffectiveId()) == Place.DiscardPile)
+                    can_use.Add(card_use.Card.GetEffectiveId());
+                if (card_id != -1 && room.GetCardPlace(card_id) == Place.DiscardPile)
+                    can_use.Add(card_id);
+
+                while (can_use.Count > 0 && player.Alive)
+                {
+                    player.Piles["#xiaosi"] = can_use;
+                    WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@xiaosi", "@xiaosi-use", null, -1, HandlingMethod.MethodUse, false, card_use.Card.SkillPosition);
+                    if (card != null)
+                        can_use.Remove(card.GetEffectiveId());
+                    else
+                        break;
+                }
+                player.Piles["#xiaosi"].Clear();
+            }
+            if (player.Alive && draw) room.DrawCards(player, 1, "xiaosi");
         }
     }
 
