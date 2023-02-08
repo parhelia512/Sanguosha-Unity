@@ -128,6 +128,7 @@ namespace SanguoshaServer.AI
                 new LuanfengAI(),
                 new XiuhaoAI(),
                 new SujianAI(),
+                new XiaosiAI(),
 
                 new HongyuanAI(),
                 new HuanshiAI(),
@@ -176,6 +177,7 @@ namespace SanguoshaServer.AI
                 new LianzhuCardAI(),
                 new ZhoufuCardAI(),
                 new JianjiCardAI(),
+                new XiaosiCardAI(),
             };
         }
     }
@@ -1901,6 +1903,153 @@ namespace SanguoshaServer.AI
         }
     }
 
+    public class XiaosiAI : SkillEvent
+    {
+        public XiaosiAI() : base("xiaosi") { }
+        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        {
+            if (!player.HasUsed(XiaosiCard.ClassName) && !player.IsNude())
+                return new List<WrappedCard> { new WrappedCard(XiaosiCard.ClassName) { Skill = Name } };
+            return new List<WrappedCard>();
+        }
+        public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
+        {
+            List<int> ids = new List<int>();
+            foreach (string str in pattern.Split('#'))
+            {
+                int id = int.Parse(str);
+                ids.Add(id);
+            }
+            ai.SortByKeepValue(ref ids, false);
+            Room room = ai.Room;
+            Player from = ai.Room.Current;
+            if (from != null && from.Alive)
+            {
+                if (!ai.IsFriend(from))
+                {
+                    foreach (int id in ids)
+                    {
+                        if (room.GetCard(id).Name == Jink.ClassName)
+                            return new List<int> { id };
+                    }
+                }
+                else if (ai.IsFriend(from))
+                {
+                    foreach (int id in ids)
+                    {
+                        if (room.GetCard(id).Name.Contains(Slash.ClassName))
+                            return new List<int> { id };
+                    }
+                }
+            }
+
+            return new List<int> { ids[0] };
+        }
+
+        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        {
+            CardUseStruct use = new CardUseStruct();
+            use.From = player;
+            Room room = ai.Room;
+            List<int> ids = player.GetPile("#xiaosi");
+            foreach (int id in ids)
+            {
+                WrappedCard card = room.GetCard(id);
+                if (card.Name == Analeptic.ClassName)
+                {
+                    use.Card = card;
+                    return use;
+                }
+            }
+            foreach (int id in ids)
+            {
+                WrappedCard card = room.GetCard(id);
+                if (card.Name == Analeptic.ClassName && RoomLogic.IsProhibited(room, player, player, card) == null)
+                {
+                    use.Card = card;
+                    return use;
+                }
+            }
+            foreach (int id in ids)
+            {
+                WrappedCard card = room.GetCard(id);
+                if (card.Name == Peach.ClassName && player.IsWounded() && RoomLogic.IsProhibited(room, player, player, card) == null)
+                {
+                    use.Card = card;
+                    return use;
+                }
+            }
+            foreach (int id in ids)
+            {
+                WrappedCard card = room.GetCard(id);
+                if (card.Name.Contains(Slash.ClassName))
+                {
+                    WrappedCard slash = new WrappedCard(card.Name);
+                    slash.AddSubCard(card);
+                    slash.DistanceLimited = false;
+                    List<ScoreStruct> scores = ai.CaculateSlashIncome(player, new List<WrappedCard> { slash }, null, false);
+                    if (scores.Count > 0 && scores[0].Score > 0)
+                    {
+                        use.Card = card;
+                        use.To.AddRange(scores[0].Players);
+                        return use;
+                    }
+                }
+            }
+
+            return use;
+        }
+    }
+
+    public class XiaosiCardAI : UseCard
+    {
+        public XiaosiCardAI() : base(XiaosiCard.ClassName) { }
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card) => 5;
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            int card_id = -1;
+            Room room = ai.Room;
+            List<int> ids = new List<int>();
+            foreach (int id in player.GetCards("h"))
+            {
+                if (Engine.GetFunctionCard(room.GetCard(id).Name) is BasicCard && RoomLogic.CanDiscard(room, player, player, id))
+                    ids.Add(id);
+            }
+            if (ids.Count > 0)
+            {
+                ai.SortByUseValue(ref ids, true);
+                foreach (int id in ids)
+                {
+                    if (room.GetCard(id).Name.Contains(Slash.ClassName))
+                    {
+                        card_id = id;
+                        break;
+                    }
+
+                }
+                if (card_id == -1)
+                {
+                    foreach (int id in ids)
+                    {
+                        if (player.IsWounded() && room.GetCard(id).Name.Contains(Peach.ClassName))
+                        {
+                            card_id = id;
+                            break;
+                        }
+                    }
+                }
+                if (card_id == -1) card_id = ids[0];
+                card.AddSubCard(card_id);
+                List<Player> enemies = ai.GetEnemies(player);
+                if (enemies.Count > 0)
+                {
+                    ai.SortByDefense(ref enemies, false);
+                    use.To.Add(enemies[0]);
+                    use.Card = card;
+                }
+            }
+        }
+    }
     public class XianfuAI : SkillEvent
     {
         public XianfuAI() : base("xianfu") { }
