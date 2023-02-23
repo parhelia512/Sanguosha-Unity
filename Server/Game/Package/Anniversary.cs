@@ -20219,7 +20219,7 @@ namespace SanguoshaServer.Package
             {
                 int count = target.GetCards("e").Count;
                 if (count > 0) room.DrawCards(player, count, "cuichuan");
-                if (card_id != -1 && count > 0)
+                if (card_id != -1 && count >= 4)
                 {
                     if (player.Alive) room.HandleAcquireDetachSkills(player, "-cuichuan|zuojian", false);
                     if (target.Alive) room.GainAnExtraTurn(target);
@@ -20239,7 +20239,7 @@ namespace SanguoshaServer.Package
             if (triggerEvent == TriggerEvent.Damaged && base.Triggerable(player, room) && !player.HasFlag("zhengxu_invoke_draw"))
                 player.SetFlags("zhengxu_draw");
             else if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && (move.From_places.Contains(Place.PlaceEquip) || move.From_places.Contains(Place.PlaceHand))
-                && base.Triggerable(move.From, room) && !player.HasFlag("zhengxu_invoke_invalid"))
+                && base.Triggerable(move.From, room) && !move.From.HasFlag("zhengxu_invoke_invalid"))
                 move.From.SetFlags("zhengxu_invalid");
         }
 
@@ -20261,11 +20261,11 @@ namespace SanguoshaServer.Package
             {
                 if (room.AskForSkillInvoke(ask_who, Name, "@zhengxu-draw", info.SkillPosition))
                 {
-                    player.SetFlags("zhengxu_invoke_draw");
+                    ask_who.SetFlags("zhengxu_invoke_draw");
                     room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                     return info;
                 }
-                player.SetFlags("-zhengxu_draw");
+                ask_who.SetFlags("-zhengxu_draw");
             }
             else if (data is DamageStruct damage)
             {
