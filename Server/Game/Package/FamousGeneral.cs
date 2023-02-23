@@ -7202,8 +7202,8 @@ namespace SanguoshaServer.Package
                 room.AskForDiscard(target, "pindi", player.GetMark("pindi"), player.GetMark("pindi"), false, true,
                     string.Format("@pindi-discard:{0}::{1}", player.Name, player.GetMark("pindi")), false, null);
 
-            if (player.Alive && target.Alive && target.IsWounded() && !player.Chained)
-                room.SetPlayerChained(player, true);
+            if (player.Alive && target.Alive && target.IsWounded())
+                room.SetPlayerChained(player, !player.Chained);
         }
     }
 
