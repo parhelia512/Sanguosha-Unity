@@ -18647,7 +18647,6 @@ namespace SanguoshaServer.Package
             }
             else
             {
-                player.SetFlags("jinjian_damaged_pre");
 
                 LogMessage log = new LogMessage
                 {
@@ -18659,7 +18658,11 @@ namespace SanguoshaServer.Package
                 room.SendLog(log);
 
                 if (damage.Damage < 1)
+                {
+                    player.SetFlags("jinjian_damaged");
                     return true;
+                }
+                player.SetFlags("jinjian_damaged_pre");
                 data = damage;
             }
 
@@ -18674,7 +18677,7 @@ namespace SanguoshaServer.Package
             events = new List<TriggerEvent> { TriggerEvent.DamageCaused, TriggerEvent.DamageInflicted };
         }
 
-        public override int Priority => 1;
+        public override int Priority => 0;
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {

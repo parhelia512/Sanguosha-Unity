@@ -7175,10 +7175,7 @@ namespace SanguoshaServer.Package
         public static string ClassName = "PindiCard";
         public PindiCard() : base(ClassName) { }
 
-        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
-        {
-            return targets.Count == 0 && !to_select.HasFlag("pindi") && to_select != Self;
-        }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && !to_select.HasFlag("pindi");
         public override void OnUse(Room room, CardUseStruct card_use)
         {
             FunctionCard fcard = Engine.GetFunctionCard(room.GetCard(card_use.Card.GetEffectiveId()).Name);
