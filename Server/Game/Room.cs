@@ -356,7 +356,7 @@ namespace SanguoshaServer.Game
             }
 
             SwapTime++;
-            int limit = 5;
+            int limit = 8;
             if (limit > 0 && SwapTime == limit) GameOver(".");
             DoBroadcastNotify(CommandType.S_COMMAND_RESET_PILE, new List<string> { SwapTime.ToString() });
 
