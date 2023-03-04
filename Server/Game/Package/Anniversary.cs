@@ -260,6 +260,9 @@ namespace SanguoshaServer.Package
                 new Congshi(),
                 new Suoliang(),
                 new Qinbao(),
+                new Juying(),
+                new JuyingTar(),
+                new JuyingMax(),
 
                 new Guolun(),
                 new Songsang(),
@@ -460,6 +463,7 @@ namespace SanguoshaServer.Package
                 { "baoxing", new List<string>{ "#baoxing" } },
                 { "zhengxu", new List<string>{ "#zhengxu" } },
                 { "xialei", new List<string>{ "#xialei" } },
+                { "juying", new List<string>{ "#juying", "#juying-max" } },
             };
         }
     }
@@ -16162,6 +16166,122 @@ namespace SanguoshaServer.Package
 
             return false;
         }
+    }
+
+    public class Juying : TriggerSkill
+    {
+        public Juying() : base("juying")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.EventPhaseEnd, TriggerEvent.TurnStart };
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                room.RemovePlayerStringMark(player, "juying-max");
+                room.RemovePlayerStringMark(player, "juying-slash");
+                player.SetMark("juying-max", 0);
+                player.SetMark("juying-slash", 0);
+            }
+            else if (triggerEvent == TriggerEvent.TurnStart && player.GetMark(Name) > 0)
+            {
+                player.AddMark("juying-slash", player.GetMark(Name));
+                player.SetMark(Name, 0);
+                room.SetPlayerStringMark(player, "juying-slash", player.GetMark("juying-slash").ToString());
+            }
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseEnd && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play)
+            {
+                WrappedCard slash = new WrappedCard(Slash.ClassName);
+                int count = Engine.CorrectCardTarget(room, TargetModSkill.ModType.Residue, player, slash) + 1;
+                if (player.GetSlashCount() < count)
+                    return new TriggerStruct(Name, player);
+            }
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            List<string> choices = new List<string> { "add", "max", "draw", "cancel" };
+            string choice = room.AskForChoice(player, Name, choices, null, null, info.SkillPosition);
+            if (choice != "cancel")
+            {
+                player.SetTag(Name, choice);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.GetTag(Name) is string choice)
+            {
+                player.RemoveTag(Name);
+                int count = 0;
+                bool quit = false;
+                List<string> choices = new List<string> { "add", "max", "draw", "cancel" };
+                while (player.Alive)
+                {
+                    choices.Remove(choice);
+                    switch (choice)
+                    {
+                        case "add":
+                            {
+                                count++;
+                                player.AddMark(Name);
+                                LogMessage log = new LogMessage("#juying-slash")
+                                {
+                                    From = player.Name
+                                };
+                                room.SendLog(log);
+                            }
+                            break;
+                        case "max":
+                            {
+                                player.AddMark("juying-max", 2);
+                                room.SetPlayerStringMark(player, "juying-max", player.GetMark("juying-max").ToString());
+                                count++;
+                                LogMessage log = new LogMessage("#juying-max")
+                                {
+                                    From = player.Name
+                                };
+                                room.SendLog(log);
+                            }
+                            break;
+                        case "draw":
+                            {
+                                room.DrawCards(player, 3, Name);
+                                count++;
+                            }
+                            break;
+                        case "cancel":
+                            quit = true;
+                            break;
+                    }
+                    if (player.Alive && count > player.Hp)
+                        room.AskForDiscard(player, Name, 1, 1, false, true, "@juying", false, info.SkillPosition);
+                    if (count >= 3 || quit)
+                        break;
+                    else
+                        choice = room.AskForChoice(player, Name, choices, null, null, info.SkillPosition);
+                }
+            }
+            return false;
+        }
+    }
+
+    public class JuyingTar : TargetModSkill
+    {
+        public JuyingTar() : base("#juying", false) { }
+        public override int GetResidueNum(Room room, Player from, WrappedCard card) => from.GetMark("juying-slash");
+    }
+    public class JuyingMax : MaxCardsSkill
+    {
+        public JuyingMax() : base("#juying-max") { }
+        public override int GetExtra(Room room, Player target) => target.GetMark("juying-max");
     }
 
     public class Guolun : ZeroCardViewAsSkill
