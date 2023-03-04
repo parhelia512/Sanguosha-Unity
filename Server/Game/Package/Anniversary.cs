@@ -100,6 +100,9 @@ namespace SanguoshaServer.Package
                 new XieshouMax(),
                 new Qingyan(),
                 new Qizi(),
+                new Xialei(),
+                new XialeiClear(),
+                new Anzhi(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -385,6 +388,7 @@ namespace SanguoshaServer.Package
                 new FenyanCard(),
                 new BingjiCard(),
                 new CuichuanCard(),
+                new AnzhiCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -455,6 +459,7 @@ namespace SanguoshaServer.Package
                 { "xieshou", new List<string>{ "#xieshou" } },
                 { "baoxing", new List<string>{ "#baoxing" } },
                 { "zhengxu", new List<string>{ "#zhengxu" } },
+                { "xialei", new List<string>{ "#xialei" } },
             };
         }
     }
@@ -6101,6 +6106,214 @@ namespace SanguoshaServer.Package
         public Qizi() : base("qizi") { }
         public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null)
             => card.Name == Peach.ClassName && to != null && to.HasFlag("Global_Dying") && from != to && RoomLogic.DistanceTo(room, from, to, card) > 2;
+    }
+
+    public class Xialei : TriggerSkill
+    {
+        public Xialei() : base("xialei")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardsMoveOneTime };
+            skill_type = SkillType.Replenish;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move &&
+                (move.From_places.Contains(Place.PlaceHand) || move.From_places.Contains(Place.PlaceEquip)) && move.To_place == Place.PlaceTable && base.Triggerable(move.From, room))
+            {
+                for (int i = 0; i < move.Card_ids.Count; i++)
+                {
+                    int card_id = move.Card_ids[i];
+                    if (room.GetCardPlace(card_id) == Place.PlaceTable && (move.From_places[i] == Place.PlaceHand || move.From_places[i] == Place.PlaceEquip) && WrappedCard.IsRed(room.GetCard(card_id).Suit))
+                        room.GetCard(card_id).SetFlags(Name);
+                }
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                    p.SetMark(Name, 0);
+            }
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.To_place == Place.DiscardPile && base.Triggerable(move.From, room) && move.From.GetMark(Name) < 3)
+            {
+                for (int i = 0; i < move.Card_ids.Count; i++)
+                {
+                    int card_id = move.Card_ids[i];
+                    if (room.GetCardPlace(card_id) == Place.DiscardPile && WrappedCard.IsRed(room.GetCard(card_id).Suit)
+                        && (move.From_places[i] == Place.PlaceTable && room.GetCard(card_id).HasFlag(Name) || move.From_places[i] == Place.PlaceHand || move.From_places[i] == Place.PlaceEquip))
+                        return new TriggerStruct(Name, move.From);
+                }
+            }
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player tar, ref object data, Player player, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                player.AddMark(Name);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player p, ref object data, Player player, TriggerStruct info)
+        {
+            int count = 4 - player.GetMark(Name);
+            if (count == 1)
+            {
+                room.DrawCards(player, 1, Name);
+            }
+            else
+            {
+                List<int> card_ids = room.GetNCards(count);
+                LogMessage log = new LogMessage
+                {
+                    Type = "$ViewDrawPile",
+                    From = player.Name,
+                    Card_str = string.Join("+", JsonUntity.IntList2StringList(card_ids))
+                };
+                room.SendLog(log, room.GetOtherPlayers(player));
+                log.Type = "$ViewDrawPile2";
+                log.Arg = count.ToString();
+                room.SendLog(log, new List<Player> { player });
+
+
+                List<string> patterns = new List<string>();
+                foreach (int id in card_ids)
+                    patterns.Add(id.ToString());
+                List<int> ids = room.NotifyChooseCards(player, card_ids, Name, 1, 1, "@xialei", string.Join("#", patterns), info.SkillPosition);
+                card_ids.RemoveAll(t => ids.Contains(t));
+                room.ReturnToDrawPile(card_ids, true, player);
+               
+                LogMessage b = new LogMessage
+                {
+                    Type = "$GuanxingBottom",
+                    From = player.Name,
+                    Card_str = string.Join("+", JsonUntity.IntList2StringList(card_ids))
+                };
+                room.SendLog(b, player);
+                room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GOTCARD, player.Name, Name, string.Empty), false);
+            }
+
+            return false;
+        }
+    }
+    public class XialeiClear : TriggerSkill
+    {
+        public XialeiClear() : base("#xialei")
+        {
+            events.Add(TriggerEvent.CardsMoveOneTime);
+        }
+        public override int Priority => 0;
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            CardsMoveOneTimeStruct move = (CardsMoveOneTimeStruct)data;
+            if (move.From != null && move.To_place == Place.DiscardPile && move.From_places.Contains(Place.PlaceTable))
+            {
+                for (int i = 0; i < move.Card_ids.Count; i++)
+                {
+                    WrappedCard card = room.GetCard(move.Card_ids[i]);
+                    if (move.From_places[i] == Place.PlaceTable && card.HasFlag("xialei"))
+                        card.SetFlags("-xialei");
+                }
+            }
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+    }
+
+    public class Anzhi : TriggerSkill
+    {
+        public Anzhi() : base("anzhi")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.Damaged, TriggerEvent.EventPhaseChanging, TriggerEvent.CardsMoveOneTime };
+            view_as_skill = new AnzhiVS();
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.To_place == Place.DiscardPile && room.Current != null)
+            {
+                List<int> ids = room.ContainsTag(Name) ? (List<int>)room.GetTag(Name) : new List<int>();
+                foreach (int id in move.Card_ids)
+                {
+                    if (room.GetCardPlace(id) == Place.DiscardPile && !ids.Contains(id))
+                        ids.Add(id);
+                }
+                room.SetTag(Name, ids);
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                room.RemoveTag(Name);
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.Damaged && base.Triggerable(player, room) && !player.HasFlag(Name))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            room.AskForUseCard(player, RespondType.Skill, "@@anzhi", "@anzhi-judge", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+            return new TriggerStruct();
+        }
+    }
+
+    public class AnzhiVS : ZeroCardViewAsSkill
+    {
+        public AnzhiVS() : base("anzhi") { response_pattern = "@@anzhi"; }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasFlag(Name);
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(AnzhiCard.ClassName) { Skill = Name };
+    }
+
+    public class AnzhiCard : SkillCard
+    {
+        public static string ClassName = "AnzhiCard";
+        public AnzhiCard() : base(ClassName) { target_fixed = true; }
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From;
+            JudgeStruct judge = new JudgeStruct
+            {
+                Good = true,
+                PlayAnimation = false,
+                Who = player,
+                Reason = "anzhi"
+            };
+
+            room.Judge(ref judge);
+            if (WrappedCard.IsRed(judge.JudgeSuit))
+            {
+                player.SetMark("xialei", 0);
+                LogMessage log = new LogMessage("#xialei-reset")
+                {
+                    From = player.Name,
+                    Arg = "xialei",
+                };
+                room.SendLog(log);
+            }
+            else
+            {
+                player.SetFlags("anzhi");
+                if (room.ContainsTag("anzhi") && room.GetTag("anzhi") is List<int> ids)
+                {
+                    ids.RemoveAll(t => room.GetCardPlace(t) != Place.DiscardPile);
+                    if (ids.Count > 0)
+                    {
+                        AskForMoveCardsStruct move = room.AskForMoveCards(player, ids, new List<int>(), false, "anzhi", Math.Min(2, ids.Count), 2, true, false, new List<int>(), card_use.Card.SkillPosition);
+                        if (move.Success && move.Bottom.Count > 0)
+                        {
+                            Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(room.Current), "anzhi", "@anzhi-give", true, true, card_use.Card.SkillPosition);
+                            if (target != null)
+                            {
+                                List<int> cards = new List<int>(move.Bottom);
+                                room.ObtainCard(target, ref cards, new CardMoveReason(MoveReason.S_REASON_RECYCLE, target.Name, player.Name, "anzhi", string.Empty));
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     public class Tunan : ViewAsSkill
