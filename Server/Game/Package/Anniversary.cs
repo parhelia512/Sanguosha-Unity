@@ -6263,17 +6263,72 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class AnzhiVS : ZeroCardViewAsSkill
+    public class AnzhiVS : ViewAsSkill
     {
-        public AnzhiVS() : base("anzhi") { response_pattern = "@@anzhi"; }
-        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasFlag(Name);
-        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(AnzhiCard.ClassName) { Skill = Name };
+        public AnzhiVS() : base("anzhi")
+        {
+            expand_pile = "#anzhi";
+        }
+        public override bool IsAvailable(Room room, Player invoker, CardUseReason reason, RespondType respond, string pattern, string position = null)
+        {
+            if (reason == CardUseReason.CARD_USE_REASON_RESPONSE_USE && respond == RespondType.Nullification)
+                return false;
+
+            switch (reason)
+            {
+                case CardUseReason.CARD_USE_REASON_PLAY when RoomLogic.PlayerHasSkill(room, invoker, Name):
+                    return !invoker.HasFlag(Name);
+                case CardUseReason.CARD_USE_REASON_RESPONSE_USE when pattern == "@@anzhi":
+                    {
+                        if (invoker.HasFlag("anzhi_give"))
+                            return true;
+                        else
+                            return RoomLogic.PlayerHasSkill(room, invoker, Name);
+                    }
+                default:
+                    return false;
+            }
+        }
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
+        {
+            if (player.HasFlag("anzhi_give") && selected.Count < 2)
+                return player.GetPile(expand_pile).Contains(to_select.Id);
+            return false;
+        }
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (!player.HasFlag("anzhi_give"))
+            {
+                return new WrappedCard(AnzhiCard.ClassName) { Skill = Name };
+            }
+            else  if (cards.Count == 2)
+            {
+                WrappedCard az = new WrappedCard(AnzhiCard.ClassName) { Skill = Name };
+                az.AddSubCards(cards);
+                return az;
+            }
+            return null;
+        }
     }
 
     public class AnzhiCard : SkillCard
     {
         public static string ClassName = "AnzhiCard";
-        public AnzhiCard() : base(ClassName) { target_fixed = true; }
+        public AnzhiCard() : base(ClassName) { target_fixed = false; will_throw = false; }
+        public override bool TargetFixed(WrappedCard card) => card.SubCards.Count == 0;
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            if (card.SubCards.Count > 0) return targets.Count == 0 && to_select != room.Current;
+            return false;
+        }
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card) => card.SubCards.Count == 0 || targets.Count == 1;
+        public override void OnUse(Room room, CardUseStruct card_use)
+        {
+            if (card_use.Card.SubCards.Count == 0)
+                base.OnUse(room, card_use);
+            else
+                card_use.From.SetTag("anzhi", card_use.To[0].Name);
+        }
         public override void Use(Room room, CardUseStruct card_use)
         {
             Player player = card_use.From;
@@ -6304,15 +6359,16 @@ namespace SanguoshaServer.Package
                     ids.RemoveAll(t => room.GetCardPlace(t) != Place.DiscardPile);
                     if (ids.Count > 0)
                     {
-                        AskForMoveCardsStruct move = room.AskForMoveCards(player, ids, new List<int>(), false, "anzhi", Math.Min(2, ids.Count), 2, true, false, new List<int>(), card_use.Card.SkillPosition);
-                        if (move.Success && move.Bottom.Count > 0)
+                        player.SetFlags("anzhi_give");
+                        player.PileChange("#anzhi", ids, true);
+                        WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@anzhi", "@anzhi-give", null, -1, HandlingMethod.MethodUse, true, card_use.Card.Skill);
+                        player.PileChange("#anzhi", ids, false);
+                        player.SetFlags("-anzhi_give");
+                        if (card != null && player.GetTag("anzhi") is string target_name)
                         {
-                            Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(room.Current), "anzhi", "@anzhi-give", true, true, card_use.Card.SkillPosition);
-                            if (target != null)
-                            {
-                                List<int> cards = new List<int>(move.Bottom);
-                                room.ObtainCard(target, ref cards, new CardMoveReason(MoveReason.S_REASON_RECYCLE, target.Name, player.Name, "anzhi", string.Empty));
-                            }
+                            player.RemoveTag("anzhi");
+                            Player target = room.FindPlayer(target_name);
+                            room.ObtainCard(target, card, new CardMoveReason(MoveReason.S_REASON_RECYCLE, target.Name, player.Name, "anzhi", string.Empty));
                         }
                     }
                 }
