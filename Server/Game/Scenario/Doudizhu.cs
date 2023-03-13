@@ -350,8 +350,6 @@ namespace SanguoshaServer.Scenario
         {
             game_cards = Engine.GetGameCards(room.Setting.CardPackage);
             m_drawPile = game_cards;
-            room.AddSkill2Game("landlord");
-            room.AddSkill2Game("landlord-tar");
 
             Shuffle.shuffle(ref m_drawPile);
             AdjustSeats(room, ref room_players);
@@ -513,6 +511,9 @@ namespace SanguoshaServer.Scenario
         }
         protected override void OnGameStart(Room room, ref object data)
         {
+            room.AddSkill2Game("landlord");
+            room.AddSkill2Game("landlord-tar");
+
             foreach (Player player in room.Players)
             {
                 List<string> skills = new List<string>(player.HeadSkills.Keys);
