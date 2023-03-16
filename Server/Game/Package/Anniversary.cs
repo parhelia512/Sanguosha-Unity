@@ -5455,14 +5455,13 @@ namespace SanguoshaServer.Package
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who) => base.Triggerable(player, room) ? new TriggerStruct(Name, player) : new TriggerStruct();
-
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             if (player.HasEquip(Trebuchet.ClassName))
             {
                 List<Player> targets = new List<Player>();
                 foreach (Player p in room.GetOtherPlayers(player))
-                    if (p.HasEquip() && RoomLogic.CanDiscard(room, player, p, "e"))
+                    if (!p.IsNude() && RoomLogic.CanDiscard(room, player, p, "he"))
                         targets.Add(p);
                 if (targets.Count > 0)
                 {
@@ -5475,7 +5474,7 @@ namespace SanguoshaServer.Package
                     }
                 }
             }
-            else if (room.AskForDiscard(player, Name, 1, 1, true, true, "@poyuan-equip", true, info.SkillPosition))
+            else if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
             {
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                 return info;
@@ -5487,7 +5486,7 @@ namespace SanguoshaServer.Package
             if (player.HasEquip(Trebuchet.ClassName) && room.GetTag(Name) is Player target)
             {
                 room.RemoveTag(Name);
-                List<int> ids = room.AskForCardsChosen(player, target, "e", Name, 1, 2, false, HandlingMethod.MethodDiscard);
+                List<int> ids = room.AskForCardsChosen(player, target, "he", Name, 1, 2, false, HandlingMethod.MethodDiscard);
                 if (ids.Count > 0)
                     room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, player.Name, target.Name, Name, string.Empty), target, player);
             }

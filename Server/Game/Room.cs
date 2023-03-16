@@ -950,7 +950,8 @@ namespace SanguoshaServer.Game
                         effect.To.SetFlags("-Global_NonSkillNullify");
                 }
             }
-
+            effect.Effected = cancel;
+            RoomThread.Trigger(TriggerEvent.CardEffectResult, this, effect.To, ref data);
             return cancel;
         }
 

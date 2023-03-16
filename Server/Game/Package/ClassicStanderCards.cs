@@ -29,6 +29,7 @@ namespace SanguoshaServer.Package
                 new BreachingtowerSkill(),
                 new BreachingFix(),
                 new TrebuchetSkill(),
+                new TrebuchetTarSkill(),
             };
             cards = new List<FunctionCard> {
                 new ClassicBlade(),
@@ -52,7 +53,7 @@ namespace SanguoshaServer.Package
             {
                 { ClassicBlade.ClassName, new List<string> { "#blade-target-mod" } },
                 { QuenchedKnife.ClassName, new List<string> { "#QuenchedKnife-tm" } },
-                { Breachingtower.ClassName, new List<string> { "#Breachingtower" } },
+                { Breachingtower.ClassName, new List<string> { "#Breachingtower", "#Trebuchet-tar" } },
             };
         }
     }
@@ -1045,7 +1046,7 @@ namespace SanguoshaServer.Package
             if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && base.Triggerable(player, room) && Engine.GetFunctionCard(use.Card.Name) is BasicCard
                 && (player.Phase == Player.PlayerPhase.NotActive || use.Card.Name != Jink.ClassName))
                 return new TriggerStruct(Name, player);
-            else if (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Use && player.Alive && player.Phase == Player.PlayerPhase.NotActive && base.Triggerable(player, room))
+            else if (triggerEvent == TriggerEvent.CardResponded && player.Alive && player.Phase == Player.PlayerPhase.NotActive && base.Triggerable(player, room))
                 return new TriggerStruct(Name, player);
             return new TriggerStruct();
         }
@@ -1063,5 +1064,11 @@ namespace SanguoshaServer.Package
 
             return false;
         }
+    }
+
+    public class TrebuchetTarSkill : TargetModSkill
+    {
+        public TrebuchetTarSkill() : base("#Trebuchet-tar", false) { }
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseStruct.CardUseReason reason, string pattern) => from.HasTreasure(Trebuchet.ClassName) && from.Phase != Player.PlayerPhase.NotActive;
     }
 }

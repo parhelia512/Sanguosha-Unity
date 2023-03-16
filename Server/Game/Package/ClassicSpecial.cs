@@ -2286,7 +2286,7 @@ namespace SanguoshaServer.Package
                 if (fcard is Slash || (fcard is TrickCard && WrappedCard.IsBlack(use.Card.Suit)))
                 {
                     foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
-                        if (p != player && p != use.From && p.Hp > player.Hp && !p.IsNude())
+                        if (p != player && p != use.From && p.Hp >= player.Hp && !p.IsNude())
                             triggers.Add(new TriggerStruct(Name, p));
                 }
             }
@@ -6030,8 +6030,7 @@ namespace SanguoshaServer.Package
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.CardFinished && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && use.From.ContainsTag(Name)
-                && use.From.GetTag(Name) is Dictionary<string, List<string>> discard_list)
+            if (triggerEvent == TriggerEvent.CardFinished && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && use.From.ContainsTag(Name) && use.From.GetTag(Name) is Dictionary<string, List<string>> discard_list)
             {
                 string str = RoomLogic.CardToString(room, use.Card);
                 discard_list.Remove(str);
@@ -6074,22 +6073,45 @@ namespace SanguoshaServer.Package
             {
                 string choice = ask_who.GetTag(Name).ToString();
                 ask_who.RemoveTag(Name);
-                if (choice == "draw")
-                    room.DrawCards(ask_who, 1, Name);
-                else
+                int count = 0;
+                while (ask_who.Alive && choice != "cancel" && count < 2)
                 {
-                    int card_id = room.AskForCardChosen(ask_who, player, "he", Name, false, HandlingMethod.MethodDiscard);
-                    room.ThrowCard(card_id, player, ask_who);
+                    count++;
+                    List<string> choices = new List<string> { "cancel" };
+                    if (choice == "draw")
+                    {
+                        room.DrawCards(ask_who, 1, Name);
+                        if (player.Alive && ask_who.Alive && RoomLogic.CanDiscard(room, ask_who, player, "he")) choices.Insert(0, "discard");
+                    }
+                    else
+                    {
+                        int card_id = room.AskForCardChosen(ask_who, player, "he", Name, false, HandlingMethod.MethodDiscard);
+                        room.ThrowCard(card_id, player, ask_who);
+                        choices.Insert(0, "draw");
+                    }
+
+                    if (ask_who.Alive && count < 2 && choices.Count > 1)
+                    {
+                        player.SetFlags("moukui_target");
+                        choice = room.AskForChoice(ask_who, Name, string.Join("+", choices), new List<string> { "@to-player:" + player.Name }, data, info.SkillPosition);
+                        player.SetFlags("-moukui_target");
+                    }
+                    else
+                        break;
                 }
 
-                Dictionary<string, List<string>> discard_list = ask_who.ContainsTag(Name) ? (Dictionary<string, List<string>>)ask_who.GetTag(Name) : new Dictionary<string, List<string>>();
-                string str = RoomLogic.CardToString(room, use.Card);
-                if (!discard_list.ContainsKey(str))
-                    discard_list[str] = new List<string> { player.Name };
-                else
-                    discard_list[str].Add(player.Name);
 
-                ask_who.SetTag(Name, discard_list);
+                if (count >= 2 && ask_who.Alive && player.Alive)
+                {
+                    Dictionary<string, List<string>> discard_list = ask_who.ContainsTag(Name) ? (Dictionary<string, List<string>>)ask_who.GetTag(Name) : new Dictionary<string, List<string>>();
+                    string str = RoomLogic.CardToString(room, use.Card);
+                    if (!discard_list.ContainsKey(str))
+                        discard_list[str] = new List<string> { player.Name };
+                    else
+                        discard_list[str].Add(player.Name);
+
+                    ask_who.SetTag(Name, discard_list);
+                }
             }
 
             return false;
@@ -6100,18 +6122,25 @@ namespace SanguoshaServer.Package
     {
         public MoukuiDis() : base("#moukui")
         {
-            events.Add(TriggerEvent.SlashMissed);
+            events = new List<TriggerEvent> { TriggerEvent.CardEffectResult, TriggerEvent.SlashMissed };
             frequency = Frequency.Compulsory;
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is SlashEffectStruct effect && player.Alive && effect.To.Alive && RoomLogic.CanDiscard(room, effect.To, player, "he") && player.ContainsTag("moukui")
-                && player.GetTag("moukui") is Dictionary<string, List<string>> discard_list)
+            if (triggerEvent == TriggerEvent.SlashMissed && data is SlashEffectStruct effect && player.Alive && effect.To.Alive && !player.IsNude() && RoomLogic.CanDiscard(room, effect.To, player, "he")
+                && player.ContainsTag("moukui") && player.GetTag("moukui") is Dictionary<string, List<string>> discard_list)
             {
                 string str = RoomLogic.CardToString(room, effect.Slash);
                 if (discard_list.ContainsKey(str) && discard_list[str].Contains(effect.To.Name))
                     return new TriggerStruct(Name, effect.To);
+            }
+            else if (triggerEvent == TriggerEvent.CardEffectResult && data is CardEffectStruct _effect && _effect.Card.Name.Contains(Slash.ClassName) && !_effect.Effected && player.Alive && _effect.From.Alive
+                && !_effect.From.IsNude() && RoomLogic.CanDiscard(room, player, _effect.From, "he") && _effect.From.ContainsTag("moukui") && _effect.From.GetTag("moukui") is Dictionary<string, List<string>> _discard_list)
+            {
+                string str = RoomLogic.CardToString(room, _effect.Card);
+                if (_discard_list.ContainsKey(str) && _discard_list[str].Contains(player.Name))
+                    return new TriggerStruct(Name, player);
             }
 
             return new TriggerStruct();
@@ -6119,17 +6148,31 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (player.ContainsTag("moukui") && player.GetTag("moukui") is Dictionary<string, List<string>> discard_list && data is SlashEffectStruct effect)
+            Player target = null;
+            WrappedCard card = null;
+
+            if (triggerEvent == TriggerEvent.SlashMissed && data is SlashEffectStruct effect)
             {
-                string str = RoomLogic.CardToString(room, effect.Slash);
+                target = player;
+                card = effect.Slash;
+            }
+            else if (data is CardEffectStruct _effect)
+            {
+                target = _effect.From;
+                card = _effect.Card;
+            }
+
+            if (target.GetTag("moukui") is Dictionary<string, List<string>> discard_list )
+            {
+                string str = RoomLogic.CardToString(room, card);
                 discard_list[str].Remove(ask_who.Name);
                 if (discard_list[str].Count == 0) discard_list.Remove(str);
-                player.SetTag("moukui", discard_list);
+                target.SetTag("moukui", discard_list);
 
-                if (RoomLogic.CanDiscard(room, ask_who, player, "he"))
+                if (RoomLogic.CanDiscard(room, ask_who, target, "he"))
                 {
-                    int id = room.AskForCardChosen(ask_who, player, "he", "moukui", false, HandlingMethod.MethodDiscard);
-                    room.ThrowCard(id, player, ask_who);
+                    int id = room.AskForCardChosen(ask_who, target, "he", "moukui", false, HandlingMethod.MethodDiscard);
+                    room.ThrowCard(id, target, ask_who);
                 }
             }
 
