@@ -931,7 +931,7 @@ namespace SanguoshaServer.Game
         public bool CardEffect(CardEffectStruct effect)
         {
             object data = effect;
-            bool cancel = false;
+            bool effected = false;
             if (effect.To.Alive || Engine.GetFunctionCard(effect.Card.Name) is Slash)
             { // Be care!!!
               // No skills should be triggered here!
@@ -939,7 +939,7 @@ namespace SanguoshaServer.Game
                 // Make sure that effectiveness of Slash isn't judged here!
                 if (!RoomThread.Trigger(TriggerEvent.CardEffected, this, effect.To, ref data))
                 {
-                    cancel = true;
+                    effected = true;
                 }
                 else
                 {
@@ -950,9 +950,11 @@ namespace SanguoshaServer.Game
                         effect.To.SetFlags("-Global_NonSkillNullify");
                 }
             }
-            effect.Effected = cancel;
+            effect = (CardEffectStruct)data;
+            effect.Effected = effected;
+            data = effect;
             RoomThread.Trigger(TriggerEvent.CardEffectResult, this, effect.To, ref data);
-            return cancel;
+            return effected;
         }
 
 
