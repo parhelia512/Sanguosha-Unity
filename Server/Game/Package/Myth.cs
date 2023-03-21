@@ -3502,7 +3502,7 @@ namespace SanguoshaServer.Package
             if (!player.HasEquip(skill) && player.HasFlag("shouli"))
             {
                 Skill s = Engine.GetSkill(skill);
-                return s != null && !s.Attached_lord_skill && s.SkillFrequency != Frequency.Compulsory && s.SkillFrequency != Frequency.Wake && player.GetMark("tieqi_jx") > 0;
+                return s != null && !s.Attached_lord_skill && s.SkillFrequency != Frequency.Compulsory && s.SkillFrequency != Frequency.Wake;
             }
             return false;
         }
@@ -3625,6 +3625,9 @@ namespace SanguoshaServer.Package
                 }
                 else
                 {
+                    if (effect.From.Alive && room.GetCardPlace(judge.Card.Id) == Place.DiscardPile)
+                        room.ObtainCard(effect.From, judge.Card, new CardMoveReason(MoveReason.S_REASON_RECYCLE, effect.From.Name, "shencai", string.Empty), true);
+
                     target.SetTag("shencai", ids);
                     room.RemovePlayerStringMark(target, "shencai_0");
                     room.RemovePlayerStringMark(target, "shencai_1");
@@ -3729,17 +3732,11 @@ namespace SanguoshaServer.Package
     {
         public Xunshi() : base("xunshi")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardTargetAnnounced };
+            events = new List<TriggerEvent> { TriggerEvent.CardTargetAnnounced };
             skill_type = SkillType.Attack;
             view_as_skill = new XunshiVS();
             frequency = Frequency.Compulsory;
         }
-        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
-        {
-            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
-                player.SetMark(Name, 0);
-        }
-
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use && base.Triggerable(player, room) && use.Card.Suit == WrappedCard.CardSuit.NoSuit)
@@ -3795,7 +3792,7 @@ namespace SanguoshaServer.Package
                     }
                 }
 
-                if (player.Phase != PlayerPhase.NotActive && player.GetMark(Name) < 5)
+                if (player.GetMark(Name) < 5)
                 {
                     player.AddMark(Name);
                     LogMessage log = new LogMessage("#shencai-add")
