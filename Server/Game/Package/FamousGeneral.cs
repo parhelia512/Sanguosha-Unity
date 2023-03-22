@@ -118,6 +118,7 @@ namespace SanguoshaServer.Package
                 new Shangshi(),
                 new Luoying(),
                 new Jiushi(),
+                new JiushiTar(),
                 new Huomo(),
                 new Zuoding(),
                 new Huituo(),
@@ -287,6 +288,7 @@ namespace SanguoshaServer.Package
                 { "xiansi", new List<string>{ "#xiansi-tar" } },
                 { "zhuikong", new List<string>{ "#zhuikong-prohibit" } },
                 { "juexiang", new List<string>{ "#juexiang" } },
+                { "jiushi", new List<string>{ "#jiushi" } },
             };
         }
     }
@@ -5214,7 +5216,7 @@ namespace SanguoshaServer.Package
     {
         public Jiushi() : base("jiushi")
         {
-            events = new List<TriggerEvent> { TriggerEvent.DamageComplete, TriggerEvent.PreDamageDone };
+            events = new List<TriggerEvent> { TriggerEvent.DamageComplete, TriggerEvent.PreDamageDone, TriggerEvent.CardUsed, TriggerEvent.EventPhaseChanging };
             skill_type = SkillType.Masochism;
             view_as_skill = new JiushiVS();
         }
@@ -5223,6 +5225,10 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.PreDamageDone && base.Triggerable(player, room) && !player.FaceUp)
                 player.SetTag(Name, true);
+            else if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && use.Card.Name == Analeptic.ClassName && base.Triggerable(player, room))
+                player.AddMark(Name);
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                player.SetMark(Name, 0);
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -5304,6 +5310,12 @@ namespace SanguoshaServer.Package
             };
             return ana;
         }
+    }
+
+    public class JiushiTar : TargetModSkill
+    {
+        public JiushiTar() : base("#jiushi", false) { }
+        public override int GetResidueNum(Room room, Player from, WrappedCard card) => from.GetMark("jiushi");
     }
 
     public class Huomo : TriggerSkill
