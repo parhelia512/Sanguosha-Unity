@@ -105,6 +105,7 @@ namespace SanguoshaServer.Game
         CardEffected,
         CardEffectResult,
         CardEffectConfirmed, //after Nullification
+        CardEffectModified,
         CardFinished,
         TrickCardCanceling,
 

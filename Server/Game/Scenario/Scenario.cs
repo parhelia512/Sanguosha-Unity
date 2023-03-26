@@ -743,7 +743,9 @@ namespace SanguoshaServer.Scenario
                             room.RoomThread.Trigger(TriggerEvent.CardEffectConfirmed, room, effect.To, ref _effect);
 
                             if (effect.To.Alive || fcard is Slash)
-                                fcard.OnEffect(room, effect);
+                            {
+                                if (!room.RoomThread.Trigger(TriggerEvent.CardEffectModified, room, effect.From, ref _effect)) fcard.OnEffect(room, effect);
+                            }
                         }
 
                         break;
