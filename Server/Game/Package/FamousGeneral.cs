@@ -11503,17 +11503,17 @@ namespace SanguoshaServer.Package
                         break;
                     }
                 }
-                if (same_id == -1)
+                if (same_id != -1)
                 {
                     room.MoveCardTo(room.GetCard(same_id), player, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, player.Name, "kuangbi", string.Empty), true);
+                    Player target = null;
+                    if (player.ContainsTag("kuangbi") && player.GetTag("kuangbi") is string target_name) target = room.FindPlayer(target_name);
+                    if (target != null && target.Alive) room.DrawCards(target, 1, "kuangbi");
                 }
                 else
                 {
-                    Player target = null;
-                    if (player.ContainsTag("kuangbi") && player.GetTag("kuangbi") is string target_name) target = room.FindPlayer(target_name);
                     Shuffle.shuffle(ref ids);
                     room.MoveCardTo(room.GetCard(ids[0]), player, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, player.Name, "kuangbi", string.Empty), true);
-                    if (target != null && target.Alive) room.DrawCards(target, 1, "kuangbi");
                 }
             }
 
