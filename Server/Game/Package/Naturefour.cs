@@ -61,6 +61,9 @@ namespace SanguoshaServer.Package
                 new ZaiqiJX(),
                 new TiaoxinJX(),
                 new HuojiJX(),
+                new HuojiJxEffect(),
+                new BazhenJx(),
+                new BazhenJxVH(),
                 new KanpoJX(),
                 new Cangzhuo(),
                 new CangzhuoMax(),
@@ -137,6 +140,8 @@ namespace SanguoshaServer.Package
                 { "liegong_jx", new List<string>{ "#liegong-tar" } },
                 { "canyuan", new List<string>{ "#canyuan" } },
                 { "shuangxiong_jx", new List<string>{ "#shuangxiong_jx-get", "#shuangxiong-vs" } },
+                { "huoji_jx", new List<string>{ "#huoji_jx" } },
+                { "bazhen_jx", new List<string>{ "#bazhen_jx_vh" } },
             };
         }
     }
@@ -3188,7 +3193,7 @@ namespace SanguoshaServer.Package
     {
         public HuojiJX() : base("huoji_jx")
         {
-            filter_pattern = ".|red";
+            filter_pattern = ".|red|.|hand";
             response_or_use = true;
             skill_type = SkillType.Attack;
         }
@@ -3204,7 +3209,126 @@ namespace SanguoshaServer.Package
 
     }
 
- 
+    public class HuojiJxEffect : TriggerSkill
+    {
+        public HuojiJxEffect() : base("#huoji_jx")
+        {
+            events.Add(TriggerEvent.CardEffectModified);
+            frequency = Frequency.Compulsory;
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is CardEffectStruct effect && effect.Card.Name == FireAttack.ClassName && base.Triggerable(player, room))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardEffectStruct effect && !effect.To.IsKongcheng())
+            {
+                int id = room.AskForCardShow(effect.To, player, FireAttack.ClassName, effect);
+                room.ShowCard(effect.To, id, FireAttack.ClassName);
+
+                WrappedCard.CardSuit suit = RoomLogic.GetCardSuit(room, room.GetCard(id));
+                string suit_str = WrappedCard.GetSuitString(suit);
+                string prompt = string.Format("@fire-attack:{0}::<color={2}>{1}</color>", effect.To.Name, WrappedCard.GetSuitIcon(RoomLogic.GetCardSuit(room, room.GetCard(id))), WrappedCard.IsBlack(suit) ? "black" : "red");
+                if (player.Alive)
+                {
+                    List<int> tops = room.GetNCards(4, false);
+                    List<string> patterns = new List<string>();
+                    foreach (int card_id in tops)
+                        if (room.GetCard(card_id).Suit == suit) patterns.Add(card_id.ToString());
+                    foreach (int card_id in player.GetCards("h"))
+                        if (RoomLogic.CanDiscard(room, player, player, card_id) && room.GetCard(card_id).Suit == suit) patterns.Add(card_id.ToString());
+
+                    string pattern = string.Join("#", patterns);
+                    if (string.IsNullOrEmpty(pattern)) pattern = string.Format(".{0}!", suit_str.Substring(0, 1).ToUpper());
+
+                    room.SetTag("huoji_jx", data);
+                    List<int> ids = room.NotifyChooseCards(player, tops, "huoji_jx", 1, 0, prompt, pattern, info.SkillPosition);
+                    room.RemoveTag("huoji_jx");
+                    if (ids.Count == 1)
+                    {
+                        room.ThrowCard(ref ids, player, null, FireAttack.ClassName);
+                        room.SetEmotion(player, "fire_attack");
+                        room.Damage(new DamageStruct(effect.Card, player, effect.To, 1 + effect.ExDamage + effect.BasicEffect.Effect1, DamageStruct.DamageNature.Fire));
+                    }
+                    else
+                    {
+                        player.SetFlags("FireAttackFailedPlayer_" + effect.To.Name); // For AI
+                        player.SetFlags("FireAttackFailed_" + suit_str); // For AI
+                    }
+                }
+            }
+            return true;
+        }
+    }
+
+    public class BazhenJx : TriggerSkill
+    {
+        public BazhenJx() : base("bazhen_jx")
+        {
+            events.Add(TriggerEvent.FinishJudge);
+            frequency = Frequency.Compulsory;
+            skill_type = SkillType.Defense;
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.FinishJudge && data is JudgeStruct judage && judage.Reason == EightDiagram.ClassName && judage.IsBad() && base.Triggerable(player, room))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.FinishJudge)
+            {
+                room.SendCompulsoryTriggerLog(player, Name, true);
+                room.DrawCards(player, 1, Name);
+            }
+            else
+            {
+                room.SetEmotion(player, "eightdiagram");
+                JudgeStruct judge = new JudgeStruct
+                {
+                    Pattern = ".|red",
+                    Good = true,
+                    Reason = EightDiagram.ClassName,
+                    Who = player
+                };
+
+                room.Judge(ref judge);
+                Thread.Sleep(400);
+                if (judge.IsGood())
+                {
+                    WrappedCard jink = new WrappedCard(Jink.ClassName)
+                    {
+                        Skill = Name,
+                        SkillPosition = info.SkillPosition
+                    };
+                    room.Provide(jink);
+
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    public class BazhenJxVH : ViewHasSkill
+    {
+        public BazhenJxVH() : base("#bazhen_jx_vh")
+        {
+            viewhas_armors.Add(EightDiagram.ClassName);
+        }
+        public override bool ViewHas(Room room, Player player, string skill_name)
+        {
+            if (player.Alive && RoomLogic.PlayerHasSkill(room, player, "bazhen_jx") && !player.GetArmor())
+                return true;
+            return false;
+        }
+    }
+
     public class KanpoJX : OneCardViewAsSkill
     {
         public KanpoJX() : base("kanpo_jx")
@@ -3356,7 +3480,7 @@ namespace SanguoshaServer.Package
 
             if (pangtong.Alive)
             {
-                string skill = room.AskForSkill(pangtong, Name, "bazhen+huoji_jx+kanpo_jx", "@choose-skill", 1, 1, false, info.SkillPosition);
+                string skill = room.AskForSkill(pangtong, Name, "bazhen+huoji+kanpo_jx", "@choose-skill", 1, 1, false, info.SkillPosition);
                 room.HandleAcquireDetachSkills(pangtong, skill, true);
             }
 

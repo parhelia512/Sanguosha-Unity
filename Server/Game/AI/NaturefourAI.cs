@@ -692,7 +692,7 @@ namespace SanguoshaServer.AI
         public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
         {
             Room room = ai.Room;
-            List<int> ids = player.GetCards("he");
+            List<int> ids = player.GetCards("h");
             ids.AddRange(player.GetHandPile());
 
             foreach (int id in ids)
@@ -712,6 +712,53 @@ namespace SanguoshaServer.AI
             }
 
             return null;
+        }
+
+        private readonly Dictionary<string, string> convert = new Dictionary<string, string> { { ".S", "spade" }, { ".D", "diamond" }, { ".H", "heart" }, { ".C", "club" } };
+        public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
+        {
+            List<int> result = new List<int>();
+            Room room = ai.Room;
+            if (room.GetTag(Name) is CardEffectStruct effect)
+            {
+                Player target = effect.To;
+                WrappedCard fire = effect.Card;
+                List<int> ids = player.GetPile("#huoji_jx");
+ 
+                DamageStruct damage = new DamageStruct(fire, player, target, 1, DamageStruct.DamageNature.Fire);
+                ScoreStruct score = ai.GetDamageScore(damage);
+                if (score.DoDamage)
+                {
+                    score.Score += ai.ChainDamage(damage);
+                }
+                if (score.Score > 0)
+                {
+                    foreach (int id in ids)
+                    {
+                        if (WrappedCard.GetSuitString(room.GetCard(id).Suit) == convert[pattern])
+                            return new List<int> { id };
+                    }
+                    ids = player.GetCards("h");
+                    ai.SortByUseValue(ref ids, false);
+                    foreach (int id in ids)
+                    {
+                        if (RoomLogic.CanDiscard(room, player, player, id) &&  WrappedCard.GetSuitString(room.GetCard(id).Suit) == convert[pattern])
+                        {
+                            double value = score.Score;
+                            if (ai.IsCard(id, Peach.ClassName, player))
+                                value -= 4;
+                            if (ai.GetOverflow(player) <= 0)
+                                value -= 1;
+                            if (value > 0)
+                            {
+                                result.Add(id);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            return result;
         }
     }
 

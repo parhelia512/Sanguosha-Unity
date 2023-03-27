@@ -2398,7 +2398,11 @@ namespace SanguoshaServer.AI
 
                     //计算命中率
                     double rate = 0;
-                    if (p == player)
+                    if (ai.HasSkill("huoji_jx", player) && !player.HasFlag("FireAttackFailedPlayer_" + p.Name))
+                    {
+                        rate = 1;
+                    }
+                    else if (p == player)
                     {
                         if (player.IsLastHandCard(card, true))
                             rate = 0;
@@ -2674,7 +2678,6 @@ namespace SanguoshaServer.AI
         public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
         {
             Room room = ai.Room;
-            List<WrappedCard> cards = RoomLogic.GetPlayerCards(room, player, "h");
             WrappedCard card = null;
             List<int> ids= player.GetCards("h");
             ai.SortByUseValue(ref ids, false);
@@ -2693,7 +2696,7 @@ namespace SanguoshaServer.AI
             {
                 foreach (int id in ids)
                 {
-                    if (WrappedCard.GetSuitString(room.GetCard(id).Suit) == convert[pattern])
+                    if (RoomLogic.CanDiscard(room, player, player, id) && GetSuitString(room.GetCard(id).Suit) == convert[pattern])
                     {
                         double value = score.Score;
                         if (ai.IsCard(id, Peach.ClassName, player))
