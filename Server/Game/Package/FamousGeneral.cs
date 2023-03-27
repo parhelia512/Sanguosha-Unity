@@ -177,7 +177,7 @@ namespace SanguoshaServer.Package
                 new XuanfengClear(),
                 new Yaoming(),
                 new Kuangbi(),
-                new KuangbiClear(),
+                new KuangbiEffect(),
                 new Fenli(),
                 new Pingkou(),
                 new Lihuo(),
@@ -225,7 +225,6 @@ namespace SanguoshaServer.Package
                 new WenguaCard(),
                 new XianzhenCard(),
                 new DuliangCard(),
-                new KuangbiCard(),
                 new HuaiyiCard(),
                 new ZhigeCard(),
                 new QingxiCard(),
@@ -267,7 +266,7 @@ namespace SanguoshaServer.Package
                 { "xuanfeng", new List<string>{ "#xuanfeng-clear" } },
                 { "duliang", new List<string>{ "#duliang-draw" } },
                 { "fulin", new List<string>{ "#fulin-max" } },
-                { "kuangbi", new List<string> { "#kuangbi-clear" } },
+                { "kuangbi", new List<string> { "#kuangbi" } },
                 { "jiangchi", new List<string> { "#jiangchi-target", "#jiangchi-max" } },
                 { "benxi", new List<string> { "#benxi" } },
                 { "sidi", new List<string> { "#sidi-slash" } },
@@ -11401,98 +11400,124 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Kuangbi : PhaseChangeSkill
+    public class Kuangbi : TriggerSkill
     {
         public Kuangbi() : base("kuangbi")
         {
-            view_as_skill = new KuangbiVS();
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.EventPhaseEnd };
         }
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (player.Phase == PlayerPhase.RoundStart && player.GetPile(Name).Count > 0)
+            if (triggerEvent == TriggerEvent.EventPhaseEnd && player.Phase == PlayerPhase.Play && player.ContainsTag(Name) && player.GetTag(Name) is string target_name)
             {
-                List<int> ids = player.GetPile(Name);
-                int count = ids.Count;
-                if (count > 0)
-                    room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_EXCHANGE_FROM_PILE, player.Name, Name, string.Empty), true);
-
-                Dictionary<string, int> names = player.ContainsTag(Name) ? (Dictionary<string, int>)player.GetTag(Name) : new Dictionary<string, int>();
                 player.RemoveTag(Name);
-                List<Player> targets = new List<Player>();
-                foreach (string genreal in names.Keys)
+                List<int> ids = player.GetPile(Name);
+                if (ids.Count > 0)
                 {
-                    Player target = room.FindPlayer(genreal);
-                    if (target != null) targets.Add(target);
-                }
-
-                if (targets.Count > 0)
-                {
-                    room.SortByActionOrder(ref targets);
-                    foreach (Player p in targets)
-                        if (p.Alive)
-                        room.DrawCards(p, names[p.Name], Name);
+                    Player target = room.FindPlayer(target_name);
+                    if (target != null)
+                        room.ObtainCard(target, ref ids, new CardMoveReason(MoveReason.S_REASON_GOTCARD, target_name, player.Name, Name, string.Empty), true);
+                    else
+                        room.ClearOnePrivatePile(player, Name);
                 }
             }
         }
 
-        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            return new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
         }
 
-        public override bool OnPhaseChange(Room room, Player player, TriggerStruct info)
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
+            List<Player> targets = new List<Player>();
+            foreach (Player p in room.GetOtherPlayers(player))
+            {
+                if (!p.IsNude()) targets.Add(p);
+            }
+            if (targets.Count > 0)
+            {
+                Player target = room.AskForPlayerChosen(player, targets, Name, "@kuangbi", true, true, info.SkillPosition);
+                if (target != null)
+                {
+                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                    room.SetTag(Name, target);
+                    return info;
+                }
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.GetTag(Name) is Player target)
+            {
+                List<int> ids = room.AskForExchange(target, Name, 3, 1, "@kuangbi-from:" + player.Name, string.Empty, "..", string.Empty);
+                if (ids.Count > 0)
+                {
+                    player.SetTag(Name, target.Name);
+                    List<int> real = room.AddToPile(player, Name, ids, true);
+                }
+            }
             return false;
         }
     }
 
-    public class KuangbiClear : DetachEffectSkill
+    public class KuangbiEffect : TriggerSkill
     {
-        public KuangbiClear() : base("kuangbi", "kuangbi") { }
-    }
-
-    public class KuangbiVS : ZeroCardViewAsSkill
-    {
-        public KuangbiVS() : base("kuangbi") { }
-
-        public override bool IsEnabledAtPlay(Room room, Player player)
+        public KuangbiEffect() : base("#kuangbi")
         {
-            return !player.HasUsed(KuangbiCard.ClassName);
+            events = new List<TriggerEvent> { TriggerEvent.CardResponded, TriggerEvent.CardUsed };
+            frequency = Frequency.Compulsory;
         }
-
-        public override WrappedCard ViewAs(Room room, Player player)
+        
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            return new WrappedCard(KuangbiCard.ClassName) { Skill = Name };
+            if (player != null && player.Alive && player.GetPile("kuangbi").Count > 0 &&
+                ((triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && !Engine.IsSkillCard(use.Card.Name)) || (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Use)))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
         }
-    }
-
-    public class KuangbiCard : SkillCard
-    {
-        public static string ClassName = "KuangbiCard";
-        public KuangbiCard() : base(ClassName)
-        { }
-
-        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            return targets.Count == 0 && Self != to_select && !to_select.IsNude();
-        }
+            List<int> ids = player.GetPile("kuangbi");
+            WrappedCard.CardSuit suit = WrappedCard.CardSuit.NoSuit;
+            if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use)
+                suit = use.Card.Suit;
+            else if (data is CardResponseStruct resp)
+                suit = resp.Card.Suit;
 
-        public override void Use(Room room, CardUseStruct card_use)
-        {
-            Player player = card_use.From, target = card_use.To[0];
-            List<int> ids = room.AskForExchange(target, "kuangbi", 3, 1, "@kuangbi:" + player.Name, string.Empty, "..", string.Empty);
-            if (ids.Count > 0)
+            room.DrawCards(player, 1, "kuangbi");
+            if (player.Alive)
             {
-                List<int> real = room.AddToPile(player, "kuangbi", ids, true);
-                Dictionary<string, int> names = player.ContainsTag("kuangbi") ? (Dictionary<string, int>)player.GetTag("kuangbi") : new Dictionary<string, int>();
-                if (names.ContainsKey(target.Name))
-                    names[target.Name] += real.Count;
+                int same_id = -1;
+                foreach (int id in ids)
+                {
+                    if (room.GetCard(id).Suit == suit)
+                    {
+                        same_id = id;
+                        break;
+                    }
+                }
+                if (same_id == -1)
+                {
+                    room.MoveCardTo(room.GetCard(same_id), player, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, player.Name, "kuangbi", string.Empty), true);
+                }
                 else
-                    names[target.Name] = real.Count;
-
-                player.SetTag("kuangbi", names);
+                {
+                    Player target = null;
+                    if (player.ContainsTag("kuangbi") && player.GetTag("kuangbi") is string target_name) target = room.FindPlayer(target_name);
+                    Shuffle.shuffle(ref ids);
+                    room.MoveCardTo(room.GetCard(ids[0]), player, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, player.Name, "kuangbi", string.Empty), true);
+                    if (target != null && target.Alive) room.DrawCards(target, 1, "kuangbi");
+                }
             }
+
+            return false;
         }
     }
 

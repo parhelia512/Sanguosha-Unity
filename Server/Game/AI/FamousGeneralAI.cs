@@ -155,7 +155,6 @@ namespace SanguoshaServer.AI
                 new WenguaCardAI(),
                 new DuliangCardAI(),
                 new JujianCardAI(),
-                new KuangbiCardAI(),
                 new XianzhenCardAI(),
                 new PindiCardAI(),
                 new WurongCardAI(),
@@ -7744,12 +7743,41 @@ namespace SanguoshaServer.AI
         {
         }
 
-        public override List<WrappedCard> GetTurnUse(TrustedAI ai, Player player)
+        public override List<Player> OnPlayerChosen(TrustedAI ai, Player player, List<Player> targets, int min, int max)
         {
-            if (!player.HasUsed(KuangbiCard.ClassName))
-                return new List<WrappedCard> { new WrappedCard(KuangbiCard.ClassName) { Skill = Name } };
+            List<Player> friends = ai.FriendNoSelf, enemies = ai.GetEnemies(player);
+            ai.SortByDefense(ref friends, false);
+            ai.SortByDefense(ref enemies, false);
+            foreach (Player p in friends)
+            {
+                foreach (int id in p.GetEquips())
+                {
+                    if (ai.GetKeepValue(id, p) < 0)
+                    {
+                        return new List<Player> { p };
+                    }
+                }
+            }
 
-            return new List<WrappedCard>();
+            foreach (Player p in enemies)
+            {
+                if (!p.IsNude())
+                {
+                    bool lose = false;
+                    foreach (int id in p.GetEquips())
+                    {
+                        if (ai.GetKeepValue(id, p) < 0)
+                        {
+                            lose = true;
+                            break;
+                        }
+                    }
+
+                    if (!lose)
+                        return new List<Player> { p };
+                }
+            }
+            return new List<Player>();
         }
 
         public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
@@ -7775,80 +7803,6 @@ namespace SanguoshaServer.AI
             }
 
             return result;
-        }
-    }
-
-    public class KuangbiCardAI : UseCard
-    {
-        public KuangbiCardAI() : base(KuangbiCard.ClassName){}
-
-        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
-        {
-            List<Player> friends = ai.FriendNoSelf, enemies = ai.GetEnemies(player);
-            ai.SortByDefense(ref friends, false);
-            ai.SortByDefense(ref enemies, false);
-            foreach (Player p in friends)
-            {
-                foreach (int id in p.GetEquips())
-                {
-                    if (ai.GetKeepValue(id, p) < 0)
-                    {
-                        use.Card = card;
-                        use.To.Add(p);
-                        return;
-                    }
-                }
-            }
-            if (!ai.IsWeak(player) || ai.MaySave(player))
-            {
-                foreach (Player p in friends)
-                {
-                    if (ai.WillSkipPlayPhase(p) && ai.GetOverflow(p) > 0)
-                    {
-                        use.Card = card;
-                        use.To.Add(p);
-                        return;
-                    }
-                }
-
-                foreach (Player p in friends)
-                {
-                    if (ai.GetOverflow(p) > 0)
-                    {
-                        use.Card = card;
-                        use.To.Add(p);
-                        return;
-                    }
-                }
-            }
-
-            foreach (Player p in enemies)
-            {
-                if (!p.IsNude())
-                {
-                    bool lose = false;
-                    foreach (int id in p.GetEquips())
-                    {
-                        if (ai.GetKeepValue(id, p) < 0)
-                        {
-                            lose = true;
-                            break;
-                        }
-                    }
-
-                    if (!lose)
-                    {
-                        use.Card = card;
-                        use.To.Add(p);
-                        return;
-                    }
-                }
-            }
-        }
-
-        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
-        {
-            return 3;
         }
     }
 
