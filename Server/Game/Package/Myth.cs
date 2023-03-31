@@ -619,8 +619,6 @@ namespace SanguoshaServer.Package
                     foreach (int id in move.Bottom)
                         if (room.GetCardPlace(id) == Place.PlaceHand)
                             down.Add(id);
-
-                    Debug.Assert(up.Count == down.Count);
                     if (up.Count > 0)
                     {
                         List<CardsMoveStruct> moves = new List<CardsMoveStruct>();

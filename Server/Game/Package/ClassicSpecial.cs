@@ -257,6 +257,10 @@ namespace SanguoshaServer.Package
                 new Fenrui(),
                 new Xiaosi(),
                 new XiaosiTag(),
+                new Chenglie(),
+                new ChenglieEffect(),
+                new ChenglieTar(),
+                new Mashu("macheng"),
 
                 new Hongyuan(),
                 new Huanshi(),
@@ -415,6 +419,7 @@ namespace SanguoshaServer.Package
                 { "qiaoli", new List<string>{ "#qiaoli" } },
                 { "beizhan_classic", new List<string>{ "#beizhan-c-prohibit" } },
                 { "xiaosi", new List<string>{ "#xiaosi-tar" } },
+                { "chenglie", new List<string>{ "#chenglie-effect", "#chenglie-tar" } },
             };
         }
     }
@@ -15445,6 +15450,293 @@ namespace SanguoshaServer.Package
             }
             return false;
         }
+    }
+
+    public class Chenglie : TriggerSkill
+    {
+        public Chenglie() : base("chenglie")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen };
+            skill_type = SkillType.Attack;
+            view_as_skill = new ChenglieVS();
+        }
+
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && base.Triggerable(player, room))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardUseStruct use)
+            {
+                use.Card.SetFlags(Name);
+                List<Player> targets = new List<Player>();
+                foreach (Player p in use.To)
+                    if (!targets.Contains(p)) targets.Add(p);
+
+                List<int> card_ids = room.GetNCards(targets.Count);
+                foreach (int id in card_ids)
+                    room.MoveCardTo(room.GetCard(id), player, Place.PlaceTable, new CardMoveReason(MoveReason.S_REASON_TURNOVER, player.Name, Name, null), false);
+                Thread.Sleep(400);
+                room.AddToPile(player, Name, card_ids, false);
+                if (player.Alive && player.HandcardNum > 0)
+                {
+                    player.SetFlags(Name);
+                    player.PileChange("#chenglie", card_ids);
+                    WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@chenglie", "@chenglie-change", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
+                    player.Piles["#chenglie"].Clear();
+                    player.SetFlags("-chenglie");
+
+                    if (card != null)
+                    {
+                        List<int> hands = new List<int>(), piles = new List<int>();
+                        if (room.GetCardPlace(card.SubCards[0]) == Place.PlaceHand)
+                        {
+                            hands.Add(card.SubCards[0]);
+                            piles.Add(card.SubCards[1]);
+                        }
+                        else
+                        {
+                            hands.Add(card.SubCards[1]);
+                            piles.Add(card.SubCards[0]);
+                        }
+                        List<CardsMoveStruct> moves = new List<CardsMoveStruct>();
+                        CardsMoveStruct move1 = new CardsMoveStruct(piles, player, Place.PlaceHand, new CardMoveReason(MoveReason.S_REASON_EXCHANGE_FROM_PILE, player.Name, Name, string.Empty));
+                        CardsMoveStruct move2 = new CardsMoveStruct(hands, player, Place.PlaceSpecial,
+                            new CardMoveReason(MoveReason.S_REASON_REMOVE_FROM_GAME, player.Name, Name, string.Empty))
+                        {
+                            To_pile_name = Name
+                        };
+                        moves.Add(move1);
+                        moves.Add(move2);
+                        room.MoveCardsAtomic(moves, false);
+                    }
+                }
+                if (player.Alive)
+                {
+                    Dictionary<Player, int> values = new Dictionary<Player, int>();
+                    targets.RemoveAll(t => !t.Alive);
+                    List<int> ids = player.GetPile(Name);
+                    player.PileChange("#chenglie", ids);
+                    while (ids.Count > 0 && targets.Count > 0)
+                    {
+                        Player target = null;
+                        List<int> cards = new List<int>();
+                        if (ids.Count != 1 && targets.Count != 1)
+                        {
+                            WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@chenglie!", string.Format("@chenglie:::{0}", use.Card.Name), null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
+                            if (card != null)
+                            {
+                                target = (Player)room.GetTag("chenglie_target");
+                                room.RemoveTag("chenglie_target");
+
+                            }
+                        }
+
+                        if (target == null)
+                        {
+                            cards.Add(ids[0]);
+                            target = targets[0];
+                        }
+                        target.SetFlags("-" + Name);
+                        targets.Remove(target);
+                        player.PileChange("#chenglie", cards, false);
+                        ids.RemoveAll(t => cards.Contains(t));
+                        if (WrappedCard.IsRed(room.GetCard(cards[0]).Suit)) values[target] = cards[0];
+                    }
+
+                    player.Piles["#chenglie"].Clear();
+                    foreach (Player p in use.To)
+                    {
+                        p.SetFlags("-chenglie");
+                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
+                    }
+                    if (ids.Count > 0)
+                    {
+                        for (int i = 0; i < ids.Count; i++)
+                            values.Add(null, ids[i]);
+                    }
+                    Dictionary<WrappedCard, Dictionary<Player, int>> pairs = room.ContainsTag(Name) ? (Dictionary<WrappedCard, Dictionary<Player, int>>)room.GetTag(Name)
+                        : new Dictionary<WrappedCard, Dictionary<Player, int>>();
+                    pairs[use.Card] = values;
+                    room.SetTag(Name, pairs);
+                }
+            }
+            return false;
+        }
+    }
+
+    public class ChenglieEffect : TriggerSkill
+    {
+        public ChenglieEffect() : base("#chenglie-effect")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.SlashMissed, TriggerEvent.CardFinished };
+            frequency = Frequency.Compulsory;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.SlashMissed && data is SlashEffectStruct effect && effect.Slash.HasFlag("chenglie")
+                && room.ContainsTag("chenglie") && room.GetTag("chenglie") is Dictionary<WrappedCard, Dictionary<Player, int>> pairs && pairs.ContainsKey(effect.Slash) && pairs[effect.Slash].ContainsKey(effect.To))
+            {
+                Dictionary<WrappedCard, List<Player>> results = room.ContainsTag("chenglie_result") ? (Dictionary<WrappedCard, List<Player>>)room.GetTag("chenglie_result")
+                    : new Dictionary<WrappedCard, List<Player>>();
+                if (!results.ContainsKey(effect.Slash))
+                    results[effect.Slash] = new List<Player>();
+
+                results[effect.Slash].Add(effect.To);
+            }
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.CardFinished && data is CardUseStruct use && use.Card.HasFlag("chenglie"))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (data is CardUseStruct use)
+            {
+                room.SendCompulsoryTriggerLog(player, Name, true);
+                Dictionary<WrappedCard, Dictionary<Player, int>> pairs = room.ContainsTag("chenglie") ? (Dictionary<WrappedCard, Dictionary<Player, int>>)room.GetTag("chenglie")
+                    : new Dictionary<WrappedCard, Dictionary<Player, int>>();
+
+                Dictionary<WrappedCard, List<Player>> results = room.ContainsTag("chenglie_result") ? (Dictionary<WrappedCard, List<Player>>)room.GetTag("chenglie_result")
+                    : new Dictionary<WrappedCard, List<Player>>();
+
+                Dictionary<Player, int> value1 = pairs[use.Card];
+                pairs.Remove(use.Card);
+                List<Player> result1 = results[use.Card];
+                results.Remove(use.Card);
+
+                if (pairs.Count > 0)
+                    room.SetTag("chenglie", pairs);
+                else
+                    room.RemoveTag("chenglie");
+                if (results.Count > 0)
+                    room.SetTag("chenglie_result", results);
+                else
+                    room.RemoveTag("chenglie_result");
+
+                List<int> ids = new List<int>(pairs[use.Card].Values);
+                ids.RemoveAll(t => room.GetCardPlace(t) != Place.PlaceSpecial || room.GetCardOwner(t) != player);
+                if (ids.Count > 0)
+                {
+                    CardsMoveStruct move = new CardsMoveStruct(ids, null, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_REMOVE_FROM_PILE, player.Name, "chenglie", string.Empty))
+                    {
+                        To_pile_name = string.Empty,
+                        From = player.Name
+                    };
+                    List<CardsMoveStruct> moves = new List<CardsMoveStruct> { move };
+                    room.MoveCardsAtomic(moves, true);
+                }
+
+                List<Player> targets = new List<Player>(value1.Keys);
+                room.SortByActionOrder(ref targets);
+                foreach (Player p in targets)
+                {
+                    if (p != null)
+                    {
+                        int id = value1[p];
+                        int count = use.To.Count(t => t == p);
+                        int jink = result1.Count(t => t == p);
+                        count -= jink;
+                        while (jink > 0 && player.Alive && p.Alive && !p.IsNude())
+                        {
+                            jink--;
+                            List<int> give = room.AskForExchange(p, "chenglie", 1, 1, "@chenglie-give:" + player.Name, string.Empty, "..", null);
+                            if (give.Count > 0)
+                                room.ObtainCard(player, room.GetCard(id), new CardMoveReason(MoveReason.S_REASON_GIVE, p.Name, player.Name, "chenglie", string.Empty), false);
+                        }
+                        while (count > 0 && p.Alive && p.IsWounded())
+                        {
+                            RecoverStruct recover = new RecoverStruct
+                            {
+                                Who = player,
+                                Recover = 1
+                            };
+                            room.Recover(p, recover, true);
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+    }
+
+    public class ChenglieVS : ViewAsSkill
+    {
+        public ChenglieVS() : base("chenglie")
+        {
+            expand_pile = "#chenglie";
+        }
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern) => pattern.StartsWith("@@chenglie");
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
+        {
+            if (player.HasFlag(Name) && selected.Count < 2)
+            {
+                if (selected.Count == 0)
+                    return true;
+                else
+                {
+                    if (room.GetCardPlace(selected[0].Id) == Place.PlaceHand)
+                        return player.GetPile(expand_pile).Contains(to_select.Id);
+                    else
+                        return room.GetCardPlace(to_select.Id) == Place.PlaceHand;
+                }
+            }
+            else
+                return !player.HasFlag(Name) && selected.Count < 1;
+        }
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (player.HasFlag(Name) && cards.Count == 2)
+            {
+                WrappedCard card = new WrappedCard(ChenglieCard.ClassName);
+                card.AddSubCards(cards);
+                return card;
+            }
+            else if (!player.HasFlag(Name) && cards.Count == 1)
+            {
+                WrappedCard card = new WrappedCard(ChenglieCard.ClassName);
+                card.AddSubCards(cards);
+                return card;
+            }
+            return null;
+        }
+    }
+
+    public class ChenglieCard : SkillCard
+    {
+        public static string ClassName = "ChenglieCard";
+        public ChenglieCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            return base.TargetFilter(room, targets, to_select, Self, card);
+        }
+        public override bool TargetFixed(WrappedCard card)
+        {
+            return base.TargetFixed(card);
+        }
+        public override void OnUse(Room room, CardUseStruct card_use)
+        {
+        }
+    }
+
+    public class ChenglieTar: TargetModSkill
+    {
+        public ChenglieTar() : base("#chenglie-tar", true) { }
+        public override int GetExtraTargetNum(Room room, Player from, WrappedCard card) => RoomLogic.PlayerHasSkill(room, from, "chenglie") ? 2 : 0;
     }
 
     public class HongyuanVS : OneCardViewAsSkill
