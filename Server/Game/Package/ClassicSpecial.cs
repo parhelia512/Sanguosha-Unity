@@ -357,6 +357,7 @@ namespace SanguoshaServer.Package
                 new YuanhuCard(),
                 new AichenCard(),
                 new XiaosiCard(),
+                new ChenglieCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -15505,11 +15506,13 @@ namespace SanguoshaServer.Package
                         {
                             hands.Add(card.SubCards[0]);
                             piles.Add(card.SubCards[1]);
+                            card_ids.Add(card.SubCards[0]);
                         }
                         else
                         {
                             hands.Add(card.SubCards[1]);
                             piles.Add(card.SubCards[0]);
+                            card_ids.Add(card.SubCards[1]);
                         }
                         List<CardsMoveStruct> moves = new List<CardsMoveStruct>();
                         CardsMoveStruct move1 = new CardsMoveStruct(piles, player, Place.PlaceHand, new CardMoveReason(MoveReason.S_REASON_EXCHANGE_FROM_PILE, player.Name, Name, string.Empty));
@@ -15527,32 +15530,40 @@ namespace SanguoshaServer.Package
                 {
                     Dictionary<Player, int> values = new Dictionary<Player, int>();
                     targets.RemoveAll(t => !t.Alive);
-                    List<int> ids = player.GetPile(Name);
-                    player.PileChange("#chenglie", ids);
-                    while (ids.Count > 0 && targets.Count > 0)
+                    card_ids.RemoveAll(t => room.GetCardPlace(t) != Place.PlaceSpecial);
+                    player.PileChange("#chenglie", card_ids);
+
+                    Dictionary<WrappedCard, List<int>> ids = room.ContainsTag("chenglie_cards") ? (Dictionary<WrappedCard, List<int>>)room.GetTag("chenglie_cards")
+                        : new Dictionary<WrappedCard, List<int>>();
+                    ids[use.Card] = new List<int>(card_ids);
+                    room.SetTag("chenglie_cards", ids);
+
+                    foreach (Player p in targets)
+                        p.SetFlags(Name);
+                    while (card_ids.Count > 0 && targets.Count > 0)
                     {
                         Player target = null;
                         List<int> cards = new List<int>();
-                        if (ids.Count != 1 && targets.Count != 1)
+                        if (card_ids.Count > 1 && targets.Count > 1)
                         {
                             WrappedCard card = room.AskForUseCard(player, RespondType.Skill, "@@chenglie!", string.Format("@chenglie:::{0}", use.Card.Name), null, -1, HandlingMethod.MethodNone, true, info.SkillPosition);
-                            if (card != null)
+                            if (card != null && room.GetTag("chenglie_target") is Player _target)
                             {
-                                target = (Player)room.GetTag("chenglie_target");
+                                target = _target;
                                 room.RemoveTag("chenglie_target");
-
+                                cards.AddRange(card.SubCards);
                             }
                         }
 
                         if (target == null)
                         {
-                            cards.Add(ids[0]);
+                            cards.Add(card_ids[0]);
                             target = targets[0];
                         }
                         target.SetFlags("-" + Name);
                         targets.Remove(target);
                         player.PileChange("#chenglie", cards, false);
-                        ids.RemoveAll(t => cards.Contains(t));
+                        card_ids.RemoveAll(t => cards.Contains(t));
                         if (WrappedCard.IsRed(room.GetCard(cards[0]).Suit)) values[target] = cards[0];
                     }
 
@@ -15561,11 +15572,6 @@ namespace SanguoshaServer.Package
                     {
                         p.SetFlags("-chenglie");
                         room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, p.Name);
-                    }
-                    if (ids.Count > 0)
-                    {
-                        for (int i = 0; i < ids.Count; i++)
-                            values.Add(null, ids[i]);
                     }
                     Dictionary<WrappedCard, Dictionary<Player, int>> pairs = room.ContainsTag(Name) ? (Dictionary<WrappedCard, Dictionary<Player, int>>)room.GetTag(Name)
                         : new Dictionary<WrappedCard, Dictionary<Player, int>>();
@@ -15595,6 +15601,7 @@ namespace SanguoshaServer.Package
                     results[effect.Slash] = new List<Player>();
 
                 results[effect.Slash].Add(effect.To);
+                room.SetTag("chenglie_result", results);
             }
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -15607,17 +15614,22 @@ namespace SanguoshaServer.Package
         {
             if (data is CardUseStruct use)
             {
-                room.SendCompulsoryTriggerLog(player, Name, true);
+                room.SendCompulsoryTriggerLog(player, "chenglie", true);
                 Dictionary<WrappedCard, Dictionary<Player, int>> pairs = room.ContainsTag("chenglie") ? (Dictionary<WrappedCard, Dictionary<Player, int>>)room.GetTag("chenglie")
                     : new Dictionary<WrappedCard, Dictionary<Player, int>>();
 
                 Dictionary<WrappedCard, List<Player>> results = room.ContainsTag("chenglie_result") ? (Dictionary<WrappedCard, List<Player>>)room.GetTag("chenglie_result")
                     : new Dictionary<WrappedCard, List<Player>>();
 
+                Dictionary<WrappedCard, List<int>> cards = room.ContainsTag("chenglie_cards") ? (Dictionary<WrappedCard, List<int>>)room.GetTag("chenglie_cards")
+                    : new Dictionary<WrappedCard, List<int>>();
+
                 Dictionary<Player, int> value1 = pairs[use.Card];
                 pairs.Remove(use.Card);
-                List<Player> result1 = results[use.Card];
+                List<Player> result1 = results.ContainsKey(use.Card) ? results[use.Card] : new List<Player>();
                 results.Remove(use.Card);
+                List<int> ids = cards[use.Card];
+                cards.Remove(use.Card);
 
                 if (pairs.Count > 0)
                     room.SetTag("chenglie", pairs);
@@ -15628,7 +15640,11 @@ namespace SanguoshaServer.Package
                 else
                     room.RemoveTag("chenglie_result");
 
-                List<int> ids = new List<int>(pairs[use.Card].Values);
+                if (cards.Count > 0)
+                    room.SetTag("chenglie_cards", cards);
+                else
+                    room.RemoveTag("chenglie_cards");
+
                 ids.RemoveAll(t => room.GetCardPlace(t) != Place.PlaceSpecial || room.GetCardOwner(t) != player);
                 if (ids.Count > 0)
                 {
@@ -15647,7 +15663,6 @@ namespace SanguoshaServer.Package
                 {
                     if (p != null)
                     {
-                        int id = value1[p];
                         int count = use.To.Count(t => t == p);
                         int jink = result1.Count(t => t == p);
                         count -= jink;
@@ -15656,7 +15671,7 @@ namespace SanguoshaServer.Package
                             jink--;
                             List<int> give = room.AskForExchange(p, "chenglie", 1, 1, "@chenglie-give:" + player.Name, string.Empty, "..", null);
                             if (give.Count > 0)
-                                room.ObtainCard(player, room.GetCard(id), new CardMoveReason(MoveReason.S_REASON_GIVE, p.Name, player.Name, "chenglie", string.Empty), false);
+                                room.ObtainCard(player, ref give, new CardMoveReason(MoveReason.S_REASON_GIVE, p.Name, player.Name, "chenglie", string.Empty), false);
                         }
                         while (count > 0 && p.Alive && p.IsWounded())
                         {
@@ -15680,13 +15695,14 @@ namespace SanguoshaServer.Package
         {
             expand_pile = "#chenglie";
         }
+        public override bool IsEnabledAtPlay(Room room, Player player) => false;
         public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern) => pattern.StartsWith("@@chenglie");
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player)
         {
             if (player.HasFlag(Name) && selected.Count < 2)
             {
                 if (selected.Count == 0)
-                    return true;
+                    return room.GetCardPlace(to_select.Id) != Place.PlaceEquip;
                 else
                 {
                     if (room.GetCardPlace(selected[0].Id) == Place.PlaceHand)
@@ -15696,7 +15712,7 @@ namespace SanguoshaServer.Package
                 }
             }
             else
-                return !player.HasFlag(Name) && selected.Count < 1;
+                return !player.HasFlag(Name) && selected.Count == 0 && player.GetPile(expand_pile).Contains(to_select.Id);
         }
         public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
         {
@@ -15722,14 +15738,16 @@ namespace SanguoshaServer.Package
         public ChenglieCard() : base(ClassName) { }
         public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
         {
-            return base.TargetFilter(room, targets, to_select, Self, card);
+            if (card.SubCards.Count == 2)
+                return false;
+            else
+                return targets.Count == 0 && to_select.HasFlag("chenglie");
         }
-        public override bool TargetFixed(WrappedCard card)
-        {
-            return base.TargetFixed(card);
-        }
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card) => (card.SubCards.Count == 2 && targets.Count == 0) || (card.SubCards.Count == 1 && targets.Count == 1);
         public override void OnUse(Room room, CardUseStruct card_use)
         {
+            if (card_use.To.Count == 1)
+                room.SetTag("chenglie_target", card_use.To[0]);
         }
     }
 
