@@ -138,6 +138,8 @@ namespace SanguoshaServer.Package
                 new Juluan(),
                 new Baoxing(),
                 new BaoxingRange(),
+                new Gue(),
+                new Sigong(),
 
                 new Jiedao(),
                 new JiedaoDis(),
@@ -392,6 +394,7 @@ namespace SanguoshaServer.Package
                 new BingjiCard(),
                 new CuichuanCard(),
                 new AnzhiCard(),
+                new GueCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -8788,6 +8791,156 @@ namespace SanguoshaServer.Package
                 count = count + (1 - card.Range);
             }
             return count;
+        }
+    }
+
+    public class Gue : ZeroCardViewAsSkill
+    {
+        public Gue() : base("gue") { }
+        public override bool IsEnabledAtPlay(Room room, Player player) => false;
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
+        {
+            if (player.Phase == PlayerPhase.NotActive && !player.HasFlag(Name) && !player.IsKongcheng() && (MatchSlash(respond) || MatchJink(respond)))
+            {
+                int count = 0;
+                foreach (int id in player.GetCards("h"))
+                {
+                    WrappedCard card = room.GetCard(id);
+                    if (card.Name == Jink.ClassName || card.Name.Contains(Slash.ClassName))
+                        count++;
+                }
+                return count <= 1;
+            }
+            return false;
+        }
+
+        public override WrappedCard ViewAs(Room room, Player player)
+        {
+            if (room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_PLAY)
+                return new WrappedCard(GueCard.ClassName) { UserString = Slash.ClassName };
+            else
+            {
+                string pattern = room.GetRoomState().GetCurrentCardUsePattern(player);
+                WrappedCard slash = new WrappedCard(Slash.ClassName);
+                WrappedCard jink = new WrappedCard(Jink.ClassName);
+                if (Engine.MatchExpPattern(room, pattern, player, slash))
+                    return new WrappedCard(GueCard.ClassName) { UserString = Slash.ClassName };
+                else if (Engine.MatchExpPattern(room, pattern, player, jink))
+                    return new WrappedCard(GueCard.ClassName) { UserString = Jink.ClassName };
+            }
+
+            return null;
+        }
+    }
+
+    public class GueCard : SkillCard
+    {
+        public static string ClassName = "GueCard";
+        public GueCard() : base(ClassName)
+        {
+        }
+
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            WrappedCard real = new WrappedCard(card.UserString);
+            FunctionCard fcard = Engine.GetFunctionCard(real.Name);
+            return fcard.TargetFilter(room, targets, to_select, Self, real);
+        }
+
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card)
+        {
+            WrappedCard real = new WrappedCard(card.UserString);
+            FunctionCard fcard = Engine.GetFunctionCard(real.Name);
+            return fcard.TargetsFeasible(room, targets, Self, real);
+        }
+
+        public override WrappedCard Validate(Room room, CardUseStruct use)
+        {
+            WrappedCard real = new WrappedCard(use.Card.UserString) { Skill = "gue", ShowSkill = "gue" };
+            use.From.SetFlags("gue");
+            room.ShowAllCards(use.From, null, "gue", use.Card.SkillPosition);
+            return real;
+        }
+
+        public override WrappedCard ValidateInResponse(Room room, Player player, WrappedCard card)
+        {
+            WrappedCard real = new WrappedCard(card.UserString) { Skill = "gue", ShowSkill = "gue" };
+            player.SetFlags("gue");
+            room.ShowAllCards(player, null, "gue", card.SkillPosition);
+            return real;
+        }
+    }
+
+    public class Sigong : TriggerSkill
+    {
+        public Sigong() : base("sigong")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.CardResponded, TriggerEvent.NullificationEffect, TriggerEvent.EventPhaseChanging, TriggerEvent.TargetChosen, TriggerEvent.DamageDone };
+            skill_type = SkillType.Attack;
+        }
+
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.CardResponded && room.Current.Alive && !room.Current.HasFlag(Name) && data is CardResponseStruct resp && resp.Who == room.Current)
+                room.Current.SetFlags(Name);
+            else if (triggerEvent == TriggerEvent.NullificationEffect && room.Current.Alive && !room.Current.HasFlag(Name) && data is CardUseStruct use && use.RespondData.From == room.Current)
+                room.Current.SetFlags(Name);
+            else if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct _use && _use.Card.Name.Contains(Slash.ClassName) && _use.Card.GetSkillName() == Name && player.GetMark(Name) > 1)
+            {
+                for (int i = 0; i < _use.EffectCount.Count; i++)
+                {
+                    CardBasicEffect effect = _use.EffectCount[i];
+                    if (effect.Effect2 > 0 && effect.Effect2 < player.GetMark(Name))
+                        effect.Effect2 = player.GetMark(Name);
+                }
+                data = _use;
+            }
+            else if (triggerEvent == TriggerEvent.DamageDone && data is DamageStruct damage && damage.Card != null && damage.Card.Name.Contains(Slash.ClassName) && damage.Card.GetSkillName() == Name && damage.From != null)
+                damage.From.SetMark("sigong_round", room.Round);
+        }
+
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive && player.Alive && player.HasFlag(Name))
+            {
+                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                    if (p != player && p.GetMark("sigong_round") < room.Round) triggers.Add(new TriggerStruct(Name, p));
+            }
+            return triggers;
+        }
+
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            int count = ask_who.HandcardNum - 1;
+            bool invoke = false;
+            if (count <= 0 && room.AskForSkillInvoke(ask_who, Name, string.Format("@sigong-draw:{0}", player.Name), info.SkillPosition))
+            {
+                invoke = true;
+                if (count < 0) room.DrawCards(ask_who, 1, Name);
+            }
+            else if (count > 0 && room.AskForDiscard(ask_who, Name, count , count, true, false, string.Format("@sigong-discard:{0}::{1}", player.Name, count), true, info.SkillPosition))
+                invoke = true;
+
+            if (invoke && ask_who.Alive)
+            {
+                if (count > 1)
+                    ask_who.SetMark(Name, count);
+                else
+                    ask_who.SetMark(Name, 1);
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            WrappedCard slash = new WrappedCard(Slash.ClassName) { Skill = Name, DistanceLimited = false };
+            if (player.Alive && ask_who.Alive && RoomLogic.IsProhibited(room, ask_who, player, slash) == null)
+                room.UseCard(new CardUseStruct(slash, ask_who, player) { ExDamage = 1 }, true, true);
+
+            return false;
         }
     }
 
