@@ -8875,7 +8875,7 @@ namespace SanguoshaServer.Package
     {
         public Sigong() : base("sigong")
         {
-            events = new List<TriggerEvent> { TriggerEvent.CardResponded, TriggerEvent.NullificationEffect, TriggerEvent.EventPhaseChanging, TriggerEvent.TargetChosen, TriggerEvent.DamageDone };
+            events = new List<TriggerEvent> { TriggerEvent.CardResponded, TriggerEvent.NullificationEffect, TriggerEvent.EventPhaseChanging, TriggerEvent.TargetChosen, TriggerEvent.DamageDone, TriggerEvent.CardUsed };
             skill_type = SkillType.Attack;
         }
 
@@ -8883,7 +8883,8 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.CardResponded && room.Current.Alive && !room.Current.HasFlag(Name) && data is CardResponseStruct resp && resp.Who == room.Current)
                 room.Current.SetFlags(Name);
-            else if (triggerEvent == TriggerEvent.NullificationEffect && room.Current.Alive && !room.Current.HasFlag(Name) && data is CardUseStruct use && use.RespondData.From == room.Current)
+            else if ((triggerEvent == TriggerEvent.NullificationEffect || triggerEvent == TriggerEvent.CardUsed) && room.Current != null
+                && room.Current.Alive && !room.Current.HasFlag(Name) && data is CardUseStruct use && use.RespondData.From == room.Current)
                 room.Current.SetFlags(Name);
             else if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct _use && _use.Card.Name.Contains(Slash.ClassName) && _use.Card.GetSkillName() == Name && player.GetMark(Name) > 1)
             {
