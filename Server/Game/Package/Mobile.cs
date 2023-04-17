@@ -105,6 +105,8 @@ namespace SanguoshaServer.Package
                 new QisheMax(),
                 new Lueying(),
                 new Yingwu(),
+                new LijianSp(),
+                new BiyueSp(),
 
                 new Renshi(),
                 new Wuyuan(),
@@ -194,6 +196,7 @@ namespace SanguoshaServer.Package
                 new GongshunCard(),
                 new HongyiCard(),
                 new YanyuMobileCard(),
+                new LijianSpCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -5626,6 +5629,114 @@ namespace SanguoshaServer.Package
             };
             all_cards.Add(slash);
             return all_cards;
+        }
+    }
+
+    public class LijianSp : ViewAsSkill
+    {
+        public LijianSp() : base("lijian_sp")
+        {
+            skill_type = SkillType.Wizzard;
+        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => room.GetAlivePlayers().Count > 2 && !player.IsNude() && RoomLogic.CanDiscard(room, player, player, "he") && !player.HasUsed(LijianSpCard.ClassName);
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => RoomLogic.CanDiscard(room, player, player, to_select.Id);
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count > 0)
+            {
+                WrappedCard lijian_card = new WrappedCard(LijianSpCard.ClassName);
+                lijian_card.AddSubCards(cards);
+                lijian_card.Skill = Name;
+                lijian_card.ShowSkill = Name;
+                return lijian_card;
+            }
+
+            return null;
+        }
+    }
+
+    public class LijianSpCard : SkillCard
+    {
+        public static string ClassName = "LijianSpCard";
+        public LijianSpCard() : base(ClassName)
+        { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count <= card.SubCards.Count && to_select != Self;
+        public override bool TargetsFeasible(Room room, List<Player> targets, Player Self, WrappedCard card) => targets.Count - 1 == card.SubCards.Count;
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            List<Player> targets = card_use.To;
+            for (int i = 0; i < targets.Count;i++)
+            {
+                Player from = targets[i];
+                if (from.Alive)
+                {
+                    Player to = null;
+                    int count = 1;
+                    while ((to == null || !to.Alive) && count < targets.Count)
+                    {
+                        if (i + count < targets.Count)
+                            to = targets[i + count];
+                        else
+                            to = targets[i + count - targets.Count];
+
+                        count++;
+                    }
+                    if (to != null && to.Alive)
+                    {
+                        WrappedCard duel = new WrappedCard(Duel.ClassName) { Skill = "_lijian_sp" };
+                        if (RoomLogic.IsProhibited(room, from, to, duel) == null)
+                            room.UseCard(new CardUseStruct(duel, from, to));
+                    }
+                    else
+                        break;
+                }
+            }
+        }
+    }
+
+    public class BiyueSp : TriggerSkill
+    {
+        public BiyueSp() : base("biyue_sp")
+        {
+            skill_type = SkillType.Replenish;
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.DamageDone, TriggerEvent.EventPhaseChanging };
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.DamageDone && data is DamageStruct damage && room.Current != null)
+            {
+                List<string> targets = room.Current.ContainsTag(Name) ? (List<string>)room.Current.GetTag(Name) : new List<string>();
+                if (!targets.Contains(damage.To.Name))
+                {
+                    targets.Add(damage.To.Name);
+                    room.Current.SetTag(Name, targets);
+                }
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+                player.RemoveTag(Name);
+                
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish && player.ContainsTag(Name))
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (room.AskForSkillInvoke(player, Name, null, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (player.GetTag(Name) is List<string> targets)
+                room.DrawCards(player, Math.Min(5, targets.Count), Name);
+
+            return false;
         }
     }
 
