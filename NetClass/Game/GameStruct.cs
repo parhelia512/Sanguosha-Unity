@@ -235,6 +235,7 @@ namespace CommonClass.Game
         public int ExDamage { set; get; }
         public CardBasicEffect BasicEffect { set; get; }
         public List<Player> StackPlayers { set; get; }
+        public bool Effected { set; get; } //this card is nullified or effected to target
     }
 
     public struct SlashEffectStruct
