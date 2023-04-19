@@ -144,6 +144,8 @@ namespace SanguoshaServer.Package
                 new TunchuJxAdd(),
                 new TunchuProhibitJX(),
                 new ShuliangJX(),
+                new RendeJx(),
+                new ZhangwuJx(),
 
                 new Yingjian(),
                 new Shixin(),
@@ -197,6 +199,8 @@ namespace SanguoshaServer.Package
                 new HongyiCard(),
                 new YanyuMobileCard(),
                 new LijianSpCard(),
+                new RendeJxCard(),
+                new ZhangwuJxCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -7848,6 +7852,187 @@ namespace SanguoshaServer.Package
             if (player.Alive)
                 room.DrawCards(player, new DrawCardStruct(2, ask_who, Name));
             return false;
+        }
+    }
+
+    public class RendeJx : TriggerSkill
+    {
+        public RendeJx() : base("rende_jx")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.EventLoseSkill, TriggerEvent.CardUsed, TriggerEvent.CardResponded };
+            view_as_skill = new RendeJxVS();
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play)
+            {
+                int count = Math.Min(8 - player.GetMark(Name), 2);
+                if (count > 0)
+                {
+                    player.AddMark(Name, count);
+                    room.SetPlayerStringMark(player, Name, player.GetMark(Name).ToString());
+                }
+            }
+            else if (player.Alive && ((triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && use.Card.GetSkillName() == Name)
+                || (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Card.GetSkillName() == Name)))
+            {
+                player.SetFlags(Name);
+                player.AddMark(Name, -2);
+                int count = player.GetMark(Name);
+                if (count > 0)
+                    room.SetPlayerStringMark(player, Name, count.ToString());
+                else
+                    room.RemovePlayerStringMark(player, Name);
+            }
+            else if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == Name)
+                room.RemovePlayerStringMark(player, Name);
+        }
+    }
+
+    public class RendeJxVS : ViewAsSkill
+    {
+        public RendeJxVS() : base("rende_jx")
+        {
+        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasFlag(Name) && player.GetMark(Name) >= 2 || !player.IsNude();
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern) => MatchBasic(respond) && !player.HasFlag(Name) && player.GetMark(Name) >= 2;
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => false;
+        public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
+        {
+            List<WrappedCard> all_cards = new List<WrappedCard>();
+            if (!player.HasFlag(Name) && player.GetMark(Name) >= 2)
+            {
+                string pattern = room.GetRoomState().GetCurrentCardUsePattern(player);
+                if (pattern == ".")
+                {
+                    List<string> names = GetGuhuoCards(room, "b");
+                    foreach (string name in names)
+                    {
+                        if (name == Jink.ClassName) continue;
+                        WrappedCard card = new WrappedCard(name)
+                        {
+                            Skill = Name
+                        };
+                        all_cards.Add(card);
+                    }
+                }
+                else
+                {
+                    List<string> names = GetGuhuoCards(room, "b");
+                    foreach (string name in names)
+                    {
+                        if (name == Jink.ClassName) continue;
+                        WrappedCard card = new WrappedCard(name)
+                        {
+                            Skill = Name
+                        };
+                        if (Engine.MatchExpPattern(room, pattern, player, card))
+                            all_cards.Add(card);
+                    }
+                }
+            }
+            return all_cards;
+        }
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count == 0)
+                return new WrappedCard(RendeJxCard.ClassName) { Mute = true };
+            else if (cards.Count == 1)
+                return cards[0];
+
+            return null;
+        }
+    }
+
+    public class RendeJxCard : SkillCard
+    {
+        public static string ClassName = "RendeJxCard";
+        public RendeJxCard() : base(ClassName)
+        {
+            will_throw = false;
+        }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self && !to_select.HasFlag("rende_" + Self.Name);
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player target = card_use.To[0];
+            Player player = card_use.From;
+            List<int> ids = room.AskForExchange(player, "rende_jx", player.GetCardCount(true), 1, string.Format("@rende-give:{0}", target.Name), string.Empty, "..", card_use.Card.SkillPosition);
+
+            ResultStruct result = player.Result;
+            result.Assist += ids.Count;
+            player.Result = result;
+
+            target.SetFlags("rende_" + player.Name);
+            target.SetMark("rende_" + player.Name, 1);
+            CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, "rende_jx", null);
+            room.ObtainCard(target, ref ids, reason, false);
+            
+            int count = Math.Min(8 - player.GetMark("rende_jx"), ids.Count);
+            if (count > 0)
+            {
+                player.AddMark("rende_jx", count);
+                room.SetPlayerStringMark(player, "rende_jx", player.GetMark("rende_jx").ToString());
+            }
+        }
+    }
+
+    public class  ZhangwuJx : ZeroCardViewAsSkill
+    {
+        public ZhangwuJx() : base("zhangwu_jx") { limit_mark = "@zhangwu"; }
+        public override bool IsEnabledAtPlay(Room room, Player player)
+        {
+            if (player.GetMark(limit_mark) > 0 && room.Round > 1)
+            {
+                foreach (Player p in room.GetOtherPlayers(player))
+                    if (p.GetMark(string.Format("rende_{0}", player.Name)) > 0 && !player.IsNude())
+                        return true;
+            }
+            return false;
+        }
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(ZhangwuJxCard.ClassName) { Skill = Name };
+    }
+    public class ZhangwuJxCard : SkillCard
+    {
+        public static string ClassName = "ZhangwuJxCard";
+        public ZhangwuJxCard() : base(ClassName) { target_fixed = true; }
+        public override void OnUse(Room room, CardUseStruct card_use)
+        {
+            room.SetPlayerMark(card_use.From, "@zhangwu", 0);
+            room.BroadcastSkillInvoke("zhangwu_jx", card_use.From, card_use.Card.SkillPosition);
+            room.DoSuperLightbox(card_use.From, card_use.Card.SkillPosition, "zhangwu_jx");
+
+            List<Player> targets = new List<Player>();
+            foreach (Player p in room.GetOtherPlayers(card_use.From))
+                if (p.GetMark(string.Format("rende_{0}", card_use.From.Name)) > 0 && !card_use.From.IsNude())
+                    targets.Add(p);
+
+            card_use.To = targets;
+            room.SortByActionOrder(ref card_use);
+            base.OnUse(room, card_use);
+        }
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            base.Use(room, card_use);
+            Player player = card_use.From;
+            if (player.Alive && player.IsWounded())
+            {
+                int count = Math.Min(3, player.GetLostHp());
+                room.Recover(player, count);
+            }
+            if (player.Alive) room.HandleAcquireDetachSkills(player, "-rende_jx", false);
+        }
+        public override void OnEffect(Room room, CardEffectStruct effect)
+        {
+            Player from = effect.From;
+            if (from.Alive && !effect.To.IsNude())
+            {
+                int count = Math.Min(effect.To.GetCardCount(true), room.Round - 1);
+                count = Math.Min(3, count);
+                List<int> ids = room.AskForExchange(effect.To, "zhangwu_jx", count, count, string.Format("@zhangwu_jx:{0}::{1}", from.Name, count), string.Empty, "..", string.Empty);
+                if (ids.Count > 0)
+                    room.ObtainCard(from, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, effect.To.Name, "zhangwu_jx", string.Empty), false);
+            }
         }
     }
 

@@ -1735,7 +1735,6 @@ namespace SanguoshaServer.Package
         public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player Self)
         {
             string pattern = room.GetRoomState().GetCurrentCardUsePattern(Self);
-
             List<WrappedCard> all_cards = new List<WrappedCard>();
             if (pattern == response_pattern)
             {
