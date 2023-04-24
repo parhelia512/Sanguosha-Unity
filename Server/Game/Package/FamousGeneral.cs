@@ -10614,7 +10614,7 @@ namespace SanguoshaServer.Package
             bool recover = false;
             bool use = false;
             Player player = card_use.From, target = card_use.To[0];
-            int count = 100, hp = 100, eq = 100 ;
+            int count = 100, hp = 100, eq = 100, process = 0;
             foreach (Player p in room.GetAllPlayers())
             {
                 if (p.HandcardNum < count)
@@ -10628,6 +10628,7 @@ namespace SanguoshaServer.Package
             {
                 room.DrawCards(target, new DrawCardStruct(1, player, "anguo"));
                 draw = true;
+                process++;
             }
             if (target.Alive && target.Hp == hp)
             {
@@ -10638,6 +10639,7 @@ namespace SanguoshaServer.Package
                 };
                 room.Recover(target, re, true);
                 recover = true;
+                process++;
             }
             if (target.Alive && target.GetEquips().Count == eq)
             {
@@ -10652,6 +10654,7 @@ namespace SanguoshaServer.Package
                     }
                 }
                 use = true;
+                process++;
 
                 ResultStruct result = card_use.From.Result;
                 result.Assist++;
@@ -10659,7 +10662,10 @@ namespace SanguoshaServer.Package
             }
 
             if (!draw && player.Alive && player.HandcardNum == count)
+            {
                 room.DrawCards(player, new DrawCardStruct(1, player, "anguo"));
+                process++;
+            }
             if (!recover && player.Alive && player.Hp == hp)
             {
                 RecoverStruct re = new RecoverStruct
@@ -10668,6 +10674,7 @@ namespace SanguoshaServer.Package
                     Who = player
                 };
                 room.Recover(player, re, true);
+                process++;
             }
             if (!use && player.Alive && player.GetEquips().Count == eq)
             {
@@ -10680,6 +10687,22 @@ namespace SanguoshaServer.Package
                         room.UseCard(new CardUseStruct(card, player, new List<Player>(), false));
                         break;
                     }
+                }
+                process++;
+            }
+
+            if (process == 3 && player.Alive && !player.IsNude())
+            {
+                List<int> ids = room.AskForExchange(player, "anguo", player.GetCardCount(true), 0, "@anguo", string.Empty, "..", card_use.Card.SkillPosition);
+                if (ids.Count > 0)
+                {
+                    CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_RECAST, player.Name)
+                    {
+                        SkillName = "anguo"
+                    };
+                    CardsMoveStruct move = new CardsMoveStruct(ids, null, Place.DiscardPile, reason);
+                    List<CardsMoveStruct> moves = new List<CardsMoveStruct> { move };
+                    room.MoveCardsAtomic(moves, true);
                 }
             }
         }

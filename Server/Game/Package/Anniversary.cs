@@ -395,6 +395,7 @@ namespace SanguoshaServer.Package
                 new CuichuanCard(),
                 new AnzhiCard(),
                 new GueCard(),
+                new FangtongCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -9343,11 +9344,9 @@ namespace SanguoshaServer.Package
         }
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use && base.Triggerable(player, room) && use.To.Contains(player))
+            if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use && base.Triggerable(player, room) && use.To.Contains(player) && !Engine.IsSkillCard(use.Card.Name))
             {
-                FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                if (fcard is Weapon || !(fcard is EquipCard))
-                    return new TriggerStruct(Name, player);
+                return new TriggerStruct(Name, player);
             }
             else if (data is CardsMoveOneTimeStruct move && move.To_place == Place.DiscardPile && move.Reason.Reason == MoveReason.S_REASON_JUDGEDONE && !string.IsNullOrEmpty(move.Reason.EventName)
                 && move.Reason.EventName == Name && move.From.Alive && move.Card_ids.Count == 1 && room.GetCardPlace(move.Card_ids[0]) == Place.DiscardPile)
@@ -9400,26 +9399,14 @@ namespace SanguoshaServer.Package
     {
         public Fangtong() : base("fangtong")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.CardsMoveOneTime };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart };
             skill_type = SkillType.Wizzard;
+            view_as_skill = new FangtongVS();
         }
-
-        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
-        {
-            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && base.Triggerable(move.From, room)
-                && move.Reason.Reason == MoveReason.S_REASON_THROW && move.Reason.SkillName == Name && move.Card_ids.Count == 1 && move.To_place == Place.PlaceTable && move.From.Alive)
-            {
-                int count = 0;
-                foreach (int id in move.Card_ids)
-                    count += room.GetCard(id).Number;
-
-                move.From.SetMark("fangtong_discard", count);
-            }
-        }
-
+        
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.GetPile("jijun").Count > 0 && player.Phase == PlayerPhase.Finish)
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && !player.IsKongcheng() && player.Phase == PlayerPhase.Finish)
                 return new TriggerStruct(Name, player);
 
             return new TriggerStruct();
@@ -9427,10 +9414,12 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (room.AskForDiscard(player, Name, 1, 1, true, true, "@fangtong", true, info.SkillPosition))
+            List<int> ids = room.AskForExchange(player, Name, 1, 0, "@fangtong", string.Empty, ".", info.SkillPosition);
+            if (ids.Count > 0)
             {
                 GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
                 room.BroadcastSkillInvoke(Name, "male", 1, gsk.General, gsk.SkinId);
+                room.AddToPile(player, Name, ids);
                 return info;
             }
             return new TriggerStruct();
@@ -9438,37 +9427,55 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            List<int> ids = room.AskForExchange(player, Name, player.GetPile("jijun").Count, 1, "@fangtong-disacard", "jijun", string.Empty, info.SkillPosition);
-            int count = player.GetMark(Name);
-            foreach (int id in ids)
-                count += room.GetCard(id).Number;
-
-            CardsMoveStruct move = new CardsMoveStruct(ids, null, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, ask_who.Name, Name, string.Empty));
-            room.MoveCardsAtomic(move, true);
-
-            if (player.Alive)
-            {
-                player.SetMark(Name, count);
-                room.SetPlayerStringMark(player, Name, count.ToString());
-                int discard = player.GetMark("fangtong_discard");
-                player.SetMark("fangtong_discard", 0);
-                if (count + discard == 36)
-                {
-                    Player target = room.AskForPlayerChosen(player, room.GetOtherPlayers(player), Name, "@fangtong-target", false, true, info.SkillPosition);
-                    GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
-                    room.BroadcastSkillInvoke(Name, "male", 2, gsk.General, gsk.SkinId);
-
-                    room.Damage(new DamageStruct(Name, player, target, 3, DamageStruct.DamageNature.Thunder));
-                }
-            }
-
-            if (player.Alive && count >= 36)
-            {
-                player.SetMark(Name, 0);
-                room.RemovePlayerStringMark(player, Name);
-            }
+            if (player.Alive && player.GetPile("jijun").Count > 0)
+                room.AskForUseCard(player, RespondType.Skill, "@@fangtong", "@fangtong-damage", null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
 
             return false;
+        }
+    }
+
+    public class FangtongVS : ViewAsSkill
+    {
+        public FangtongVS() : base("fangtong")
+        {
+            response_pattern = "@@";
+            expand_pile = "jijun";
+        }
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => player.GetPile(expand_pile).Contains(to_select.Id);
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count > 0)
+            {
+                WrappedCard ft = new WrappedCard(FangtongCard.ClassName) { Skill = Name, Mute = true };
+                ft.AddSubCards(cards);
+                return ft;
+            }
+            return null;
+        }
+    }
+    public class FangtongCard : SkillCard
+    {
+        public static string ClassName = "FangtongCard";
+        public FangtongCard() : base(ClassName) { will_throw = false; }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self;
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player player = card_use.From;
+
+            int count = 0;
+            foreach (int id in card_use.Card.SubCards)
+                count += room.GetCard(id).Number;
+
+            GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, "fangtong", card_use.Card.SkillPosition);
+            room.BroadcastSkillInvoke("fangtong", "male", 2, gsk.General, gsk.SkinId);
+
+            CardsMoveStruct move = new CardsMoveStruct(card_use.Card.SubCards, null, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, player.Name, "fangtong", string.Empty));
+            room.MoveCardsAtomic(move, true);
+
+            if (count >= 36)
+                room.Damage(new DamageStruct("fangtong", player, card_use.To[0], 3, DamageStruct.DamageNature.Thunder));
+            else
+                room.Damage(new DamageStruct("fangtong", player, card_use.To[0], 1, DamageStruct.DamageNature.Thunder));
         }
     }
 
