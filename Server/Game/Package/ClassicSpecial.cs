@@ -82,6 +82,7 @@ namespace SanguoshaServer.Package
                 new KanpoDZ(),
                 new Genzhan(),
                 new GenzhanTar(),
+                new WangxiJx(),
 
                 new Mizhao(),
                 new Tianming(),
@@ -4449,6 +4450,71 @@ namespace SanguoshaServer.Package
                 room.DrawCards(players[0], 2, Name);
             }
 
+            return false;
+        }
+    }
+
+    public class WangxiJx : TriggerSkill
+    {
+        public WangxiJx() : base("wangxi_jx")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.Damage, TriggerEvent.Damaged };
+            skill_type = SkillType.Replenish;
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (base.Triggerable(player, room) && data is DamageStruct damage)
+            {
+                Player target = null;
+                if (triggerEvent == TriggerEvent.Damage)
+                    target = damage.To;
+                else
+                    target = damage.From;
+                if (target != null && target.Alive && target != player && !target.HasFlag("Global_DFDebut"))
+                {
+
+                    TriggerStruct trigger = new TriggerStruct(Name, player)
+                    {
+                        Times = damage.Damage
+                    };
+                    return trigger;
+                }
+            }
+            return new TriggerStruct();
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            DamageStruct damage = (DamageStruct)data;
+            Player target = null;
+            if (triggerEvent == TriggerEvent.Damage)
+                target = damage.To;
+            else
+                target = damage.From;
+            if (room.AskForSkillInvoke(player, Name, target, info.SkillPosition))
+            {
+                room.DoAnimate(CommonClassLibrary.AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
+                GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, Name, info.SkillPosition);
+                room.BroadcastSkillInvoke(Name, "male", (triggerEvent == TriggerEvent.Damage) ? 2 : 1, gsk.General, gsk.SkinId);
+                return info;
+            }
+
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            DamageStruct damage = (DamageStruct)data;
+            Player target = null;
+            if (triggerEvent == TriggerEvent.Damage)
+                target = damage.To;
+            else
+                target = damage.From;
+
+            room.DrawCards(player, 2, Name);
+            if (player.Alive && !player.IsNude() && target.Alive)
+            {
+                List<int> ids = room.AskForExchange(player, Name, 1, 1, string.Format("@wangxi_jx:{0}", target.Name), string.Empty, "..", info.SkillPosition);
+                room.ObtainCard(target, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, player.Name, target.Name, Name, string.Empty), false);
+            }
             return false;
         }
     }

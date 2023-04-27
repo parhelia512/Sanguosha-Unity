@@ -38,6 +38,7 @@ namespace SanguoshaServer.Package
                 new Fulin(),
                 new FulinMax(),
                 new Fuhun(),
+                new Tongxin(),
                 new Longyin(),
                 new Jiezhong(),
                 new Wuyan(),
@@ -1517,15 +1518,8 @@ namespace SanguoshaServer.Package
         {
         }
 
-        public override bool IsEnabledAtPlay(Room room, Player player)
-        {
-            return !player.HasUsed(DuliangCard.ClassName);
-        }
-
-        public override WrappedCard ViewAs(Room room, Player player)
-        {
-            return new WrappedCard(DuliangCard.ClassName) { Skill = Name };
-        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(DuliangCard.ClassName);
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(DuliangCard.ClassName) { Skill = Name };
     }
 
     public class DuliangCard : SkillCard
@@ -1537,12 +1531,12 @@ namespace SanguoshaServer.Package
 
         public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
         {
-            return targets.Count == 0 && to_select != Self && !to_select.IsKongcheng() && RoomLogic.CanGetCard(room, Self, to_select, "h");
+            return targets.Count == 0 && to_select != Self && to_select.IsNude() && RoomLogic.CanGetCard(room, Self, to_select, "he");
         }
         public override void Use(Room room, CardUseStruct card_use)
         {
             Player player = card_use.From, target = card_use.To[0];
-            int id = room.AskForCardChosen(player, target, "h", "duliang", false, HandlingMethod.MethodGet);
+            int id = room.AskForCardChosen(player, target, "he", "duliang", false, HandlingMethod.MethodGet);
             List<int> ids = new List<int> { id };
             room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_EXTRACTION, player.Name, target.Name, "duliang", string.Empty), false);
 
@@ -1562,16 +1556,21 @@ namespace SanguoshaServer.Package
                 log.Card_str = null;
                 room.SendLog(log, new List<Player> { target });
 
-                room.ViewCards(target, top, "duliang");
-                List<int> move = new List<int>();
+                int give = -1;
                 foreach (int card_id in top)
                 {
                     WrappedCard card = room.GetCard(card_id);
                     if (Engine.GetFunctionCard(card.Name) is BasicCard)
-                        move.Add(card_id);
+                    {
+                        give = card_id;
+                        break;
+                    }
                 }
-                if (move.Count > 0)
-                    room.ObtainCard(target, ref move, new CardMoveReason(MoveReason.S_REASON_GOTCARD, target.Name, "duliang", string.Empty), false);
+                player.PileChange("#duliang", top, true);
+                List<int> move = room.AskForExchange(player, "duliang", 2, give > -1 ? 1 : 0, string.Format("@duliang:{0}", target.Name), "#duliang", "BasicCard|.|.|#duliang", card_use.Card.SkillPosition);
+                player.PileChange("#duliang", top, false);
+                if (move.Count == 0 && give > -1) move.Add(give);
+                if (move.Count > 0) room.ObtainCard(target, ref move, new CardMoveReason(MoveReason.S_REASON_GOTCARD, target.Name, "duliang", string.Empty), false);
             }
             else
                 target.AddMark("duliang");
@@ -1706,6 +1705,12 @@ namespace SanguoshaServer.Package
             slash = RoomLogic.ParseUseCard(room, slash);
             return slash;
         }
+    }
+
+    public class Tongxin : AttackRangeSkill
+    {
+        public Tongxin() : base("tongxin") { frequency = Frequency.Compulsory; }
+        public override int GetExtra(Room room, Player target, bool include_weapon) => RoomLogic.PlayerHasSkill(room, target, Name) ? 2 : 0;
     }
 
     public class Longyin : TriggerSkill

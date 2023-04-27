@@ -7934,8 +7934,10 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
             int count = Math.Min(5, player.HandcardNum);
-            if (room.AskForDiscard(ask_who, Name, 1, 1, true, true, "@mingluan:::" + count.ToString(), true, info.SkillPosition))
+            List<int> ids = room.AskForExchange(ask_who, Name, ask_who.GetCardCount(true), 0, "@mingluan:::" + count.ToString(), string.Empty, "..!", info.SkillPosition);
+            if (ids.Count > 0)
             {
+                room.ThrowCard(ref ids, player, null, Name);
                 room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                 return info;
             }
@@ -20423,7 +20425,7 @@ namespace SanguoshaServer.Package
     {
         public Huishu() : base("huishu")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseEnd, TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill, TriggerEvent.EventLoseSkill };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseEnd, TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill, TriggerEvent.EventLoseSkill, TriggerEvent.EventPhaseChanging };
             skill_type = SkillType.Replenish;
         }
 
@@ -20449,6 +20451,8 @@ namespace SanguoshaServer.Package
                 room.RemovePlayerStringMark(player, "huishu_discard");
                 room.RemovePlayerStringMark(player, "huishu_trick");
             }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.PhaseNone)
+                player.SetMark("huishu_discard_count", 0);
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -20462,7 +20466,6 @@ namespace SanguoshaServer.Package
         {
             if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
             {
-                player.SetFlags(Name);
                 room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
                 return info;
             }
@@ -20478,6 +20481,7 @@ namespace SanguoshaServer.Package
                 count = player.GetMark("huishu_discard") + 1;
                 if (count > 0) room.AskForDiscard(player, Name, count, count, false, false, "@huishu-discard:::" + count.ToString(), false, info.SkillPosition);
             }
+            player.SetFlags(Name);
             return false;
         }
     }
@@ -20489,34 +20493,40 @@ namespace SanguoshaServer.Package
             events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime };
             frequency = Frequency.Compulsory;
         }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && !move.From.HasFlag("huishu_trick") && move.From.Phase != PlayerPhase.NotActive &&
+                (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && (move.From_places.Contains(Place.PlaceHand) || move.From_places.Contains(Place.PlaceEquip)))
+                move.From.AddMark("huishu_discard_count", move.Card_ids.Count);
+        }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.From.HasFlag("huishu") && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD
-                && (move.From_places.Contains(Place.PlaceHand) || move.From_places.Contains(Place.PlaceEquip)))
-            {
-                int count = move.From.GetMark("huishu_trick") + 2;
-                if (move.Card_ids.Count > count) return new TriggerStruct(Name, move.From);
-            }
+                && (move.From_places.Contains(Place.PlaceHand) || move.From_places.Contains(Place.PlaceEquip)) && !move.From.HasFlag("huishu_trick") && move.From.GetMark("huishu_discard_count") >= move.From.GetMark("huishu_trick") + 2)
+                return new TriggerStruct(Name, move.From);
+
             return new TriggerStruct();
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            int id = -1;
+            ask_who.SetFlags("huishu_trick");
+            List<int> ids = new List<int>();
+            int count = ask_who.GetMark("huishu_trick") + 2;
             foreach (int card in room.DiscardPile)
             {
-                if (Engine.GetFunctionCard(room.GetCard(card).Name) is TrickCard)
+                if (!(Engine.GetFunctionCard(room.GetCard(card).Name) is BasicCard))
                 {
-                    id = card;
-                    break;
+                    ids.Add(card);
+                    if (ids.Count >= count) break;
                 }
             }
-            if (id >= 0)
+            if (ids.Count >= 0)
             {
                 room.SendCompulsoryTriggerLog(ask_who, "huishu");
                 room.BroadcastSkillInvoke("huishu", ask_who, info.SkillPosition);
-                room.ObtainCard(ask_who, room.GetCard(id), new CardMoveReason(MoveReason.S_REASON_RECYCLE, ask_who.Name, "huishu", string.Empty));
+                room.ObtainCard(ask_who, ref ids, new CardMoveReason(MoveReason.S_REASON_RECYCLE, ask_who.Name, "huishu", string.Empty));
             }
 
             return false;
@@ -20715,7 +20725,7 @@ namespace SanguoshaServer.Package
                     draw = true;
                 room.SendPlayerSkillsToOthers(player);
                 room.FilterCards(player, player.GetCards("he"), true);
-                if (draw) room.DrawCards(player, 2, Name);
+                if (draw) room.DrawCards(player, 3, Name);
             }
 
             return false;

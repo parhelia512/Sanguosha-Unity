@@ -50,6 +50,7 @@ namespace SanguoshaServer.Package
                 new Wanglie(),
                 new WanglieResp(),
                 new WanglieTar(),
+                new WangliePro(),
 
                 new Kongsheng(),
                 new KongshengClear(),
@@ -98,7 +99,7 @@ namespace SanguoshaServer.Package
                 { "juzhan", new List<string>{ "#juzhan-prohibit" } },
                 { "shenshi", new List<string>{ "#shenshi" } },
                 { "mingren", new List<string>{ "#mingren-clear" } },
-                { "wanglie", new List<string>{ "#wanglie", "#wanglie-tar" } },
+                { "wanglie", new List<string>{ "#wanglie", "#wanglie-tar", "#wanglie-pro" } },
                 { "zhengu", new List<string>{ "#zhengu" } },
                 { "xiongluan", new List<string>{ "#xiongluan" } },
                 //{ "shicai_jx", new List<string>{ "#shicai_jx" } },
@@ -1975,14 +1976,21 @@ namespace SanguoshaServer.Package
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && player.Phase == PlayerPhase.Play && !player.HasFlag(Name))
+            if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && player.Phase == PlayerPhase.Play)
             {
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
                 if (fcard.TypeID != FunctionCard.CardType.TypeSkill)
-                    player.SetFlags(Name);
+                {
+                    if (!player.HasFlag(Name)) player.SetFlags(Name);
+                    player.AddMark(Name);
+                }
             }
             else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.Play && player.HasFlag(Name))
+            {
                 player.SetFlags("-wanglie");
+                player.SetFlags("-wanglie_pro");
+                player.SetMark(Name, 0);
+            }
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -2013,7 +2021,7 @@ namespace SanguoshaServer.Package
             if (data is CardUseStruct use)
             {
                 use.Card.SetFlags(string.Format("{0}_{1}", Name, player.Name));
-                RoomLogic.SetPlayerCardLimitation(player, Name, "use", ".$1");
+                player.SetFlags("wanglie_pro");
             }
 
             return false;
@@ -2079,7 +2087,7 @@ namespace SanguoshaServer.Package
 
         public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern)
         {
-            if (from != null && to != null && from.Phase == PlayerPhase.Play && RoomLogic.PlayerHasSkill(room, from, "wanglie") && !from.HasFlag("wanglie"))
+            if (from != null && to != null && from.Phase == PlayerPhase.Play && RoomLogic.PlayerHasSkill(room, from, "wanglie") && from.GetMark("wanglie") < 2)
                 return true;
 
             return false;
@@ -2089,6 +2097,12 @@ namespace SanguoshaServer.Package
         {
             index = -2;
         }
+    }
+
+    public class WangliePro : ProhibitSkill
+    {
+        public WangliePro() : base("#wanglie-pro") { }
+        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null) => from.HasFlag("wanglie_pro") && from != to;
     }
 
     public class Liangyin : TriggerSkill
