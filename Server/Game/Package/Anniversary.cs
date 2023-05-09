@@ -21008,9 +21008,22 @@ namespace SanguoshaServer.Package
             List<TriggerStruct> triggers = new List<TriggerStruct>();
             if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && player != null && player.Alive && player.Phase == PlayerPhase.Play && !Engine.IsSkillCard(use.Card.Name) && player.GetMark(Name) == 1)
             {
-                foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                bool invoke = true;
+                foreach (Player p in use.To)
+                {
                     if (p != player)
-                        triggers.Add(new TriggerStruct(Name, p));
+                    {
+                        invoke = false;
+                        break;
+                    }
+                }
+
+                if (invoke)
+                {
+                    foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                        if (p != player)
+                            triggers.Add(new TriggerStruct(Name, p));
+                }
             }
             return triggers;
         }
