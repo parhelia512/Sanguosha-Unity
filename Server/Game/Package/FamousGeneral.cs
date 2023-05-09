@@ -10708,6 +10708,8 @@ namespace SanguoshaServer.Package
                     CardsMoveStruct move = new CardsMoveStruct(ids, null, Place.DiscardPile, reason);
                     List<CardsMoveStruct> moves = new List<CardsMoveStruct> { move };
                     room.MoveCardsAtomic(moves, true);
+
+                    if (player.Alive) room.DrawCards(player, ids.Count, "anguo");
                 }
             }
         }

@@ -7942,7 +7942,7 @@ namespace SanguoshaServer.Package
             List<int> ids = room.AskForExchange(ask_who, Name, ask_who.GetCardCount(true), 0, "@mingluan:::" + count.ToString(), string.Empty, "..!", info.SkillPosition);
             if (ids.Count > 0)
             {
-                room.ThrowCard(ref ids, player, null, Name);
+                room.ThrowCard(ref ids, ask_who, null, Name);
                 room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
                 return info;
             }
@@ -9395,7 +9395,7 @@ namespace SanguoshaServer.Package
             }
             else if (data is CardsMoveOneTimeStruct move)
             {
-                room.AddToPile(ask_who, Name, move.Card_ids);
+                room.AddToPile(ask_who, "fangtong", move.Card_ids);
             }
 
             return false;
@@ -9445,7 +9445,7 @@ namespace SanguoshaServer.Package
     {
         public FangtongVS() : base("fangtong")
         {
-            response_pattern = "@@";
+            response_pattern = "@@fangtong";
             expand_pile = "jijun";
         }
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => player.GetPile(expand_pile).Contains(to_select.Id);
