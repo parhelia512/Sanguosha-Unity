@@ -9395,7 +9395,7 @@ namespace SanguoshaServer.Package
             }
             else if (data is CardsMoveOneTimeStruct move)
             {
-                room.AddToPile(ask_who, "fangtong", move.Card_ids);
+                room.AddToPile(ask_who, Name, move.Card_ids);
             }
 
             return false;
@@ -9426,7 +9426,7 @@ namespace SanguoshaServer.Package
             {
                 GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, ask_who, Name, info.SkillPosition);
                 room.BroadcastSkillInvoke(Name, "male", 1, gsk.General, gsk.SkinId);
-                room.AddToPile(player, Name, ids);
+                room.AddToPile(player, "jijun", ids);
                 return info;
             }
             return new TriggerStruct();
