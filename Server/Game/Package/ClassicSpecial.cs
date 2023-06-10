@@ -38,7 +38,7 @@ namespace SanguoshaServer.Package
                 new Chenqing(),
                 new Moshi(),
                 new Shanjia(),
-                new ShanjiaDetach(),
+                new ShanjiaTar(),
                 new Qizhi(),
                 new Jinqu(),
                 new Gushe(),
@@ -369,7 +369,7 @@ namespace SanguoshaServer.Package
                 { "huxiao", new List<string>{ "#huxiao-tar" } },
                 { "yongsi_jx", new List<string>{ "#yongsi-max" } },
                 { "weidi_jx", new List<string>{ "#weidi-remove" } },
-                { "shanjia", new List<string>{ "#shanjia-clear" } },
+                { "shanjia", new List<string>{ "#shanjia" } },
                 { "fanghun", new List<string>{ "#fanghun-clear" } },
                 { "yuhua", new List<string>{ "#yuhua-max" } },
                 { "linglong", new List<string>{ "#linglong-max", "#linglong-tar", "#linglongvh", "#linglong-fix" } },
@@ -1678,7 +1678,7 @@ namespace SanguoshaServer.Package
         public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player Self)
         {
             if (cards.Count == 0)
-                return new List<WrappedCard> { new WrappedCard(Slash.ClassName) { Skill = "_shanjia", DistanceLimited = false } };
+                return new List<WrappedCard> { new WrappedCard(Slash.ClassName) { Skill = "_shanjia" } };
 
             return new List<WrappedCard>();
         }
@@ -1696,7 +1696,7 @@ namespace SanguoshaServer.Package
     {
         public Shanjia() : base("shanjia")
         {
-            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime, TriggerEvent.EventPhaseStart };
+            events = new List<TriggerEvent> { TriggerEvent.CardsMoveOneTime, TriggerEvent.EventPhaseStart, TriggerEvent.EventLoseSkill, TriggerEvent.EventPhaseChanging };
             skill_type = SkillType.Replenish;
             view_as_skill = new ShanjiaVS();
         }
@@ -1726,6 +1726,15 @@ namespace SanguoshaServer.Package
                     move.From.SetMark(Name, count);
                     if (base.Triggerable(move.From, room)) room.SetPlayerStringMark(move.From, "shanjia_losed", count.ToString());
                 }
+            }
+            else if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == Name)
+            {
+                room.RemovePlayerStringMark(player, "shanjia_losed");
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.From == PlayerPhase.Play && player.Alive)
+            {
+                player.SetFlags("-shanjia_slash");
+                player.SetFlags("-shanjia_distance");
             }
         }
 
@@ -1783,19 +1792,27 @@ namespace SanguoshaServer.Package
 
             if (player.Alive)
             {
-                bool check = true;
+                bool basic_check = true;
+                bool trick_check = true;
                 foreach (int id in ids)
                 {
                     WrappedCard card = room.GetCard(id);
                     FunctionCard fcard = Engine.GetFunctionCard(card.Name);
-                    if (fcard is BasicCard || fcard is TrickCard)
+                    if (fcard is BasicCard)
                     {
-                        check = false;
-                        break;
+                        basic_check = false;
+                    }
+                    else if (fcard is BasicCard)
+                    {
+                        trick_check = false;
                     }
                 }
+                if (basic_check)
+                    player.SetFlags("shanjia_slash");
+                if (trick_check)
+                    player.SetFlags("shanjia_distance");
 
-                if (check)
+                if (basic_check && trick_check)
                     room.AskForUseCard(player, RespondType.Skill, "@@shanjia", "@shanjia-slash", null, -1, HandlingMethod.MethodUse, false, info.SkillPosition);
             }
 
@@ -1803,14 +1820,11 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class ShanjiaDetach : DetachEffectSkill
+    public class ShanjiaTar : TargetModSkill
     {
-        public ShanjiaDetach() : base("shanjia", string.Empty) { }
-
-        public override void OnSkillDetached(Room room, Player player, object data)
-        {
-            room.RemovePlayerStringMark(player, "shanjia_losed");
-        }
+        public ShanjiaTar() : base("#shanjia", false) { pattern = "."; }
+        public override int GetResidueNum(Room room, Player from, WrappedCard card) => card != null && card.Name.Contains(Slash.ClassName) && from.HasFlag("shanjia_slash") ? 1 : 0;
+        public override bool GetDistanceLimit(Room room, Player from, Player to, WrappedCard card, CardUseReason reason, string pattern) => from.HasFlag("shanjia_distance");
     }
 
     public class Qizhi : TriggerSkill

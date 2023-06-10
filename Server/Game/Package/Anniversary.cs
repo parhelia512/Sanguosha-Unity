@@ -6649,10 +6649,10 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            List<int> ids = room.AskForExchange(player, Name, 1, 0, "@bijing", string.Empty, ".", info.SkillPosition);
-            if (ids.Count == 1)
+            List<int> ids = room.AskForExchange(player, Name, 2, 0, "@bijing", string.Empty, ".", info.SkillPosition);
+            if (ids.Count > 0)
             {
-                player.SetTag(Name, ids[0]);
+                player.SetTag(Name, ids);
                 room.NotifySkillInvoked(player, Name);
                 GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, "bijing", info.SkillPosition);
                 room.BroadcastSkillInvoke("bijing", "male", 1, gsk.General, gsk.SkinId);
@@ -6682,9 +6682,14 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.ContainsTag("bijing") && move.From.Alive
-                && move.From.GetTag("bijing") is int id && move.From.Phase == PlayerPhase.NotActive && move.Card_ids.Contains(id) && move.From_places[move.Card_ids.IndexOf(id)] == Place.PlaceHand)
+                && move.From.GetTag("bijing") is List<int> ids && move.From.Phase == PlayerPhase.NotActive)
             {
-                return new TriggerStruct(Name, move.From);
+                for (int i = 0; i < move.Card_ids.Count; i++)
+                {
+                   int id = move.Card_ids[i];
+                    if (ids.Contains(id) && move.From_places[i] == Place.PlaceHand)
+                        return new TriggerStruct(Name, move.From);
+                }
             }
             else if (triggerEvent == TriggerEvent.EventPhaseStart)
             {
@@ -6699,9 +6704,19 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (triggerEvent == TriggerEvent.CardsMoveOneTime)
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && ask_who.GetTag("bijing") is List<int> ids)
             {
-                ask_who.RemoveTag("bijing");
+                for (int i = 0; i < move.Card_ids.Count; i++)
+                {
+                    int id = move.Card_ids[i];
+                    if (ids.Contains(id) && move.From_places[i] == Place.PlaceHand)
+                        ids.Remove(id);
+                }
+                if (ids.Count == 0)
+                    ask_who.RemoveTag("bijing");
+                else
+                    ask_who.SetTag("bijing", ids);
+
                 room.SendCompulsoryTriggerLog(ask_who, "bijing");
                 if (room.Current != null && room.Current.Alive)
                 {
@@ -6712,17 +6727,43 @@ namespace SanguoshaServer.Package
             }
             else if (triggerEvent == TriggerEvent.EventPhaseStart)
             {
-                if (player.Phase == PlayerPhase.Start && player.ContainsTag("bijing") && player.GetTag("bijing") is int id)
+                if (player.Phase == PlayerPhase.Start && player.ContainsTag("bijing") && player.GetTag("bijing") is List<int> _ids)
                 {
                     room.RemoveTag("bijing");
-                    if (player.GetCards("h").Contains(id) && RoomLogic.CanDiscard(room, player, player, id))
+                    List<int> discards = new List<int>();
+                    foreach (int id in _ids)
+                    {
+                        if (player.GetCards("h").Contains(id) && RoomLogic.CanDiscard(room, player, player, id))
+                            discards.Add(id);
+                    }
+                    if (discards.Count > 0)
                     {
                         if (RoomLogic.PlayerHasSkill(room, player, Name))
                         {
                             GeneralSkin gsk = RoomLogic.GetGeneralSkin(room, player, "bijing", info.SkillPosition);
                             room.BroadcastSkillInvoke("bijing", "male", 2, gsk.General, gsk.SkinId);
                         }
-                        room.ThrowCard(id, player);
+                        CardMoveReason reason = new CardMoveReason(MoveReason.S_REASON_RECAST, player.Name)
+                        {
+                            SkillName = Name
+                        };
+                        
+                        CardsMoveStruct _move = new CardsMoveStruct(discards, player, Place.PlaceTable, reason)
+                        {
+                            To_pile_name = string.Empty,
+                            From = player.Name
+                        };
+                        List<CardsMoveStruct> moves = new List<CardsMoveStruct> { _move };
+                        room.MoveCardsAtomic(moves, true);
+
+                        List<int> table_cardids = room.GetCardIdsOnTable(discards);
+                        if (table_cardids.Count > 0)
+                        {
+                            CardsMoveStruct move2 = new CardsMoveStruct(table_cardids, player, null, Place.PlaceTable, Place.DiscardPile, reason);
+                            room.MoveCardsAtomic(new List<CardsMoveStruct>() { move2 }, true);
+                        }
+
+                        room.DrawCards(player, discards.Count, "recast");
                     }
                 }
                 else if (player.Phase == PlayerPhase.Discard && player.GetMark("bijing") > 0)
@@ -17666,7 +17707,7 @@ namespace SanguoshaServer.Package
                 || move.Reason.Reason == MoveReason.S_REASON_RESPONSE) && move.Card_ids.Count > 0 && move.To_place == Place.DiscardPile)
             {
                 Player from = room.FindPlayer(move.Reason.PlayerId);
-                if (base.Triggerable(from, room) && !from.HasFlag(Name) && from.Phase == PlayerPhase.NotActive)
+                if (base.Triggerable(from, room) && !from.HasFlag(Name))
                 {
                     List<int> ids = room.GetSubCards(move.Reason.Card);
                     if (ids.SequenceEqual(move.Reason.Card.SubCards) && ids.SequenceEqual(move.Card_ids))
@@ -17691,7 +17732,7 @@ namespace SanguoshaServer.Package
         {
             List<Player> targets = new List<Player>();
             foreach (Player p in room.GetOtherPlayers(ask_who))
-                if (p.HandcardNum > ask_who.HandcardNum)
+                if (p.HandcardNum > ask_who.HandcardNum || p.Hp > ask_who.Hp)
                     targets.Add(p);
 
             if (targets.Count > 0 && data is CardsMoveOneTimeStruct move)
