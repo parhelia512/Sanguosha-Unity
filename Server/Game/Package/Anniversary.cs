@@ -105,6 +105,7 @@ namespace SanguoshaServer.Package
                 new Anzhi(),
                 new Caizhuang(),
                 new Huayi(),
+                new HuayiEffect(),
 
                 new Tunan(),
                 new TunanTag(),
@@ -405,6 +406,7 @@ namespace SanguoshaServer.Package
                 new FangtongCard(),
                 new XinyouCard(),
                 new JijiaoCard(),
+                new CaizhuangCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -478,6 +480,7 @@ namespace SanguoshaServer.Package
                 { "xialei", new List<string>{ "#xialei" } },
                 { "juying", new List<string>{ "#juying", "#juying-max" } },
                 { "xinyou", new List<string>{ "#xinyou" } },
+                { "huayi", new List<string>{ "#huayi" } },
             };
         }
     }
@@ -6448,22 +6451,65 @@ namespace SanguoshaServer.Package
 
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            base.Record(triggerEvent, room, player, ref data);
+            if (triggerEvent == TriggerEvent.TurnStart)
+            {
+                player.SetMark("huaiyi_draw", 0);
+                player.SetMark("huaiyi_damage", 0);
+            }
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            return base.Triggerable(triggerEvent, room, player, ref data, ask_who);
+            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Finish)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
         }
 
         public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            return base.Cost(triggerEvent, room, player, ref data, ask_who, info);
+            if (room.AskForSkillInvoke(player, Name, data, info.SkillPosition))
+            {
+                room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                return info;
+            }
+            return new TriggerStruct();
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            return base.Effect(triggerEvent, room, player, ref data, ask_who, info);
+            JudgeStruct judge = new JudgeStruct
+            {
+                Good = true,
+                PlayAnimation = false,
+                Who = player,
+                Reason = Name
+            };
+            room.Judge(ref judge);
+
+            if (WrappedCard.IsRed(judge.JudgeSuit))
+            {
+                player.SetMark("huaiyi_draw", 1);
+                LogMessage log = new LogMessage()
+                {
+                    Type = "#huaiyi_draw",
+                    From = player.Name,
+                    Arg = Name
+                };
+                room.SendLog(log);
+            }
+            else
+            {
+                player.SetMark("huaiyi_damage", 1);
+                LogMessage log = new LogMessage()
+                {
+                    Type = "#huaiyi_damage",
+                    From = player.Name,
+                    Arg = Name
+                };
+                room.SendLog(log);
+            }
+
+            return false;
         }
     }
 
@@ -6471,17 +6517,30 @@ namespace SanguoshaServer.Package
     {
         public HuayiEffect() : base("#huayi")
         {
-            events = new List<TriggerEvent> { TriggerEvent.Damage, TriggerEvent.EventPhaseChanging };
+            events = new List<TriggerEvent> { TriggerEvent.Damaged, TriggerEvent.EventPhaseChanging };
             frequency = Frequency.Compulsory;
         }
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            return base.Triggerable(triggerEvent, room, player, ref data);
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.Damaged && player.Alive && player.GetMark("huaiyi_damage") > 0)
+                triggers.Add(new TriggerStruct(Name, player));
+            else if (triggerEvent == TriggerEvent.EventPhaseChanging && data is PhaseChangeStruct change && change.To == PlayerPhase.NotActive)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                    if (p != player && p.GetMark("huaiyi_draw") > 0)
+                        triggers.Add(new TriggerStruct(Name, p));
+            }
+            return triggers;
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-
+            room.SendCompulsoryTriggerLog(ask_who, "huayi");
+            if (triggerEvent == TriggerEvent.Damaged)
+                room.DrawCards(ask_who, 2, Name);
+            else
+                room.DrawCards(ask_who, 1, Name);
             return false;
         }
     }
@@ -9113,7 +9172,7 @@ namespace SanguoshaServer.Package
                 if ((move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_USE || (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD)
                 {
                     foreach (int id in move.Card_ids)
-                        if (Engine.GetFunctionCard(room.GetCard(id).Name) is TrickCard)
+                        if (Engine.GetFunctionCard(room.GetCard(id).Name).IsNDTrick())
                             cards.Add(id);
                 }
 
@@ -9167,6 +9226,7 @@ namespace SanguoshaServer.Package
         public override void OnUse(Room room, CardUseStruct card_use)
         {
             room.SetPlayerMark(card_use.From, "@jijiao", 0);
+            room.DoSuperLightbox(card_use.From, card_use.Card.SkillPosition, "jijiao");
             base.OnUse(room, card_use);
         }
         public override void Use(Room room, CardUseStruct card_use)

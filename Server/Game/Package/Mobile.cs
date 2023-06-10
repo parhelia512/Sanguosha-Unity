@@ -146,6 +146,7 @@ namespace SanguoshaServer.Package
                 new ShuliangJX(),
                 new RendeJx(),
                 new ZhangwuJx(),
+                new RendeJxVirtual(),
 
                 new Yingjian(),
                 new Shixin(),
@@ -7859,13 +7860,30 @@ namespace SanguoshaServer.Package
     {
         public RendeJx() : base("rende_jx")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.EventLoseSkill, TriggerEvent.CardUsed, TriggerEvent.CardResponded };
+            events = new List<TriggerEvent> { TriggerEvent.GameStart, TriggerEvent.EventAcquireSkill, TriggerEvent.EventPhaseStart, TriggerEvent.EventLoseSkill, TriggerEvent.CardUsed, TriggerEvent.CardResponded };
             view_as_skill = new RendeJxVS();
         }
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data) => new List<TriggerStruct>();
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play)
+            if (triggerEvent == TriggerEvent.GameStart && base.Triggerable(player, room))
+            {
+                if (!room.Skills.Contains("rende_virtual"))
+                    room.Skills.Add("rende_virtual");
+                    room.HandleAcquireDetachSkills(player, "rende_virtual", true, false);
+            }
+            else if (triggerEvent == TriggerEvent.EventAcquireSkill && data is InfoStruct info && info.Info == Name)
+            {
+                if (!room.Skills.Contains("rende_virtual"))
+                    room.Skills.Add("rende_virtual");
+                room.HandleAcquireDetachSkills(player, "rende_virtual", true, false);
+            }
+            else if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct _info && _info.Info == Name)
+            {
+                room.RemovePlayerStringMark(player, Name);
+                room.HandleAcquireDetachSkills(player, "-rende_virtual", true, false);
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseStart && base.Triggerable(player, room) && player.Phase == PlayerPhase.Play)
             {
                 int count = Math.Min(8 - player.GetMark(Name), 2);
                 if (count > 0)
@@ -7874,7 +7892,7 @@ namespace SanguoshaServer.Package
                     room.SetPlayerStringMark(player, Name, player.GetMark(Name).ToString());
                 }
             }
-            else if (player.Alive && ((triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && use.Card.GetSkillName() == Name)
+            else if (player.Alive && ((triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && use.Card.GetSkillName() == Name && !Engine.IsSkillCard(use.Card.Name))
                 || (triggerEvent == TriggerEvent.CardResponded && data is CardResponseStruct resp && resp.Card.GetSkillName() == Name)))
             {
                 player.SetFlags(Name);
@@ -7885,8 +7903,6 @@ namespace SanguoshaServer.Package
                 else
                     room.RemovePlayerStringMark(player, Name);
             }
-            else if (triggerEvent == TriggerEvent.EventLoseSkill && data is InfoStruct info && info.Info == Name)
-                room.RemovePlayerStringMark(player, Name);
         }
     }
 
@@ -7895,52 +7911,63 @@ namespace SanguoshaServer.Package
         public RendeJxVS() : base("rende_jx")
         {
         }
-        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasFlag(Name) && player.GetMark(Name) >= 2 || !player.IsNude();
-        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern) => MatchBasic(respond) && !player.HasFlag(Name) && player.GetMark(Name) >= 2;
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.IsNude();
+        public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => true;
+        public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
+        {
+            if (cards.Count > 0)
+            {
+                WrappedCard rd = new WrappedCard(RendeJxCard.ClassName) { Skill = Name };
+                rd.AddSubCards(cards);
+                return rd;
+            }
+            return null;
+        }
+    }
+
+    public class RendeJxVirtual : ViewAsSkill
+    {
+        public RendeJxVirtual() : base("rende_virtual")
+        {
+        }
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasFlag("rende_jx") && player.GetMark("rende_jx") >= 2;
+        public override bool IsEnabledAtResponse(Room room, Player player, RespondType respond, string pattern)
+            => room.GetRoomState().GetCurrentCardUseReason() == CardUseReason.CARD_USE_REASON_RESPONSE_USE && MatchBasic(respond) && !player.HasFlag("rende_jx") && player.GetMark("rende_jx") >= 2;
         public override bool ViewFilter(Room room, List<WrappedCard> selected, WrappedCard to_select, Player player) => false;
         public override List<WrappedCard> GetGuhuoCards(Room room, List<WrappedCard> cards, Player player)
         {
             List<WrappedCard> all_cards = new List<WrappedCard>();
-            if (!player.HasFlag(Name) && player.GetMark(Name) >= 2)
+            string pattern = room.GetRoomState().GetCurrentCardUsePattern(player);
+            List<string> names = GetGuhuoCards(room, "b");
+            if (pattern == ".")
             {
-                string pattern = room.GetRoomState().GetCurrentCardUsePattern(player);
-                if (pattern == ".")
+                foreach (string name in names)
                 {
-                    List<string> names = GetGuhuoCards(room, "b");
-                    foreach (string name in names)
+                    if (name == Jink.ClassName) continue;
+                    WrappedCard card = new WrappedCard(name)
                     {
-                        if (name == Jink.ClassName) continue;
-                        WrappedCard card = new WrappedCard(name)
-                        {
-                            Skill = Name
-                        };
-                        all_cards.Add(card);
-                    }
+                        Skill = "rende_jx"
+                    };
+                    all_cards.Add(card);
                 }
-                else
+            }
+            else
+            {
+                foreach (string name in names)
                 {
-                    List<string> names = GetGuhuoCards(room, "b");
-                    foreach (string name in names)
+                    WrappedCard card = new WrappedCard(name)
                     {
-                        if (name == Jink.ClassName) continue;
-                        WrappedCard card = new WrappedCard(name)
-                        {
-                            Skill = Name
-                        };
-                        if (Engine.MatchExpPattern(room, pattern, player, card))
-                            all_cards.Add(card);
-                    }
+                        Skill = "rende_jx"
+                    };
+                    if (Engine.MatchExpPattern(room, pattern, player, card))
+                        all_cards.Add(card);
                 }
             }
             return all_cards;
         }
         public override WrappedCard ViewAs(Room room, List<WrappedCard> cards, Player player)
         {
-            if (cards.Count == 0)
-                return new WrappedCard(RendeJxCard.ClassName) { Mute = true };
-            else if (cards.Count == 1)
-                return cards[0];
-
+            if (cards.Count == 1) return cards[0];
             return null;
         }
     }
@@ -7957,8 +7984,7 @@ namespace SanguoshaServer.Package
         {
             Player target = card_use.To[0];
             Player player = card_use.From;
-            List<int> ids = room.AskForExchange(player, "rende_jx", player.GetCardCount(true), 1, string.Format("@rende-give:{0}", target.Name), string.Empty, "..", card_use.Card.SkillPosition);
-
+            List<int> ids = new List<int>(card_use.Card.SubCards);
             ResultStruct result = player.Result;
             result.Assist += ids.Count;
             player.Result = result;
