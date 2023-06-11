@@ -8005,13 +8005,17 @@ namespace SanguoshaServer.Package
 
     public class  ZhangwuJx : ZeroCardViewAsSkill
     {
-        public ZhangwuJx() : base("zhangwu_jx") { limit_mark = "@zhangwu"; }
+        public ZhangwuJx() : base("zhangwu_jx")
+        {
+            frequency = Frequency.Limited;
+            limit_mark = "@zhangwu";
+        }
         public override bool IsEnabledAtPlay(Room room, Player player)
         {
             if (player.GetMark(limit_mark) > 0 && room.Round > 1)
             {
                 foreach (Player p in room.GetOtherPlayers(player))
-                    if (p.GetMark(string.Format("rende_{0}", player.Name)) > 0 && !player.IsNude())
+                    if (p.GetMark(string.Format("rende_{0}", player.Name)) > 0 && !p.IsNude())
                         return true;
             }
             return false;
@@ -8030,7 +8034,7 @@ namespace SanguoshaServer.Package
 
             List<Player> targets = new List<Player>();
             foreach (Player p in room.GetOtherPlayers(card_use.From))
-                if (p.GetMark(string.Format("rende_{0}", card_use.From.Name)) > 0 && !card_use.From.IsNude())
+                if (p.GetMark(string.Format("rende_{0}", card_use.From.Name)) > 0 && !p.IsNude())
                     targets.Add(p);
 
             card_use.To = targets;

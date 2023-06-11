@@ -1802,7 +1802,7 @@ namespace SanguoshaServer.Package
                     {
                         basic_check = false;
                     }
-                    else if (fcard is BasicCard)
+                    else if (fcard is TrickCard)
                     {
                         trick_check = false;
                     }
