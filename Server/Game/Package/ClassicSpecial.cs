@@ -2639,7 +2639,7 @@ namespace SanguoshaServer.Package
     {
         public Gongao() : base("gongao")
         {
-            events.Add(TriggerEvent.Death);
+            events.Add(TriggerEvent.Dying);
             frequency = Frequency.Compulsory;
         }
         public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
@@ -2647,7 +2647,7 @@ namespace SanguoshaServer.Package
             List<TriggerStruct> triggers = new List<TriggerStruct>();
             List<Player> caopis = RoomLogic.FindPlayersBySkillName(room, Name);
             foreach (Player caopi in caopis)
-                if (caopi != player)
+                if (caopi != player && caopi.GetMark(string.Format("{0}_{1}", Name, player.Name)) == 0)
                     triggers.Add(new TriggerStruct(Name, caopi));
 
             return triggers;
@@ -2657,6 +2657,7 @@ namespace SanguoshaServer.Package
         {
             room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
             room.SendCompulsoryTriggerLog(player, Name);
+            player.SetMark(string.Format("{0}_{1}", Name, player.Name), 1);
             if (player.Alive)
             {
                 player.MaxHp++;
@@ -2728,15 +2729,7 @@ namespace SanguoshaServer.Package
         {
             room.SendCompulsoryTriggerLog(player, Name);
             room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
-            int min = 1000;
-            foreach (Player p in room.GetAlivePlayers())
-            {
-                if (p.HandcardNum < min)
-                    min = p.HandcardNum;
-            }
-            int count = 1;
-            if (player.HandcardNum == min) count = 2;
-            room.DrawCards(player, count, Name);
+            room.DrawCards(player, 2, Name);
             return false;
         }
     }

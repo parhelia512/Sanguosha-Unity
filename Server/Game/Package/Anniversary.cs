@@ -15333,10 +15333,8 @@ namespace SanguoshaServer.Package
         {
             Player player = card_use.From, target = card_use.To[0];
             List<int> ids = new List<int> { 10, 20, 30, 40 };
-            ids.Remove(player.GetMark("yijiao"));
             string number = room.AskForChoice(player, "yijiao", string.Join("+", ids), new List<string> { "@yijiao:" + target.Name }, target, card_use.Card.SkillPosition);
             int count = int.Parse(number);
-            player.SetMark("yijiao", count);
             target.SetMark("yijiao_mark", count);
             room.SetPlayerStringMark(target, "yijiao", count.ToString());
             player.SetTag("yijiao", target.Name);
@@ -15382,16 +15380,24 @@ namespace SanguoshaServer.Package
             int count = player.GetMark("yijiao_mark") - player.GetMark("yijiao_used");
             if (count > 0 && !player.IsKongcheng())
             {
-                List<int> ids = room.ForceToDiscard(player, player.GetCards("h"), 1);
+                List<int> numbers = new List<int> { 1, 1, 2, 2, 3 };
+                Shuffle.shuffle(ref numbers);
+                int result = numbers[0];
+                List<int> ids = room.ForceToDiscard(player, player.GetCards("h"), Math.Min(player.GetCardCount(false), result));
                 room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_THROW, player.Name, "yijiao", string.Empty), player);
             }
             else if (count == 0)
-                room.GainAnExtraTurn(player);
-            else if (count < 0)
             {
                 foreach (Player p in room.GetOtherPlayers(player))
                     if (p.ContainsTag("yijiao") && p.GetTag("yijiao") is string player_name && player_name == player.Name)
                         room.DrawCards(p, 2, "yijiao");
+                room.GainAnExtraTurn(player);
+            }
+            else if (count < 0)
+            {
+                foreach (Player p in room.GetOtherPlayers(player))
+                    if (p.ContainsTag("yijiao") && p.GetTag("yijiao") is string player_name && player_name == player.Name)
+                        room.DrawCards(p, 3, "yijiao");
             }
 
             return false;
@@ -15788,7 +15794,7 @@ namespace SanguoshaServer.Package
             if (data is DamageStruct damage)
             {
                 int count = Math.Max(1, RoomLogic.DistanceTo(room, player, damage.To));
-                count = Math.Min(3, count);
+                count = Math.Min(5, count);
                 if (count != damage.Damage)
                 {
                     room.SendCompulsoryTriggerLog(player, "jinggong");
@@ -15845,7 +15851,7 @@ namespace SanguoshaServer.Package
                 patterns.Add("h^false^discard");
             List<int> ids = room.AskForCardsChosen(machao, skill_target, patterns, Name);
             room.ThrowCard(ref ids, new CardMoveReason(MoveReason.S_REASON_DISMANTLE, machao.Name, skill_target.Name, Name, string.Empty), skill_target, machao);
-            if (data is CardUseStruct use && machao.Alive && machao.HandcardNum > 1 && RoomLogic.CanDiscard(room, machao, machao, "h"))
+            if (data is CardUseStruct use && machao.Alive && !machao.IsKongcheng() && RoomLogic.CanDiscard(room, machao, machao, "h"))
             {
                 bool discard = false;
                 foreach (int id in ids)
@@ -15857,7 +15863,7 @@ namespace SanguoshaServer.Package
                     }
                 }
                 if (discard)
-                    room.AskForDiscard(machao, Name, machao.HandcardNum / 2, machao.HandcardNum / 2, false, false, "@xiaojun", false, info.SkillPosition);
+                    room.AskForDiscard(machao, Name, 1, 1, false, false, "@xiaojun", false, info.SkillPosition);
             }
 
             return false;

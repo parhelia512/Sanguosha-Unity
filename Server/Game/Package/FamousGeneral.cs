@@ -1290,15 +1290,15 @@ namespace SanguoshaServer.Package
     {
         public Xiantu() : base("xiantu")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.Death, TriggerEvent.EventPhaseEnd };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseStart, TriggerEvent.DamageDone, TriggerEvent.EventPhaseEnd };
         }
         public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
         {
-            if (triggerEvent == TriggerEvent.Death && data is DeathStruct death && death.Damage.From != null && death.Damage.From.Phase == PlayerPhase.Play)
+            if (triggerEvent == TriggerEvent.DamageDone && data is DamageStruct damage && damage.From != null && damage.From.Phase == PlayerPhase.Play)
             {
                 foreach (Player p in room.GetAlivePlayers())
                 {
-                    if (p.ContainsTag(Name) && p.GetTag(Name) is string target_name && target_name == death.Damage.From.Name)
+                    if (p.ContainsTag(Name) && p.GetTag(Name) is string target_name && target_name == damage.From.Name)
                         p.RemoveTag(Name);
                 }
             }
