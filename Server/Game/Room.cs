@@ -802,7 +802,10 @@ namespace SanguoshaServer.Game
             value = Math.Max(0, value);
             SetPlayerMark(player, mark, value);
         }
-
+        public void SetPlayerStringMark(Player player, string mark, int value, Client except = null)
+        {
+            SetPlayerStringMark(player, mark, value.ToString(), except);
+        }
         public void SetPlayerStringMark(Player player, string mark, string value, Client except = null)
         {
             player.SetStringMark(mark, value);
