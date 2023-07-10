@@ -2657,7 +2657,7 @@ namespace SanguoshaServer.Package
         {
             room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
             room.SendCompulsoryTriggerLog(player, Name);
-            player.SetMark(string.Format("{0}_{1}", Name, player.Name), 1);
+            player.SetMark(string.Format("{0}_{1}", Name, dying.Name), 1);
             if (player.Alive)
             {
                 player.MaxHp++;
