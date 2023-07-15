@@ -660,6 +660,10 @@ namespace SanguoshaServer
             available_head_skills.Clear();
             available_deputy_skills.Clear();
             available_equip_skills.Clear();
+
+            guanxing.Moves = new List<int>(cards);
+            guanxing.Top = new List<int>();
+            guanxing.Bottom = new List<int>();
             
             ex_information = new List<string> { JsonUntity.Object2Json(cards), string.Empty, string.Empty };
             Operate arg = GetPacket2Client(true);
