@@ -2193,7 +2193,7 @@ namespace SanguoshaServer.AI
                 }
                 if (fcard is EquipCard)
                 {
-                    WrappedCard card = new WrappedCard("ZhijianCard") { Skill = Name, ShowSkill = Name };
+                    WrappedCard card = new WrappedCard(ZhijianCard.ClassName) { Skill = Name, ShowSkill = Name };
                     card.AddSubCard(id);
                     ids.Add(card);
                 }
@@ -2218,7 +2218,7 @@ namespace SanguoshaServer.AI
 
     public class ZhijianCardAI : UseCard
     {
-        public ZhijianCardAI() : base("ZhijianCard")
+        public ZhijianCardAI() : base(ZhijianCard.ClassName)
         {
         }
 

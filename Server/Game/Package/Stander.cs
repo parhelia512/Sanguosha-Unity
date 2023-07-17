@@ -7021,7 +7021,8 @@ namespace SanguoshaServer.Package
     }
     public class ZhijianCard : SkillCard
     {
-        public ZhijianCard() : base("ZhijianCard")
+        public static string ClassName = "ZhijianCard";
+        public ZhijianCard() : base(ClassName)
         {
             will_throw = false;
         }
@@ -7041,8 +7042,7 @@ namespace SanguoshaServer.Package
             result.Assist++;
             card_use.From.Result = result;
 
-            room.MoveCardTo(card_use.Card, card_use.From, card_use.To[0], Place.PlaceEquip,
-                new CardMoveReason(MoveReason.S_REASON_PUT, card_use.From.Name, "zhijian", null));
+            room.MoveCardTo(card_use.Card, card_use.From, card_use.To[0], Place.PlaceEquip, new CardMoveReason(MoveReason.S_REASON_PUT, card_use.From.Name, card_use.To[0].Name, "zhijian", null));
 
             LogMessage log = new LogMessage
             {
@@ -7067,7 +7067,7 @@ namespace SanguoshaServer.Package
         }
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {
-            WrappedCard zhijian_card = new WrappedCard("ZhijianCard");
+            WrappedCard zhijian_card = new WrappedCard(ZhijianCard.ClassName);
             zhijian_card.AddSubCard(card);
             zhijian_card.Skill = Name;
             zhijian_card.ShowSkill = Name;

@@ -44,6 +44,7 @@ namespace SanguoshaServer.AI
                 new TianxiangJXAI(),
                 new PoluSJAI(),
                 new ZhijianJXAI(),
+                new GuzhengJxAI(),
                 new HanzhanAI(),
                 new HaoshiClassicAI(),
                 new DimengClassicAI(),
@@ -65,6 +66,7 @@ namespace SanguoshaServer.AI
                 new TiaoxinJXCardAI(),
                 new DimengCCardAI(),
                 new LuanwuJXCardAI(),
+                new ZhijianJxCardAI(),
             };
         }
     }
@@ -1307,7 +1309,7 @@ namespace SanguoshaServer.AI
                 }
                 if (fcard is EquipCard)
                 {
-                    WrappedCard card = new WrappedCard("ZhijianCard") { Skill = Name, ShowSkill = Name };
+                    WrappedCard card = new WrappedCard(ZhijianJxCard.ClassName) { Skill = Name, ShowSkill = Name };
                     card.AddSubCard(id);
                     ids.Add(card);
                 }
@@ -1325,6 +1327,148 @@ namespace SanguoshaServer.AI
             }
 
             return 0;
+        }
+    }
+
+    public class ZhijianJxCardAI : UseCard
+    {
+        public ZhijianJxCardAI() : base(ZhijianJxCard.ClassName) { }
+        public override double UsePriorityAdjust(TrustedAI ai, Player player, List<Player> targets, WrappedCard card)
+        {
+            return 8;
+        }
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (ai.Self == player) return;
+            Room room = ai.Room;
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            {
+                FunctionCard fcard = Engine.GetFunctionCard(room.GetCard(use.Card.GetEffectiveId()).Name);
+                if (fcard is EquipCard equip)
+                {
+                    int index = (int)equip.EquipLocation();
+                    if (use.To[0].GetEquip(index) != -1)
+                        ai.UpdatePlayerRelation(player, use.To[0], true);
+                }
+            }
+        }
+        public override void Use(TrustedAI ai, Player player, ref CardUseStruct use, WrappedCard card)
+        {
+            List<int> ids = new List<int>();
+            Room room = ai.Room;
+            List<Player> friends = new List<Player>(ai.FriendNoSelf);
+            ai.SortByDefense(ref friends, false);
+
+            FunctionCard fcard = Engine.GetFunctionCard(room.GetCard(card.GetEffectiveId()).Name);
+            WrappedCard equip_card = room.GetCard(card.SubCards[0]);
+            EquipCard equip = (EquipCard)fcard;
+            int equip_index = (int)equip.EquipLocation();
+
+            if (fcard is EquipCard)
+            {
+                foreach (Player p in friends)
+                {
+                    if ((ai.HasSkill(TrustedAI.LoseEquipSkill, p) || ai.HasSkill(TrustedAI.NeedEquipSkill)) && RoomLogic.CanPutEquip(p, room.GetCard(card.GetEffectiveId())) && p.GetEquip(equip_index) < 0)
+                    {
+                        use.Card = card;
+                        use.To.Add(p);
+                        return;
+                    }
+                }
+
+                foreach (Player p in friends)
+                {
+                    if (RoomLogic.CanPutEquip(p, room.GetCard(card.GetEffectiveId())) && p.GetEquip(equip_index) < 0)
+                    {
+                        use.Card = card;
+                        use.To.Add(p);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    public class GuzhengJxAI : SkillEvent
+    {
+        public GuzhengJxAI() : base("guzheng_jx")
+        {
+            key = new List<string> { "cardExchange" };
+        }
+
+        public override void OnEvent(TrustedAI ai, TriggerEvent triggerEvent, Player player, object data)
+        {
+            if (triggerEvent == TriggerEvent.ChoiceMade && ai is StupidAI && data is string str && player != ai.Self)
+            {
+                string[] strs = str.Split(':');
+                Room room = ai.Room;
+                if (strs[1] == Name && ai.GetPlayerTendency(room.Current) != "unknown" && string.IsNullOrEmpty(strs[2]))
+                {
+                    string role = ai.GetPlayerTendency(room.Current);
+                    if (role == "lord" || role == "loyalist")
+                        ai.UpdatePlayerIntention(player, "rebel", 50);
+                    else
+                        ai.UpdatePlayerIntention(player, "loyalist", 50);
+                }
+            }
+        }
+
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data)
+        {
+            return true;
+        }
+
+        public override List<int> OnExchange(TrustedAI ai, Player player, string pattern, int min, int max, string pile)
+        {
+            List<int> ids = player.GetPile("#guzheng_jx");
+            Room room = ai.Room;
+            Player target = room.Current;
+            if (ai.IsFriend(target))
+            {
+                if ((ai.WillShowForDefence() || ai.IsWeak(target)) && (!ai.NeedKongcheng(target) || !target.IsKongcheng()))
+                {
+                    double value = 0;
+                    int result = -1;
+                    foreach (int id in ids)
+                    {
+                        double v = ai.GetKeepValue(id, target, Player.Place.PlaceHand);
+                        if (v > value)
+                        {
+                            value = v;
+                            result = id;
+                        }
+                    }
+                    if (value > 0)
+                        return new List<int> { result };
+                }
+            }
+            else
+            {
+                if (ids.Count > 1)
+                {
+                    double value = 1000;
+                    double all = 0;
+                    int result = -1;
+                    foreach (int id in ids)
+                    {
+                        double v = ai.GetKeepValue(id, target, Player.Place.PlaceHand);
+                        all += ai.GetKeepValue(id, player, Player.Place.PlaceHand);
+                        if (v < value)
+                        {
+                            value = v;
+                            result = id;
+                        }
+                    }
+                    if (all - value > 5 || value < 2)
+                        return new List<int> { result };
+                }
+                else if (ai.NeedKongcheng(target) && target.IsKongcheng() && !ai.IsCard(ids[0], Jink.ClassName, target))
+                {
+                    return ids;
+                }
+            }
+
+            return new List<int>();
         }
     }
 

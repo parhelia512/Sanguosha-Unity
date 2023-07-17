@@ -101,6 +101,7 @@ namespace SanguoshaServer.Package
                 new ZhibaVS(),
                 new PoluSJ(),
                 new ZhijianJX(),
+                new GuzhengJx(),
                 new Hanzhan(),
                 new HaoshiClassic(),
                 new HaoshiCGive(),
@@ -119,6 +120,7 @@ namespace SanguoshaServer.Package
                 new DimengCCard(),
                 new JieweiCard(),
                 new LuanwuJXCard(),
+                new ZhijianJxCard(),
             };
             related_skills = new Dictionary<string, List<string>>
             {
@@ -4989,7 +4991,7 @@ namespace SanguoshaServer.Package
         }
         public override WrappedCard ViewAs(Room room, WrappedCard card, Player player)
         {
-            WrappedCard zhijian_card = new WrappedCard("ZhijianCard");
+            WrappedCard zhijian_card = new WrappedCard(ZhijianJxCard.ClassName);
             zhijian_card.AddSubCard(card);
             zhijian_card.Skill = Name;
             zhijian_card.ShowSkill = Name;
@@ -4997,6 +4999,158 @@ namespace SanguoshaServer.Package
         }
     }
 
+    public class ZhijianJxCard : SkillCard
+    {
+        public static string ClassName = "ZhijianJxCard";
+        public ZhijianJxCard() : base(ClassName)
+        {
+            will_throw = false;
+        }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card)
+        {
+            if (targets.Count > 0 || to_select == Self)
+                return false;
+            WrappedCard equip_card = room.GetCard(card.SubCards[0]);
+            FunctionCard fcard = Engine.GetFunctionCard(equip_card.Name);
+            EquipCard equip = (EquipCard)fcard;
+            int equip_index = (int)equip.EquipLocation();
+            return to_select.GetEquip(equip_index) < 0 && RoomLogic.CanPutEquip(to_select, equip_card);
+        }
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            ResultStruct result = card_use.From.Result;
+            result.Assist++;
+            card_use.From.Result = result;
+
+
+            FunctionCard fcard = Engine.GetFunctionCard(room.GetCard(card_use.Card.GetEffectiveId()).Name);
+            if (fcard is EquipCard equip)
+            {
+                int equipped_id = -1;
+                int index = (int)equip.EquipLocation();
+                Player target = card_use.To[0];
+                if (target.HasEquip(index)) equipped_id = target.GetEquip(index);
+
+                List<CardsMoveStruct> exchangeMove = new List<CardsMoveStruct> { };
+                CardsMoveStruct move1 = new CardsMoveStruct(card_use.Card.GetEffectiveId(), target, Place.PlaceEquip, new CardMoveReason(MoveReason.S_REASON_PUT, card_use.From.Name, card_use.To[0].Name, "zhijian", string.Empty));
+                move1.Reason.Card = card_use.Card;
+                exchangeMove.Add(move1);
+                if (equipped_id != -1)
+                {
+                    CardsMoveStruct move2 = new CardsMoveStruct(equipped_id, target, Place.PlaceTable, new CardMoveReason(MoveReason.S_REASON_CHANGE_EQUIP, target.Name));
+                    exchangeMove.Add(move2);
+                }
+                room.MoveCardsAtomic(exchangeMove, true);
+
+                LogMessage log = new LogMessage
+                {
+                    Type = "$ZhijianEquip",
+                    From = card_use.To[0].Name,
+                    Card_str = card_use.Card.GetEffectiveId().ToString()
+                };
+                room.SendLog(log);
+
+                if (equipped_id != -1)
+                {
+                    if (room.GetCardPlace(equipped_id) == Place.PlaceTable)
+                    {
+                        CardsMoveStruct move3 = new CardsMoveStruct(equipped_id, null, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_CHANGE_EQUIP, target.Name));
+                        room.MoveCardsAtomic(new List<CardsMoveStruct> { move3 }, true);
+                    }
+                }
+            }
+            base.Use(room, card_use);
+        }
+        public override void OnEffect(Room room, CardEffectStruct effect)
+        {
+            room.DrawCards(effect.From, 1, "zhijian");
+        }
+    }
+
+    public class GuzhengJx : TriggerSkill
+    {
+        public GuzhengJx() : base("guzheng_jx")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.CardsMoveOneTime };
+            skill_type = SkillType.Replenish;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseChanging)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                    p.SetFlags("-guzheng_jx");
+            }
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> skill_list = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move && move.From != null && move.From.Alive && move.To_place == Place.DiscardPile
+                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && move.Card_ids.Count > 1)
+            {
+                int count = 0;
+                foreach (int id in move.Card_ids)
+                {
+                    if (room.GetCardPlace(id) == Place.DiscardPile)
+                    {
+                        count++;
+                        break;
+                    }
+                }
+
+                if (count > 0)
+                {
+                    foreach (Player p in RoomLogic.FindPlayersBySkillName(room, Name))
+                        if (p != move.From && !p.HasFlag(Name))
+                            skill_list.Add(new TriggerStruct(Name, p));
+                }
+            }
+
+            return skill_list;
+        }
+        public override TriggerStruct Cost(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player erzhang, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.CardsMoveOneTime && data is CardsMoveOneTimeStruct move)
+            {
+                List<int> cards = new List<int>();
+                foreach (int id in move.Card_ids)
+                {
+                    if (room.GetCardPlace(id) == Place.DiscardPile)
+                        cards.Add(id);
+                }
+                if (cards.Count > 0)
+                {
+                    List<int> result = room.NotifyChooseCards(erzhang, cards, Name, 1, 0, "@guzheng:" + player.Name, null, info.SkillPosition);
+                    if (result.Count > 0)
+                    {
+                        erzhang.SetFlags(Name);
+                        ResultStruct assit = erzhang.Result;
+                        assit.Assist++;
+                        erzhang.Result = assit;
+
+                        room.BroadcastSkillInvoke(Name, erzhang, info.SkillPosition);
+                        room.NotifySkillInvoked(erzhang, Name);
+                        int to_back = result[0];
+                        room.ObtainCard(player, room.GetCard(to_back));
+                        cards.Remove(to_back);
+                        erzhang.SetTag("GuzhengCards", cards);
+                        return info;
+                    }
+                }
+            }
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player p, ref object data, Player player, TriggerStruct info)
+        {
+            List<int> cards = (List<int>)player.GetTag("GuzhengCards");
+            player.RemoveTag("GuzhengCards");
+            if (cards.Count > 0 && room.AskForSkillInvoke(player, Name, "#GuzhengObtain", info.SkillPosition))
+                room.ObtainCard(player, ref cards, new CardMoveReason(MoveReason.S_REASON_GOTBACK, player.Name));
+
+            return false;
+        }
+    }
+    
     public class Hanzhan : TriggerSkill
     {
         public Hanzhan() : base("hanzhan")
