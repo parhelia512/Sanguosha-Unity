@@ -6246,6 +6246,19 @@ namespace SanguoshaServer.Package
             room.MoveCards(new List<CardsMoveStruct>{
                 new CardsMoveStruct(result.Top, null, Place.DiscardPile, new CardMoveReason(MoveReason.S_REASON_NATURAL_ENTER, null, Name, null)) },
                 true);
+
+            if (player.Alive && (!player.FaceUp || player.Chained))
+            {
+                int count = 0;
+                foreach (int id in result.Bottom)
+                    count += room.GetCard(id).Number;
+
+                if (count == 13)
+                {
+                    if (player.Chained) room.SetPlayerChained(player, false, true);
+                    if (player.Alive && !player.FaceUp) room.TurnOver(player);
+                }
+            }
         }
         public override bool MoveFilter(Room room, int id, List<int> downs)
         {
