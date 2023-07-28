@@ -7823,7 +7823,7 @@ namespace SanguoshaServer.Game
             object data = trickEffect;
             foreach (Player player in GetAlivePlayers())
             {
-                if (RoomLogic.HasNullification(this, player))
+                if ((helper.BasicEffect.Effect2 > 0 || to != player) && RoomLogic.HasNullification(this, player))
                 {
                     if (!RoomThread.Trigger(TriggerEvent.TrickCardCanceling, this, player, ref data))
                     {
@@ -7981,7 +7981,8 @@ namespace SanguoshaServer.Game
             CardEffectStruct effect = new CardEffectStruct
             {
                 Card = card,
-                To = repliedPlayer
+                To = repliedPlayer,
+                BasicEffect = new CardBasicEffect(repliedPlayer, 0, 1, 0)
             };
             if (fcard.IsCancelable(this, effect))
                 result = !AskForNullification(card, repliedPlayer, to, !positive, helper);

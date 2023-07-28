@@ -5971,8 +5971,8 @@ namespace SanguoshaServer.Package
                         if (RoomLogic.DistanceTo(room, p, player, null, true) == 1)
                             return new TriggerStruct(Name, player);
             }
-            else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && base.Triggerable(effect.From, room) && player != effect.From
-                && RoomLogic.DistanceTo(room, player, effect.From, null, true) == 1)
+            else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && effect.Card.Name.Contains(Nullification.ClassName)
+                && base.Triggerable(effect.From, room) && player != effect.From && RoomLogic.DistanceTo(room, player, effect.From, null, true) == 1)
             {
                 return new TriggerStruct(Name, effect.From);
             }

@@ -7803,8 +7803,8 @@ namespace SanguoshaServer.Package
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
             if (data is CardsMoveOneTimeStruct move && base.Triggerable(move.From, room) && move.From.Phase != PlayerPhase.NotActive
-                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && ((move.From.Phase == PlayerPhase.Play && !move.From.HasFlag("youyan_play"))
-                || (move.From.Phase == PlayerPhase.Discard && !move.From.HasFlag("youyan_disacard"))))
+                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_USE && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) != MoveReason.S_REASON_RESPONSE
+                && ((move.From.Phase == PlayerPhase.Play && !move.From.HasFlag("youyan_play")) || (move.From.Phase == PlayerPhase.Discard && !move.From.HasFlag("youyan_disacard"))))
             {
                 List<WrappedCard.CardSuit> suits = new List<WrappedCard.CardSuit>();
                 for (int i = 0; i < move.Card_ids.Count; i++)
@@ -15033,7 +15033,7 @@ namespace SanguoshaServer.Package
         {
             events.Add(TriggerEvent.EventPhaseStart);
             skill_type = SkillType.Attack;
-                }
+         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
@@ -15055,8 +15055,7 @@ namespace SanguoshaServer.Package
         }
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (player.Alive)
-                player.SetFlags(Name);
+            if (player.Alive) player.SetFlags(Name);
             return false;
         }
     }
@@ -15065,8 +15064,16 @@ namespace SanguoshaServer.Package
     {
         public BingjieEffect() : base("#bingjie")
         {
-            events = new List<TriggerEvent> { TriggerEvent.TargetChosen };
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.CardsMoveOneTime };
             frequency = Frequency.Compulsory;
+        }
+        public override void Record(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            if (data is CardsMoveOneTimeStruct move && move.From != null && move.To_place == Place.DiscardPile
+                && (move.Reason.Reason & MoveReason.S_MASK_BASIC_REASON) == MoveReason.S_REASON_DISCARD && move.Reason.SkillName == "bingjie" && move.Card_ids.Count == 1)
+            {
+                move.From.SetMark("bingjie", (int)room.GetCard(move.Card_ids[0]).Suit);
+            }
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -15090,15 +15097,31 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player skill_target, ref object data, Player machao, TriggerStruct info)
         {
-            DoTieqi(room, skill_target, machao);
+            DoTieqi(room, skill_target, machao, ref data, info);
             return false;
         }
 
-        private void DoTieqi(Room room, Player target, Player player)
+        private void DoTieqi(Room room, Player target, Player player, ref object data, TriggerStruct info)
         {
             room.SendCompulsoryTriggerLog(player, Name);
             room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
-            room.AskForDiscard(target, "bingjie", 1, 1, false, true, string.Format("@bingjie:{0}", player.Name));
+            if (room.AskForDiscard(target, "bingjie", 1, 1, false, true, string.Format("@bingjie:{0}", player.Name)) && data is CardUseStruct use && (int)use.Card.Suit <= 3 && target.Alive)
+            {
+                int index = 0;
+                for (int i = 0; i < use.EffectCount.Count; i++)
+                {
+                    CardBasicEffect effect = use.EffectCount[i];
+                    if (effect.To == target)
+                    {
+                        index++;
+                        if (index == info.Times)
+                        {
+                            effect.Effect2 = 0;
+                            break;
+                        }
+                    }
+                }
+            }
         }
     }
 
