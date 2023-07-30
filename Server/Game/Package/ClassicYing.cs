@@ -2022,6 +2022,7 @@ namespace SanguoshaServer.Package
             {
                 use.Card.SetFlags(string.Format("{0}_{1}", Name, player.Name));
                 player.SetFlags("wanglie_pro");
+                if (Engine.GetFunctionCard(use.Card.Name).IsNDTrick()) use.Cancelable = false;
             }
 
             return false;
@@ -2033,7 +2034,7 @@ namespace SanguoshaServer.Package
         public WanglieResp() : base("#wanglie")
         {
             frequency = Frequency.Compulsory;
-            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.TrickCardCanceling };
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen };
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
@@ -2046,11 +2047,6 @@ namespace SanguoshaServer.Package
                 {
                     return new TriggerStruct(Name, player);
                 }
-            }
-            else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && effect.From != null && effect.From.Alive
-                && effect.From.Phase == PlayerPhase.Play && effect.Card.HasFlag(string.Format("wanglie_{0}", effect.From.Name)))
-            {
-                return new TriggerStruct(Name, effect.From);
             }
 
             return new TriggerStruct();

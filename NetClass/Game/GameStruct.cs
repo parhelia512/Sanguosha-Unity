@@ -141,6 +141,7 @@ namespace CommonClass.Game
         public int ExDamage { set; get; }
         public List<CardBasicEffect> EffectCount { set; get; }
         public UseRespond RespondData { set; get; }
+        public bool Cancelable { set; get; }
 
         public CardUseStruct(WrappedCard card)
         {
@@ -157,6 +158,7 @@ namespace CommonClass.Game
             EffectCount = null;
             ExDamage = 0;
             RespondData = null;
+            Cancelable = true;
         }
         public CardUseStruct(WrappedCard card, Player from, List<Player> to, bool isOwnerUse = true)
         {
@@ -173,6 +175,7 @@ namespace CommonClass.Game
             EffectCount = null;
             ExDamage = 0;
             RespondData = null;
+            Cancelable = true;
         }
         public CardUseStruct(WrappedCard card, Player from, Player target, bool isOwnerUse = true)
         {
@@ -189,6 +192,7 @@ namespace CommonClass.Game
             EffectCount = null;
             ExDamage = 0;
             RespondData = null;
+            Cancelable = true;
         }
     }
     public class UseRespond
@@ -235,7 +239,8 @@ namespace CommonClass.Game
         public int ExDamage { set; get; }
         public CardBasicEffect BasicEffect { set; get; }
         public List<Player> StackPlayers { set; get; }
-        public bool Effected { set; get; } //this card is nullified or effected to target
+        public bool Effected { set; get; }
+        public bool Cancelable { set; get; }
     }
 
     public struct SlashEffectStruct

@@ -158,7 +158,6 @@ namespace SanguoshaServer.Package
             if (!TargetFixed(card_use.Card) || card_use.To.Count > 1 || !card_use.To.Contains(card_use.From))
                 log.SetTos(card_use.To);
 
-
             List<int> used_cards = new List<int>(card_use.Card.SubCards);
             List<CardsMoveStruct> moves = new List<CardsMoveStruct>();
 
@@ -279,6 +278,7 @@ namespace SanguoshaServer.Package
                     Drank = card_use.Drank,
                     ExDamage = card_use.ExDamage,
                     BasicEffect = card_use.EffectCount.Count > index ? card_use.EffectCount[index] : new CardBasicEffect(target, 0, 0, 0),
+                    Cancelable = card_use.Cancelable
                 };
 
                 List<Player> players = new List<Player>();
@@ -377,7 +377,7 @@ namespace SanguoshaServer.Package
         {
             return card;
         }
-        public virtual bool IsCancelable(Room room, CardEffectStruct effect) => effect.Card != null && effect.Card.Cancelable;
+        public virtual bool IsCancelable(Room room, CardEffectStruct effect) => effect.Card != null && (effect.Card.Cancelable || effect.Cancelable);
 
         public virtual CardBasicEffect FillCardBasicEffct(Room room, Player to)
         {

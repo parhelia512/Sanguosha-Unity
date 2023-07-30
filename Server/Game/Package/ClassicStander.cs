@@ -250,8 +250,7 @@ namespace SanguoshaServer.Package
                         From = player,
                         To = p
                     };
-                    WrappedCard card = room.AskForCard(p, "jijiang", RespondType.Slash, Slash.ClassName, string.Format("@jijiang-target:{0}:{1}", player.Name, string.Join("+", targets)),
-                        effect, HandlingMethod.MethodResponse);
+                    WrappedCard card = room.AskForCard(p, "jijiang", RespondType.Slash, Slash.ClassName, string.Format("@jijiang-target:{0}:{1}", player.Name, string.Join("+", targets)), effect, HandlingMethod.MethodResponse);
                     if (card != null)
                     {
                         ResultStruct result = p.Result;

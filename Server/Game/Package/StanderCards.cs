@@ -736,10 +736,7 @@ namespace SanguoshaServer.Package
             Instance = this;
         }
 
-        public override bool IsCancelable(Room room, CardEffectStruct effect)
-        {
-            return effect.To.IsWounded() && base.IsCancelable(room, effect);
-        }
+        public override bool IsCancelable(Room room, CardEffectStruct effect) => effect.To.IsWounded() && base.IsCancelable(room, effect);
         public override void Use(Room room, CardUseStruct card_use)
         {
             room.SetEmotion(card_use.From, "god_salvation");
@@ -1439,7 +1436,8 @@ namespace SanguoshaServer.Package
                         Card = trick,
                         From = from,
                         To = to,
-                        StackPlayers = tos
+                        StackPlayers = tos,
+                        Cancelable = card_use.Cancelable
                     };
                     object _data = trickEffect;
                     List<string> des = new List<string> { string.Format("@HegNullification:::{0}",

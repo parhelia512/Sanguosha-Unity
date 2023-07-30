@@ -593,7 +593,7 @@ namespace SanguoshaServer.Package
     {
         public WenjiEffectHegemony() : base("#wenji_hegemony")
         {
-            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.TrickCardCanceling };
+            events = new List<TriggerEvent> { TriggerEvent.TargetChosen, TriggerEvent.CardUsed };
             frequency = Frequency.Compulsory;
         }
 
@@ -608,13 +608,12 @@ namespace SanguoshaServer.Package
                 if (origin.Equals(use.Card))
                     return new TriggerStruct(Name, player, use.To);
             }
-            else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && player != effect.From && effect.From != null && effect.From.Alive
-                && effect.From.ContainsTag("wenji_hegemony") && effect.From.GetTag("wenji_hegemony") is List<int> _names 
-                && effect.Card.SubCards.Count == 1 && !effect.Card.IsVirtualCard() && _names.Contains(effect.Card.GetEffectiveId()))
+            else if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct _use && player.Alive && Engine.GetFunctionCard(_use.Card.Name).IsNDTrick() && player.ContainsTag("wenji_hegemony")
+                && player.GetTag("wenji_hegemony") is List<int> _names && _use.Card.SubCards.Count == 1 && !_use.Card.IsVirtualCard() && _names.Contains(_use.Card.GetEffectiveId()))
             {
-                WrappedCard origin = Engine.GetRealCard(effect.Card.Id);
-                if (origin.Equals(effect.Card))
-                    return new TriggerStruct(Name, effect.From);
+                WrappedCard origin = Engine.GetRealCard(_use.Card.Id);
+                if (origin.Equals(_use.Card))
+                    return new TriggerStruct(Name, player);
             }
 
             return new TriggerStruct();
@@ -622,26 +621,29 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct chose_use)
+            if (data is CardUseStruct chose_use)
             {
-                int index = 0;
-                for (int i = 0; i < chose_use.EffectCount.Count; i++)
+                if (triggerEvent == TriggerEvent.TargetChosen)
                 {
-                    CardBasicEffect effect = chose_use.EffectCount[i];
-                    if (effect.To == player)
+                    int index = 0;
+                    for (int i = 0; i < chose_use.EffectCount.Count; i++)
                     {
-                        index++;
-                        if (index == info.Times)
+                        CardBasicEffect effect = chose_use.EffectCount[i];
+                        if (effect.To == player)
                         {
-                            effect.Effect2 = 0;
-                            data = chose_use;
-                            break;
+                            index++;
+                            if (index == info.Times)
+                            {
+                                effect.Effect2 = 0;
+                                data = chose_use;
+                                break;
+                            }
                         }
                     }
                 }
+                else
+                    chose_use.Cancelable = false;
             }
-            else if (triggerEvent == TriggerEvent.TrickCardCanceling)
-                return true;
 
             return false;
         }

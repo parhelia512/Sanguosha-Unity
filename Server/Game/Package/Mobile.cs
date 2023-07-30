@@ -537,8 +537,7 @@ namespace SanguoshaServer.Package
     {
         public ZhanyiEffect() : base("#zhanyi")
         {
-            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.TargetChosen, TriggerEvent.TrickCardCanceling,
-                TriggerEvent.CardUsedAnnounced, TriggerEvent.CardResponded, TriggerEvent.CardsMoveOneTime };
+            events = new List<TriggerEvent> { TriggerEvent.EventPhaseChanging, TriggerEvent.TargetChosen, TriggerEvent.CardUsedAnnounced, TriggerEvent.CardResponded, TriggerEvent.CardsMoveOneTime };
             frequency = Frequency.Compulsory;
         }
 
@@ -566,15 +565,11 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && player.GetMark(Name) == 1 && player.HasFlag("zhanyi_basic")
-                && (use.Card.Name.Contains(Slash.ClassName) || use.Card.Name == Peach.ClassName
-                || use.Card.Name == Analeptic.ClassName))
+            if (triggerEvent == TriggerEvent.CardUsedAnnounced && data is CardUseStruct use && ((player.GetMark(Name) == 1 && player.HasFlag("zhanyi_basic")
+                && (use.Card.Name.Contains(Slash.ClassName) || use.Card.Name == Peach.ClassName || use.Card.Name == Analeptic.ClassName))
+                || (Engine.GetFunctionCard(use.Card.Name).IsNDTrick() && player.HasFlag("zhanyi_trick"))))
             {
                 return new TriggerStruct(Name, player);
-            }
-            else if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && effect.From != null && effect.From.Alive && effect.From.HasFlag("zhanyi_trick"))
-            {
-                return new TriggerStruct(Name, effect.From);
             }
             else if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct _use && _use.Card.Name.Contains(Slash.ClassName) && player.HasFlag("zhanyi_equip"))
             {
@@ -591,38 +586,41 @@ namespace SanguoshaServer.Package
                 room.SendCompulsoryTriggerLog(ask_who, "zhanyi");
                 room.BroadcastSkillInvoke("zhanyi", "male", 2, gsk.General, gsk.SkinId);
 
-                use.ExDamage++;
-                data = use;
+                if (use.Card.Name.Contains(Slash.ClassName) || use.Card.Name == Peach.ClassName || use.Card.Name == Analeptic.ClassName)
+                {
+                    use.ExDamage++;
+                    data = use;
 
-                if (use.Card.Name.Contains(Slash.ClassName))
-                {
-                    LogMessage log = new LogMessage
-                    {
-                        Type = "#card-damage",
-                        From = player.Name,
-                        Arg = "zhanyi",
-                        Arg2 = use.Card.Name
-                    };
-                    room.SendLog(log);
-                }
-                else
-                {
-                    if (use.Card.Name != Analeptic.ClassName || player.HasFlag("Global_Dying"))
+                    if (use.Card.Name.Contains(Slash.ClassName))
                     {
                         LogMessage log = new LogMessage
                         {
-                            Type = "#card-recover",
+                            Type = "#card-damage",
                             From = player.Name,
                             Arg = "zhanyi",
                             Arg2 = use.Card.Name
                         };
-
                         room.SendLog(log);
                     }
+                    else
+                    {
+                        if (use.Card.Name != Analeptic.ClassName || player.HasFlag("Global_Dying"))
+                        {
+                            LogMessage log = new LogMessage
+                            {
+                                Type = "#card-recover",
+                                From = player.Name,
+                                Arg = "zhanyi",
+                                Arg2 = use.Card.Name
+                            };
+
+                            room.SendLog(log);
+                        }
+                    }
                 }
+                else
+                    use.Cancelable = false;
             }
-            else if (triggerEvent == TriggerEvent.TrickCardCanceling)
-                return true;
             else if (triggerEvent == TriggerEvent.TargetChosen)
             {
                 if (!player.IsNude())

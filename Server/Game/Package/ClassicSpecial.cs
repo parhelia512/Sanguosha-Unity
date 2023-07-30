@@ -2975,22 +2975,27 @@ namespace SanguoshaServer.Package
         public Zhenlue() : base("zhenlue")
         {
             frequency = Frequency.Compulsory;
-            events = new List<TriggerEvent> { TriggerEvent.TrickCardCanceling };
+            events = new List<TriggerEvent> { TriggerEvent.CardUsed };
+            skill_type = SkillType.Wizzard;
         }
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && base.Triggerable(effect.From, room))
-                return new TriggerStruct(Name, effect.From);
+            if (data is CardUseStruct use && Engine.GetFunctionCard(use.Card.Name).IsNDTrick() && base.Triggerable(player, room))
+                return new TriggerStruct(Name, player);
 
             return new TriggerStruct();
         }
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            room.SendCompulsoryTriggerLog(ask_who, Name);
-            room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
-                return true;
+            if (data is CardUseStruct use)
+            {
+                room.SendCompulsoryTriggerLog(ask_who, Name);
+                room.BroadcastSkillInvoke(Name, ask_who, info.SkillPosition);
+                use.Cancelable = false;
+            }
+            return false;
         }
     }
 

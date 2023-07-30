@@ -3077,7 +3077,7 @@ namespace SanguoshaServer.Package
     {
         public Tongyuan() : base("tongyuan")
         {
-            events = new List<TriggerEvent> { TriggerEvent.TrickCardCanceling, TriggerEvent.CardFinished, TriggerEvent.CardTargetAnnounced };
+            events = new List<TriggerEvent> { TriggerEvent.CardFinished, TriggerEvent.CardTargetAnnounced };
             frequency = Frequency.Compulsory;
         }
 
@@ -3125,14 +3125,11 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (triggerEvent == TriggerEvent.TrickCardCanceling && data is CardEffectStruct effect && base.Triggerable(effect.From, room) && effect.From.GetMark("tongyuan_null") > 0
-                && effect.From.GetMark("tongyuan_peach") > 0 && effect.Card.Name == Nullification.ClassName && WrappedCard.IsRed(effect.Card.Suit))
-                return new TriggerStruct(Name, effect.From);
-            else if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use && player.GetMark("tongyuan_null") > 0
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use && player.GetMark("tongyuan_null") > 0
                 && player.GetMark("tongyuan_peach") > 0 && WrappedCard.IsRed(use.Card.Suit))
             {
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                if (fcard is BasicCard) return new TriggerStruct(Name, player);
+                if (fcard is BasicCard || fcard.IsNDTrick()) return new TriggerStruct(Name, player);
             }
 
             return new TriggerStruct();
@@ -3140,40 +3137,43 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            if (triggerEvent == TriggerEvent.TrickCardCanceling)
-                return true;
-            else if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
+            if (triggerEvent == TriggerEvent.CardTargetAnnounced && data is CardUseStruct use)
             {
-                List<Player> targets = new List<Player>();
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                foreach (Player p in room.GetOtherPlayers(player))
+                if (fcard is BasicCard)
                 {
-                    if ((fcard is Peach && !p.IsWounded())) continue;
-                    if (!use.To.Contains(p) && RoomLogic.IsProhibited(room, player, p, use.Card) == null)
-                        targets.Add(p);
-                }
-
-                room.SetTag("extra_target_skill", data);                   //for AI
-                Player target = room.AskForPlayerChosen(player, targets, Name, "@tongyuan-extra:::" + use.Card.Name, true, true, info.SkillPosition);
-                room.RemoveTag("extra_target_skill");
-                if (target != null)
-                {
-                    room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
-                    room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
-                    LogMessage log = new LogMessage
+                    List<Player> targets = new List<Player>();
+                    foreach (Player p in room.GetOtherPlayers(player))
                     {
-                        Type = "$extra_target",
-                        From = player.Name,
-                        To = new List<string> { target.Name },
-                        Card_str = RoomLogic.CardToString(room, use.Card),
-                        Arg = Name
-                    };
-                    room.SendLog(log);
+                        if ((fcard is Peach && !p.IsWounded())) continue;
+                        if (!use.To.Contains(p) && RoomLogic.IsProhibited(room, player, p, use.Card) == null)
+                            targets.Add(p);
+                    }
 
-                    use.To.Add(target);
-                    room.SortByActionOrder(ref use);
-                    data = use;
+                    room.SetTag("extra_target_skill", data);                   //for AI
+                    Player target = room.AskForPlayerChosen(player, targets, Name, "@tongyuan-extra:::" + use.Card.Name, true, true, info.SkillPosition);
+                    room.RemoveTag("extra_target_skill");
+                    if (target != null)
+                    {
+                        room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
+                        room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
+                        LogMessage log = new LogMessage
+                        {
+                            Type = "$extra_target",
+                            From = player.Name,
+                            To = new List<string> { target.Name },
+                            Card_str = RoomLogic.CardToString(room, use.Card),
+                            Arg = Name
+                        };
+                        room.SendLog(log);
+
+                        use.To.Add(target);
+                        room.SortByActionOrder(ref use);
+                        data = use;
+                    }
                 }
+                else
+                    use.Cancelable = false;
             }
 
             return false;
@@ -17031,9 +17031,10 @@ namespace SanguoshaServer.Package
         {
             if (triggerEvent == TriggerEvent.TargetChosen && data is CardUseStruct use)
             {
+                bool trick = Engine.GetFunctionCard(use.Card.Name).IsNDTrick();
                 List<Player> targets = new List<Player>();
                 if (use.Card.Name.Contains(Slash.ClassName) || use.Card.Name == Duel.ClassName || use.Card.Name == Collateral.ClassName
-                    || use.Card.Name == ArcheryAttack.ClassName || use.Card.Name == SavageAssault.ClassName)
+                    || use.Card.Name == ArcheryAttack.ClassName || use.Card.Name == SavageAssault.ClassName || trick)
                 {
                     for (int i = 0; i < use.EffectCount.Count; i++)
                     {
@@ -17047,7 +17048,7 @@ namespace SanguoshaServer.Package
                     }
                 }
 
-                if (Engine.GetFunctionCard(use.Card.Name).IsNDTrick())
+                if (trick)
                     foreach (Player p in room.GetOtherPlayers(player))
                         if (p.HandcardNum >= player.HandcardNum && !targets.Contains(p))
                             targets.Add(p);
