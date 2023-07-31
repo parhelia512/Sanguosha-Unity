@@ -769,7 +769,7 @@ namespace SanguoshaServer.Package
                     Drank = card_use.Drank,
                     ExDamage = 0,
                     BasicEffect = card_use.EffectCount[index],
-                    Cancelable = card_use.Cancelable
+                    Cancelable = card_use.Card.Cancelable && card_use.Cancelable
                 };
 
                 List<Player> players = new List<Player>();
@@ -1109,7 +1109,7 @@ namespace SanguoshaServer.Package
                     Drank = card_use.Drank,
                     ExDamage = 0,
                     BasicEffect = card_use.EffectCount.Count > index ? card_use.EffectCount[index] : new CardBasicEffect(target, 0, 0, 0),
-                    Cancelable = card_use.Cancelable
+                    Cancelable = card_use.Card.Cancelable && card_use.Cancelable
                 };
 
                 List<Player> players = new List<Player>();

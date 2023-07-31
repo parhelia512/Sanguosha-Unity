@@ -15107,17 +15107,20 @@ namespace SanguoshaServer.Package
             room.DoAnimate(AnimateType.S_ANIMATE_INDICATE, player.Name, target.Name);
             if (room.AskForDiscard(target, "bingjie", 1, 1, false, true, string.Format("@bingjie:{0}", player.Name)) && data is CardUseStruct use && (int)use.Card.Suit <= 3 && target.Alive)
             {
-                int index = 0;
-                for (int i = 0; i < use.EffectCount.Count; i++)
+                if (target.GetMark("bingjie") == (int)use.Card.Suit)
                 {
-                    CardBasicEffect effect = use.EffectCount[i];
-                    if (effect.To == target)
+                    int index = 0;
+                    for (int i = 0; i < use.EffectCount.Count; i++)
                     {
-                        index++;
-                        if (index == info.Times)
+                        CardBasicEffect effect = use.EffectCount[i];
+                        if (effect.To == target)
                         {
-                            effect.Effect2 = 0;
-                            break;
+                            index++;
+                            if (index == info.Times)
+                            {
+                                effect.Effect2 = 0;
+                                break;
+                            }
                         }
                     }
                 }

@@ -1437,7 +1437,7 @@ namespace SanguoshaServer.Package
                         From = from,
                         To = to,
                         StackPlayers = tos,
-                        Cancelable = card_use.Cancelable
+                        Cancelable = card_use.Card.Cancelable && card_use.Cancelable
                     };
                     object _data = trickEffect;
                     List<string> des = new List<string> { string.Format("@HegNullification:::{0}",
