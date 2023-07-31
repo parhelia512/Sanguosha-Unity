@@ -619,7 +619,10 @@ namespace SanguoshaServer.Package
                     }
                 }
                 else
+                {
                     use.Cancelable = false;
+                    data = use;
+                }
             }
             else if (triggerEvent == TriggerEvent.TargetChosen)
             {

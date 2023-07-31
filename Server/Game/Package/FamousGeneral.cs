@@ -9234,7 +9234,7 @@ namespace SanguoshaServer.Package
                     room.SendLog(log);
 
                     use.To.Add(target);
-                    use.EffectCount.Add(new CardBasicEffect(target, 0, 0, 0));
+                    use.EffectCount.Add(new CardBasicEffect(target, 0, 1, 0));
                     room.SortByActionOrder(ref use);
 
                     data = use;

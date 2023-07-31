@@ -3177,7 +3177,10 @@ namespace SanguoshaServer.Package
                     }
                 }
                 else
+                {
                     use.Cancelable = false;
+                    data = use;
+                }
             }
 
             return false;
@@ -15393,6 +15396,7 @@ namespace SanguoshaServer.Package
                             }
                         }
                     }
+                    data = use;
                 }
             }
         }

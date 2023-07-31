@@ -1998,7 +1998,7 @@ namespace SanguoshaServer.Package
             if (triggerEvent == TriggerEvent.CardUsed && data is CardUseStruct use && player.Phase == PlayerPhase.Play && base.Triggerable(player, room))
             {
                 FunctionCard fcard = Engine.GetFunctionCard(use.Card.Name);
-                if (fcard.TypeID != FunctionCard.CardType.TypeSkill && !(fcard is DelayedTrick) && use.Card.Name != Analeptic.ClassName && use.Card.Name != Peach.ClassName)
+                if ((fcard is BasicCard || fcard.IsNDTrick()) && use.Card.Name != Analeptic.ClassName && use.Card.Name != Peach.ClassName)
                     return new TriggerStruct(Name, player);
             }
 
@@ -2023,6 +2023,7 @@ namespace SanguoshaServer.Package
                 use.Card.SetFlags(string.Format("{0}_{1}", Name, player.Name));
                 player.SetFlags("wanglie_pro");
                 if (Engine.GetFunctionCard(use.Card.Name).IsNDTrick()) use.Cancelable = false;
+                data = use;
             }
 
             return false;
