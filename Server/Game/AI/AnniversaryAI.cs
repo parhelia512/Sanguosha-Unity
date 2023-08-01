@@ -57,6 +57,7 @@ namespace SanguoshaServer.AI
                 new WeimengAI(),
                 new QuanjianAI(),
                 new TujueAI(),
+                new XunbieAI(),
 
                 new GuolunAI(),
                 new SongSangAI(),
@@ -2042,6 +2043,17 @@ namespace SanguoshaServer.AI
                     return new List<Player> { p };
 
             return new List<Player> { targets[0] };
+        }
+    }
+
+    public class XunbieAI : SkillEvent
+    {
+        public XunbieAI() : base("xunbie") { }
+        public override bool OnSkillInvoke(TrustedAI ai, Player player, object data) => true;
+        public override string OnChoice(TrustedAI ai, Player player, string choice, object data) => "mifuren";
+        public override void DamageEffect(TrustedAI ai, ref DamageStruct damage, DamageStruct.DamageStep step)
+        {
+            if (damage.To.HasFlag(Name)) damage.Damage = -10;
         }
     }
 
