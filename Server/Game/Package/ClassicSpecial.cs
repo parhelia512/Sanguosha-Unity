@@ -3632,7 +3632,7 @@ namespace SanguoshaServer.Package
     {
         public Xingzhao() : base("xingzhao")
         {
-            events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.EventPhaseChanging };
+            events = new List<TriggerEvent> { TriggerEvent.CardUsed, TriggerEvent.EventPhaseChanging, TriggerEvent.DamageCaused };
             frequency = Frequency.Compulsory;
         }
 
@@ -3660,6 +3660,15 @@ namespace SanguoshaServer.Package
                 if (count >= 3)
                     return new TriggerStruct(Name, player);
             }
+            else if (triggerEvent == TriggerEvent.DamageCaused && base.Triggerable(player, room))
+            {
+                int count = 0;
+                foreach (Player p in room.GetAlivePlayers())
+                    if (p.IsWounded()) count++;
+
+                if (count >= 4 || count == 0)
+                    return new TriggerStruct(Name, player);
+            }
 
             return new TriggerStruct();
         }
@@ -3670,6 +3679,20 @@ namespace SanguoshaServer.Package
             room.BroadcastSkillInvoke(Name, player, info.SkillPosition);
             if (triggerEvent == TriggerEvent.CardUsed)
                 room.DrawCards(player, 1, Name);
+            else if (triggerEvent == TriggerEvent.DamageCaused && data is DamageStruct damage)
+            {
+                LogMessage log = new LogMessage
+                {
+                    Type = "#AddDamage",
+                    From = player.Name,
+                    To = new List<string> { damage.To.Name },
+                    Arg = Name,
+                    Arg2 = (++damage.Damage).ToString()
+                };
+                room.SendLog(log);
+
+                data = damage;
+            }
             else
                 room.SkipPhase(player, PlayerPhase.Discard, true);
 

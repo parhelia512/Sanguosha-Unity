@@ -143,9 +143,9 @@ namespace SanguoshaServer.Package
                 new Tujue(),
                 new Tongguan(),
                 new Mengjie(),
-                new Juluan(),
-                new Baoxing(),
-                new BaoxingRange(),
+                new Tingxian(),
+                new Bengshi(),
+                new BengshiRange(),
                 new Gue(),
                 new Sigong(),
                 new Huizhi(),
@@ -173,7 +173,6 @@ namespace SanguoshaServer.Package
                 new Zhihu(),
                 new Niluan(),
                 new Weiwu(),
-                new WeiwuProhibi(),
                 new Gongjian(),
                 new GongjianRecord(),
                 new Kuimang(),
@@ -450,7 +449,6 @@ namespace SanguoshaServer.Package
                 { "yinju", new List<string>{ "#yinju" } },
                 { "zhuilie", new List<string>{ "#zhuilie" } },
                 { "fenyin_ol", new List<string>{ "#fenyin_ol" } },
-                { "weiwu", new List<string>{ "#weiwu" } },
                 { "gongjian", new List<string>{ "#gongjian" } },
                 { "xianshuai", new List<string>{ "#xianshuai" } },
                 { "jieying_hf", new List<string>{ "#jieying_hf-tar", "#jieying_hf-pro" } },
@@ -494,7 +492,7 @@ namespace SanguoshaServer.Package
                 { "huishu", new List<string>{ "#huishu" } },
                 { "fudao", new List<string>{ "#fudao" } },
                 { "xieshou", new List<string>{ "#xieshou" } },
-                { "baoxing", new List<string>{ "#baoxing" } },
+                { "bengshi", new List<string>{ "#bengshi" } },
                 { "zhengxu", new List<string>{ "#zhengxu" } },
                 { "xialei", new List<string>{ "#xialei" } },
                 { "juying", new List<string>{ "#juying", "#juying-max" } },
@@ -9230,9 +9228,9 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class Juluan : TriggerSkill
+    public class Tingxian : TriggerSkill
     {
-        public Juluan() : base("juluan")
+        public Tingxian() : base("tingxian")
         {
             events.Add(TriggerEvent.TargetChosen);
             skill_type = SkillType.Replenish;
@@ -9240,7 +9238,7 @@ namespace SanguoshaServer.Package
 
         public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
         {
-            if (data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && base.Triggerable(player, room) && !player.HasFlag(Name) && player.HasEquip())
+            if (data is CardUseStruct use && use.Card.Name.Contains(Slash.ClassName) && base.Triggerable(player, room) && !player.HasFlag(Name))
                 return new TriggerStruct(Name, player);
             return new TriggerStruct();
         }
@@ -9258,12 +9256,12 @@ namespace SanguoshaServer.Package
 
         public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
         {
-            int count = player.GetEquips().Count;
+            int count = player.GetEquips().Count + 1;
             room.DrawCards(player, count, Name);
             if (player.Alive && data is CardUseStruct use)
             {
                 int min = Math.Min(count, use.To.Count);
-                List<Player> targets = room.AskForPlayersChosen(player, use.To, Name, 0, min, string.Format("@juluan:::{0}:{1}", min, use.Card.Name), true, info.SkillPosition);
+                List<Player> targets = room.AskForPlayersChosen(player, use.To, Name, 0, min, string.Format("@tingxian:::{0}:{1}", min, use.Card.Name), true, info.SkillPosition);
                 if (targets.Count > 0)
                 {
                     foreach (CardBasicEffect effect in use.EffectCount)
@@ -9275,9 +9273,9 @@ namespace SanguoshaServer.Package
             return false;
         }
     }
-    public class Baoxing : TriggerSkill
+    public class Bengshi : TriggerSkill
     {
-        public Baoxing() : base("baoxing")
+        public Bengshi() : base("bengshi")
         {
             events.Add(TriggerEvent.CardTargetAnnounced);
             skill_type = SkillType.Attack;
@@ -9326,13 +9324,13 @@ namespace SanguoshaServer.Package
         }
     }
 
-    public class BaoxingRange : AttackRangeSkill
+    public class BengshiRange : AttackRangeSkill
     {
-        public BaoxingRange() : base("#baoxing") { }
+        public BengshiRange() : base("#bengshi") { }
         public override int GetExtra(Room room, Player target, bool include_weapon)
         {
             int count = 0;
-            if (RoomLogic.PlayerHasShownSkill(room, target, "baoxing")) count += 1;
+            if (RoomLogic.PlayerHasShownSkill(room, target, "bengshi")) count += 1;
             if (include_weapon && target.GetWeapon() && target.GetMark("Equips_nullified_to_Yourself") == 0)
             {
                 Weapon card = (Weapon)Engine.GetFunctionCard(room.GetCard(target.Weapon.Key).Name);
@@ -11167,25 +11165,14 @@ namespace SanguoshaServer.Package
             WrappedCard await = new WrappedCard(Snatch.ClassName)
             {
                 Skill = Name,
-                ShowSkill = Name
+                ShowSkill = Name,
+                DistanceLimited = false
             };
             await.AddSubCard(card);
             await = RoomLogic.ParseUseCard(room, await);
             return await;
         }
     }
-
-    public class WeiwuProhibi : ProhibitSkill
-    {
-        public WeiwuProhibi() : base("#weiwu") { }
-        public override bool IsProhibited(Room room, Player from, Player to, WrappedCard card, List<Player> others = null)
-        {
-            if (from != null && to != null && card != null && card.GetSkillName() == "weiwu")
-                return to.HandcardNum < from.HandcardNum;
-            return false;
-        }
-    }
-
     public class Gongjian : TriggerSkill
     {
         public Gongjian() : base("gongjian")

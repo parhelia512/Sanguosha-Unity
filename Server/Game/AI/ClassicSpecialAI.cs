@@ -45,6 +45,7 @@ namespace SanguoshaServer.AI
                 new LiejieAI(),
                 new KanpoDZAI(),
                 new GenzhanAI(),
+                new XingzhaoAI(),
 
                 new ChongzhenAI(),
                 new MizhaoAI(),
@@ -3943,6 +3944,23 @@ namespace SanguoshaServer.AI
             }
 
             return move;
+        }
+    }
+
+    public class XingzhaoAI : SkillEvent
+    {
+        public XingzhaoAI() : base("xingzhao") { }
+        public override void DamageEffect(TrustedAI ai, ref DamageStruct damage, DamageStruct.DamageStep step)
+        {
+            if (damage.From != null && damage.From.Alive && ai.HasSkill(Name, damage.From))
+            {
+                int count = 0;
+                foreach (Player p in ai.Room.GetAlivePlayers())
+                    if (p.IsWounded()) count++;
+
+                if (count >= 4 || count == 0)
+                    damage.Damage++;
+            }
         }
     }
 

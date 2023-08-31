@@ -3915,10 +3915,13 @@ namespace SanguoshaServer.AI
                 {
                     if (ai.GetUseValue(id, player) <= Engine.GetCardUseValue(Snatch.ClassName) && WrappedCard.IsRed(room.GetCard(id).Suit))
                     {
-                        WrappedCard await = new WrappedCard(Snatch.ClassName);
+                        WrappedCard await = new WrappedCard(Snatch.ClassName)
+                        {
+                            DistanceLimited = false,
+                            Skill = Name,
+                            ShowSkill = Name
+                        };
                         await.AddSubCard(id);
-                        await.Skill = Name;
-                        await.ShowSkill = Name;
                         return new List<WrappedCard> { await };
                     }
                 }

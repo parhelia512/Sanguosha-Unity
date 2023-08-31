@@ -6103,13 +6103,8 @@ namespace SanguoshaServer.Package
             room.DoSuperLightbox(player, info.SkillPosition, Name);
             room.SetPlayerMark(player, Name, 1);
             room.SendCompulsoryTriggerLog(player, Name);
-
-            List<string> choices = new List<string> { "draw" };
+            
             if (player.GetLostHp() > 0)
-            {
-                choices.Add("recover");
-            }
-            if (room.AskForChoice(player, Name, string.Join("+", choices), null, null, info.SkillPosition) == "recover")
             {
                 RecoverStruct recover = new RecoverStruct
                 {
@@ -6118,12 +6113,10 @@ namespace SanguoshaServer.Package
                 };
                 room.Recover(player, recover, true);
             }
-            else
-                room.DrawCards(player, 2, Name);
+            if (player.Alive) room.DrawCards(player, 2, Name);
 
             room.LoseMaxHp(player);
-            if (player.Alive)
-                room.HandleAcquireDetachSkills(player, "paiyi", true);
+            if (player.Alive) room.HandleAcquireDetachSkills(player, "paiyi", true);
 
             return false;
         }
