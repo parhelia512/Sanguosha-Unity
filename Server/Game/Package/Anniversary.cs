@@ -9665,8 +9665,10 @@ namespace SanguoshaServer.Package
                     targets.Add(p.Name);
                 string tag = string.Format("{0}_{1}", Name, use.Card.Name);
                 player.SetTag(tag, targets);
+                player.SetTag(Name, use.Card.Name);
                 room.AskForUseCard(player, RespondType.Skill, "@@chanjuan", string.Format("@chanjuan:::{0}", use.Card.Name), null, -1, HandlingMethod.MethodUse, true, info.SkillPosition);
                 player.RemoveTag(tag);
+                player.RemoveTag(Name);
             }
             return new TriggerStruct();
         }
