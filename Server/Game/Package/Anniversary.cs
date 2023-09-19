@@ -284,6 +284,12 @@ namespace SanguoshaServer.Package
                 new Jieling(),
                 new JielingEffect(),
                 new JielingTM(),
+                new Tongye(),
+                new TongyeTM(),
+                new TongyeRange(),
+                new TongyeMax(),
+                new Changqu(),
+                new ChangquEffect(),
 
                 new Guolun(),
                 new Songsang(),
@@ -432,6 +438,7 @@ namespace SanguoshaServer.Package
                 new JiuxianCard(),
                 new ChongxuCard(),
                 new ChiyingCard(),
+                new ChangquCard(),
             };
 
             related_skills = new Dictionary<string, List<string>>
@@ -509,6 +516,8 @@ namespace SanguoshaServer.Package
                 { "jiexing", new List<string>{ "#jiexing" } },
                 { "shengdu", new List<string>{ "#shengdu" } },
                 { "jieling", new List<string>{ "#jieling", "#jieling-tm" } },
+                { "tongye", new List<string>{ "#tongye-tm", "#tongye-range", "#tongye-max" } },
+                { "changqu", new List<string>{ "#changqu" } },
             };
         }
     }
@@ -17688,6 +17697,180 @@ namespace SanguoshaServer.Package
     {
         public JielingTM() : base("#jieling-tm", false) { }
         public override bool CheckSpecificAssignee(Room room, Player from, Player to, WrappedCard card, string pattern) => card != null && card.GetSkillName() == "jieling";
+    }
+    public class Tongye : TriggerSkill
+    {
+        public Tongye() : base("tongye")
+        {
+            events = new List<TriggerEvent> { TriggerEvent.GameStart, TriggerEvent.Death, TriggerEvent.EventPhaseProceeding };
+            frequency = Frequency.Compulsory;
+        }
+        public override List<TriggerStruct> Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data)
+        {
+            List<TriggerStruct> triggers = new List<TriggerStruct>();
+            if (triggerEvent == TriggerEvent.GameStart || triggerEvent == TriggerEvent.Death)
+            {
+                foreach (Player p in room.GetAlivePlayers())
+                    if (base.Triggerable(p, room))
+                        triggers.Add(new TriggerStruct(Name, p));
+            }
+            else if (triggerEvent == TriggerEvent.EventPhaseProceeding && base.Triggerable(player, room) && player.Phase == PlayerPhase.Draw)
+            {
+                List<string> kingdoms = new List<string>();
+                foreach (Player p in room.GetAlivePlayers())
+                    if (!kingdoms.Contains(p.Kingdom))
+                        kingdoms.Add(p.Kingdom);
+                if (kingdoms.Count == 1)
+                    triggers.Add(new TriggerStruct(Name, player));
+            }
+
+            return triggers;
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            if (triggerEvent == TriggerEvent.EventPhaseProceeding && data is int count)
+            {
+                room.SendCompulsoryTriggerLog(player, Name);
+                count += 3;
+                data = count;
+            }
+            else
+            {
+                List<string> kingdoms = new List<string>();
+                foreach (Player p in room.GetAlivePlayers())
+                    if (!kingdoms.Contains(p.Kingdom))
+                        kingdoms.Add(p.Kingdom);
+
+                foreach (Player p in room.GetAlivePlayers())
+                    p.SetMark(Name, kingdoms.Count);
+            }
+
+            return false;
+        }
+    }
+    public class TongyeTM : TargetModSkill
+    {
+        public TongyeTM() : base("#tongye-tm") { }
+        public override int GetResidueNum(Room room, Player from, WrappedCard card) => RoomLogic.PlayerHasSkill(room, from, "tongye") && from.GetMark("tongye") <= 2 ? 3 : 0;
+    }
+    public class TongyeMax : MaxCardsSkill
+    {
+        public TongyeMax() : base("#tongye-max") { }
+        public override int GetExtra(Room room, Player target) => RoomLogic.PlayerHasSkill(room, target, "tongye") && target.GetMark("tongye") <= 4 ? 3 : 0;
+    }
+    public class TongyeRange : AttackRangeSkill
+    {
+        public TongyeRange() : base("#tongye-range") { }
+        public override int GetExtra(Room room, Player target, bool include_weapon) => RoomLogic.PlayerHasSkill(room, target, "tongye") && target.GetMark("tongye") <= 3 ? 3 : 0;
+    }
+    public class Changqu : ZeroCardViewAsSkill
+    {
+        public Changqu() : base("changqu") {}
+        public override bool IsEnabledAtPlay(Room room, Player player) => !player.HasUsed(ChangquCard.ClassName);
+        public override WrappedCard ViewAs(Room room, Player player) => new WrappedCard(ChangquCard.ClassName) { Skill = Name };
+    }
+    public class ChangquCard : SkillCard
+    {
+        public static string ClassName = "ChangquCard";
+        public ChangquCard() : base(ClassName) { }
+        public override bool TargetFilter(Room room, List<Player> targets, Player to_select, Player Self, WrappedCard card) => targets.Count == 0 && to_select != Self;
+        public override void Use(Room room, CardUseStruct card_use)
+        {
+            Player target = card_use.To[0];
+            Player player = card_use.From;
+            List<Player> targets = new List<Player>();
+            if (room.GetNextAlive(player) == target && room.GetLastAlive(player) == target)
+            {
+                targets.Add(target);
+            }
+            else
+            {
+                string choice = room.AskForChoice(player, "changqu", "last+next", new List<string> { "@to-player:" + card_use.From.Name }, target, card_use.Card.SkillPosition);
+                if (choice == "last")
+                {
+                    Player last = room.GetLastAlive(player);
+                    while (last != target)
+                    {
+                        targets.Add(last);
+                        last = room.GetNextAlive(last);
+                    }
+                    targets.Add(target);
+                }
+                else
+                {
+                    Player next = room.GetNextAlive(player);
+                    while (next != target)
+                    {
+                        targets.Add(next);
+                        next = room.GetNextAlive(next);
+                    }
+                    targets.Add(target);
+                }
+            }
+            if (targets.Count > 0)
+            {
+                int count = 0;
+                foreach (Player p in targets)
+                {
+                    if (p.Alive)
+                    {
+                        int num = Math.Max(1, count);
+                        bool give = false;
+                        if (p.HandcardNum >= num && player.Alive)
+                        {
+                            List<int> ids = room.AskForExchange(p, "changqu", num, num, string.Format("@changqu:::{0}", num), string.Empty, ".", string.Empty);
+                            if (ids.Count == num)
+                            {
+                                room.ObtainCard(player, ref ids, new CardMoveReason(MoveReason.S_REASON_GIVE, p.Name, player.Name, string.Empty), false);
+                                give = true;
+                                count++;
+                                break;
+                            }
+                        }
+
+                        if (!give)
+                        {
+                            p.AddMark("changqu", num);
+                            room.SetPlayerStringMark(p, "changqu", p.GetMark("changqu").ToString());
+                            if (!p.Chained && RoomLogic.CanBeChainedBy(room, p, p)) room.SetPlayerChained(p, true);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    public class ChangquEffect : TriggerSkill
+    {
+        public ChangquEffect() : base("#changqu")
+        {
+            events.Add(TriggerEvent.DamageInflicted);
+            frequency = Frequency.Compulsory;
+        }
+        public override TriggerStruct Triggerable(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who)
+        {
+            if (data is DamageStruct damage && player.GetMark("changqu") > 0 && damage.Nature != DamageStruct.DamageNature.Normal)
+                return new TriggerStruct(Name, player);
+            return new TriggerStruct();
+        }
+        public override bool Effect(TriggerEvent triggerEvent, Room room, Player player, ref object data, Player ask_who, TriggerStruct info)
+        {
+            DamageStruct damage = (DamageStruct)data;
+            damage.Damage += player.GetMark("changqu");
+            player.SetMark("changqu", 0);
+            room.RemovePlayerStringMark(player, "changqu");
+
+            LogMessage log = new LogMessage
+            {
+                Type = "#AddDamaged",
+                From = player.Name,
+                Arg = "changqu",
+                Arg2 = damage.Damage.ToString()
+            };
+            room.SendLog(log);
+            data = damage;
+
+            return false;
+        }
     }
 
     public class Guolun : ZeroCardViewAsSkill
