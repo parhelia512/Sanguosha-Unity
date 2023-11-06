@@ -8117,6 +8117,7 @@ namespace SanguoshaServer.Package
         public override void Use(Room room, CardUseStruct card_use)
         {
             Player player = card_use.From, target = card_use.To[0];
+            /*
             List<CardType> types = new List<CardType>();
             foreach (int id in card_use.Card.SubCards)
             {
@@ -8160,6 +8161,15 @@ namespace SanguoshaServer.Package
                     int count = 4 - target.HandcardNum;
                     room.DrawCards(target, new DrawCardStruct(count, player, Name));
                 }
+            }
+            */
+            if (target.Alive)
+            {
+                int n = card_use.Card.SubCards.Count;
+                if (target.GetCardCount(true) >= n && target.Hp > 0 && room.AskForDiscard(target, "junxing", n, n, true, true, string.Format("@junxing-discard:::{0}", n)))
+                    room.LoseHp(target);
+                else
+                    room.DrawCards(target, n, "junxing");
             }
         }
     }

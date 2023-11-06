@@ -1514,26 +1514,29 @@ namespace SanguoshaServer.AI
             return null;
         }
 
-        public override CardUseStruct OnResponding(TrustedAI ai, Player player, string pattern, string prompt, object data)
+        public override List<int> OnDiscard(TrustedAI ai, Player player, List<int> ids, int min, int max, bool option)
         {
             Room room = ai.Room;
-            CardUseStruct use = new CardUseStruct();
-            if (player.FaceUp && player.HandcardNum > 1)
+            List<int> result = new List<int>();
+            if (player.FaceUp && ids.Count >= min && player.Hp > 1)
             {
-                List<int> ids = player.GetCards("h");
-                ai.SortByKeepValue(ref ids, false);
-                foreach (int id in ids)
+                List<double> values = ai.SortByKeepValue(ref ids, false);
+                double value = 0;
+                for (int i = 0; i < ids.Count; i++)
                 {
-                    WrappedCard card = room.GetCard(id);
-                    if (RoomLogic.CanDiscard(room, player, player, id) && Engine.MatchExpPattern(room, pattern, player, card))
+                    if (RoomLogic.CanDiscard(room, player, player, ids[i]))
                     {
-                        use.Card = card;
-                        return use;
+                        result.Add(ids[i]);
+                        value += values[i];
+                        if (result.Count >= min)
+                            break;
                     }
                 }
+                value += 4;
+                if (value < 8 && result.Count >= min)
+                    return result;
             }
-
-            return use;
+            return new List<int>();
         }
     }
 
@@ -1559,24 +1562,6 @@ namespace SanguoshaServer.AI
             Room room = ai.Room;
             foreach (Player p in ai.FriendNoSelf)
             {
-                if (!p.FaceUp && p.HandcardNum < 4)
-                {
-                    foreach (int id in ids)
-                    {
-                        if (RoomLogic.CanDiscard(room, player, player, id))
-                        {
-                            ai.Number[Name] = 5;
-                            card.AddSubCard(id);
-                            use.Card = card;
-                            use.To.Add(p);
-                            return;
-                        }
-                    }
-                }
-            }
-
-            foreach (Player p in ai.FriendNoSelf)
-            {
                 if (!p.FaceUp)
                 {
                     foreach (int id in ids)
@@ -1595,28 +1580,6 @@ namespace SanguoshaServer.AI
 
             if (player.HandcardNum > 1)
             {
-                int basic = -1, trick = -1, equip = -1;
-                foreach (int id in ids)
-                {
-                    WrappedCard wrapped = room.GetCard(id);
-                    if (RoomLogic.CanDiscard(room, player, player, id))
-                    {
-                        FunctionCard fcard = Engine.GetFunctionCard(wrapped.Name);
-                        switch (fcard.TypeID)
-                        {
-                            case CardType.TypeBasic when basic == -1 && values[ids.IndexOf(id)] < 6:
-                                basic = id;
-                                break;
-                            case CardType.TypeEquip when equip == -1:
-                                equip = id;
-                                break;
-                            case CardType.TypeTrick when trick == -1:
-                                trick = id;
-                                break;
-                        }
-                    }
-                }
-
                 List<Player> enemies = ai.GetEnemies(player);
                 ai.SortByDefense(ref enemies);
 
@@ -1625,43 +1588,9 @@ namespace SanguoshaServer.AI
                     foreach (Player p in enemies)
                     {
                         if (!p.FaceUp || ai.WillSkipPlayPhase(p)) continue;
-                        if (p.HandcardNum >= 4 && basic != -1)
+                        if (p.Hp <= 1)
                         {
-                            card.AddSubCard(basic);
-                            use.Card = card;
-                            use.To.Add(p);
-
-                            if (ai.GetOverflow(player) > 1)
-                            {
-                                if (trick != -1)
-                                    card.AddSubCard(trick);
-                                else if (equip != -1)
-                                    card.AddSubCard(equip);
-                            }
-                            return;
-                        }
-                    }
-                }
-
-                foreach (Player p in enemies)
-                {
-                    if (!p.FaceUp || ai.WillSkipPlayPhase(p)) continue;
-                    if (p.HandcardNum >= 1 && p.HandcardNum <= 4 && basic != -1)
-                    {
-                        bool has = false;
-                        foreach (int id in ai.GetKnownCards(p))
-                        {
-                            WrappedCard wrapped = room.GetCard(id);
-                            FunctionCard fcard = Engine.GetFunctionCard(wrapped.Name);
-                            if (fcard is BasicCard)
-                            {
-                                has = true;
-                                break;
-                            }
-                        }
-                        if (!has)
-                        {
-                            card.AddSubCard(basic);
+                            card.AddSubCard(ids[0]);
                             use.Card = card;
                             use.To.Add(p);
                             return;
@@ -1669,17 +1598,12 @@ namespace SanguoshaServer.AI
                     }
                 }
 
-                if (ai.GetOverflow(player) > 0 && basic != -1)
+                if (enemies.Count > 0)
                 {
-                    ai.SortByDefense(ref enemies, false);
-                    foreach (Player p in enemies)
-                    {
-                        if (!p.FaceUp || ai.WillSkipPlayPhase(p)) continue;
-                        card.AddSubCard(basic);
-                        use.Card = card;
-                        use.To.Add(p);
-                        return;
-                    }
+                    card.AddSubCard(ids[0]);
+                    use.Card = card;
+                    use.To.Add(enemies[0]);
+                    return;
                 }
             }
         }
